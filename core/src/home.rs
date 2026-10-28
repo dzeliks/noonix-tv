@@ -13,10 +13,10 @@ pub fn rows() -> Value {
         { "id": "library",       "title": "On This PC",       "style": "poster" },
         { "id": "popular-tv",    "title": "Popular TV Shows", "style": "poster" },
         { "id": "popular-movie", "title": "Popular Movies",   "style": "poster" },
-        { "id": "trending-tv",   "title": "Trending Shows",   "style": "poster" },
-        { "id": "trending-movie","title": "Trending Movies",  "style": "poster" },
-        { "id": "toprated-tv",   "title": "Top Rated Shows",  "style": "poster" },
-        { "id": "toprated-movie","title": "Top Rated Movies", "style": "poster" },
+        { "id": "netflix-tv",    "title": "Netflix Shows",    "style": "poster", "brand": "netflix" },
+        { "id": "netflix-movie", "title": "Netflix Movies",   "style": "poster", "brand": "netflix" },
+        { "id": "max-tv",        "title": "Max Shows",        "style": "poster", "brand": "max" },
+        { "id": "max-movie",     "title": "Max Movies",       "style": "poster", "brand": "max" },
     ])
 }
 
@@ -26,7 +26,8 @@ pub fn movie_rows() -> Value {
         { "id": "library-movie",  "title": "On This PC",        "style": "poster" },
         { "id": "popular-movie",  "title": "Popular",           "style": "poster" },
         { "id": "trending-movie", "title": "Trending",          "style": "poster" },
-        { "id": "toprated-movie", "title": "Top Rated",         "style": "poster" },
+        { "id": "netflix-movie",  "title": "Netflix",           "style": "poster", "brand": "netflix" },
+        { "id": "max-movie",      "title": "Max",               "style": "poster", "brand": "max" },
         { "id": "genre-movie-28", "title": "Action",            "style": "poster" },
         { "id": "genre-movie-35", "title": "Comedy",            "style": "poster" },
         { "id": "genre-movie-53", "title": "Thriller",          "style": "poster" },
@@ -41,7 +42,8 @@ pub fn show_rows() -> Value {
         { "id": "library-show",  "title": "On This PC",     "style": "poster" },
         { "id": "popular-tv",    "title": "Popular",        "style": "poster" },
         { "id": "trending-tv",   "title": "Trending",       "style": "poster" },
-        { "id": "toprated-tv",   "title": "Top Rated",      "style": "poster" },
+        { "id": "netflix-tv",    "title": "Netflix",        "style": "poster", "brand": "netflix" },
+        { "id": "max-tv",        "title": "Max",            "style": "poster", "brand": "max" },
         { "id": "genre-tv-18",   "title": "Drama",          "style": "poster" },
         { "id": "genre-tv-35",   "title": "Comedy",         "style": "poster" },
         { "id": "genre-tv-80",   "title": "Crime",          "style": "poster" },
@@ -69,6 +71,9 @@ pub async fn row(profile: i64, id: &str) -> Result<Value> {
                 ["popular", k] => tmdb::popular(kind(k), 1).await?,
                 ["trending", k] => tmdb::trending(kind(k)).await?,
                 ["toprated", k] => tmdb::top_rated(kind(k)).await?,
+                // tmdb watch providers: 8 netflix, 1899 max
+                ["netflix", k] => tmdb::discover(kind(k), &[8], None, 1).await?,
+                ["max", k] => tmdb::discover(kind(k), &[1899], None, 1).await?,
                 ["genre", k, g] => tmdb::discover(kind(k), &[], g.parse().ok(), 1).await?,
                 _ => bail!("unknown row {id}"),
             }

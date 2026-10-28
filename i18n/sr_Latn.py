@@ -18,6 +18,12 @@ T = {
     "Popular": "Popularno",
     "Trending": "U trendu",
     "Top Rated": "Najbolje ocenjeno",
+    "Netflix Shows": "Netflix serije",
+    "Netflix Movies": "Netflix filmovi",
+    "Max Shows": "Max serije",
+    "Max Movies": "Max filmovi",
+    "Netflix": "Netflix",
+    "Max": "Max",
     # ---- core: key checks, notices
     "TorBox works": "TorBox radi",
     "TorBox works, but the free plan can't stream": "TorBox radi, ali besplatni paket ne može da strimuje",

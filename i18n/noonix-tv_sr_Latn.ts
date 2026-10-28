@@ -2378,6 +2378,30 @@
             <translation>Najbolje ocenjeno</translation>
         </message>
         <message>
+            <source>Netflix Shows</source>
+            <translation>Netflix serije</translation>
+        </message>
+        <message>
+            <source>Netflix Movies</source>
+            <translation>Netflix filmovi</translation>
+        </message>
+        <message>
+            <source>Max Shows</source>
+            <translation>Max serije</translation>
+        </message>
+        <message>
+            <source>Max Movies</source>
+            <translation>Max filmovi</translation>
+        </message>
+        <message>
+            <source>Netflix</source>
+            <translation>Netflix</translation>
+        </message>
+        <message>
+            <source>Max</source>
+            <translation>Max</translation>
+        </message>
+        <message>
             <source>On This PC</source>
             <translation>Na ovom računaru</translation>
         </message>
