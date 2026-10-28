@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: unit tests + build
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: system packages
+        run: |
+          pacman -Syu --noconfirm --needed git rust cmake ninja pkgconf \
+            qt6-base qt6-declarative qt6-shadertools qt6-wayland qt6-tools mpv sdl3 wayland wayland-protocols
+      - uses: actions/checkout@v7
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            build/cargo
+          key: cargo-${{ runner.os }}-${{ hashFiles('core/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+      - name: unit tests
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/build/cargo
+        run: cargo test --manifest-path core/Cargo.toml --lib --locked
+      - name: build the app
+        run: |
+          cmake -S . -B build/cmake -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build/cmake

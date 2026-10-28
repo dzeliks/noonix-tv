@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Noonix TV
+Comment=Movies and shows on the TV
+Exec="@NOONIX_EXEC@"
+Icon=noonix-tv
+Categories=AudioVideo;Video;Player;TV;
+X-KDE-Wayland-Interfaces=zkde_screencast_unstable_v1

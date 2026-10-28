@@ -1,0 +1,334 @@
+import AppKit
+import SwiftUI
+
+/// the frosted wallpaper the tv app puts behind library, search and settings: here the mac's own
+/// desktop picture
+struct Wallpaper: View {
+    @State private var img: NSImage?
+
+    var body: some View {
+        ZStack {
+            Color.black
+            if let img {
+                Image(nsImage: img).resizable().scaledToFill()
+                    .blur(radius: 70)
+                    .saturation(1.3)
+                    .overlay { Color.black.opacity(0.55) }
+                    .transition(.opacity)
+            }
+        }
+        .clipped()
+        .task {
+            guard let screen = NSScreen.main, let url = NSWorkspace.shared.desktopImageURL(for: screen) else { return }
+            let got = await ImageStore.shared.load(url, px: 1280)
+            withAnimation(.easeOut(duration: 0.3)) { img = got }
+        }
+    }
+}
+
+/// the videos on this mac, the watchlist and what was watched, in a grid (qml Library)
+struct LibraryPage: View {
+    @Environment(AppModel.self) private var app
+
+    var body: some View {
+        let u = app.u, W = app.size.width, H = app.size.height
+        let m = app.library
+        let margin = Theme.margin(u)
+        let history = m.section == "history", files = m.section == "files"
+        let cellW = (history ? 440 : 254) * u, cellH = (history ? 370 : 380) * u
+        let gridW = W - 2 * (margin - 20 * u)
+        let cols = max(1, Int(gridW / cellW))
+        let active = !app.navFocused && app.detailStack.isEmpty
+        ZStack(alignment: .topLeading) {
+            Wallpaper()
+            Text(L("Library")).font(Theme.display(52 * u, .bold)).foregroundStyle(Theme.fg)
+                .offset(x: margin, y: 174 * u)
+            GlassEffectContainer(spacing: 24 * u) {
+                HStack(spacing: 24 * u) {
+                    ForEach(Array(GridModel.librarySections.enumerated()), id: \.offset) { i, s in
+                        GlassButton(text: s == "history" ? L("History") : s == "files" ? L("On This PC") : L("Watchlist"), primary: m.section == s,
+                                    focused: active && m.head && m.headIndex == i, u: u)
+                            .onContinuousHover { phase in
+                                if case .active = phase, Input.pointerLive { app.navFocused = false; m.head = true; m.headIndex = i }
+                            }
+                            .onTapGesture { m.pickSection(s) }
+                    }
+                }
+            }
+            .offset(x: margin, y: 260 * u)
+            if history {
+                Text(L("Recently watched")).font(Theme.text(23 * u)).foregroundStyle(Theme.fg3)
+                    .frame(width: W - margin, alignment: .trailing)
+                    .offset(y: 260 * u + 25 * u)
+            }
+
+            if m.items.isEmpty {
+                VStack(spacing: 28 * u) {
+                    if m.loading { Spinner(size: 56 * u) }
+                    Text(m.loading ? L("Loading Library…") : history ? L("Your watched movies and episodes will appear here")
+                         : files ? L("No videos from this Mac yet") : L("Save something for later"))
+                        .font(Theme.display(32 * u, .medium)).foregroundStyle(Theme.fg2)
+                    if !m.loading && !history {
+                        Text(files ? L("Add the folders your movies and shows are in: Settings › Sources") : L("Open a title's options and choose Add to Library"))
+                            .font(Theme.text(24 * u)).foregroundStyle(Theme.fg3)
+                    }
+                }
+                .frame(width: W)
+                .offset(y: 380 * u + 100 * u)
+            } else {
+                PosterGrid(model: m, style: history ? "landscape" : "poster", cols: cols, cellW: cellW, cellH: cellH,
+                           height: H - 380 * u - 40 * u, active: active && !m.head)
+                    .offset(x: margin - 20 * u, y: 380 * u)
+                KeyHint(key: "MENU", label: L("Options"), u: u * 0.82)
+                    .frame(width: W - margin, alignment: .trailing)
+                    .offset(y: 190 * u)
+                    .opacity(active && !m.head && !files ? 1 : 0)
+            }
+        }
+        .frame(width: W, height: H, alignment: .topLeading)
+        .clipped()
+        .onChange(of: cols, initial: true) { m.columns = cols }
+    }
+}
+
+extension GridModel {
+    static let librarySections = ["files", "watchlist", "history"]
+
+    /// the library page: on the videos on this mac when there are any, until a tab is picked
+    func openLibrary() async {
+        if !picked, section != "files", let d = try? await Core.shared.raw("library.status"),
+           let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any], ((o["files"] as? NSNumber)?.intValue ?? 0) > 0 {
+            section = "files"
+            headIndex = 0
+        }
+        if !picked { headIndex = Self.librarySections.firstIndex(of: section) ?? 1 }
+        await load()
+    }
+
+    func pickSection(_ s: String) {
+        picked = true
+        guard section != s else { return }
+        section = s
+        items = []
+        index = 0
+        Task { await load() }
+    }
+
+    /// library: the tabs over the grid; false = up into the top bar
+    func libraryKey(_ k: Key, app: AppModel) -> Bool {
+        if head {
+            switch k {
+            case .left: headIndex = max(0, headIndex - 1)
+            case .right: headIndex = min(Self.librarySections.count - 1, headIndex + 1)
+            case .ok: pickSection(Self.librarySections[headIndex])
+            case .down: if !items.isEmpty { head = false }
+            case .up, .back: return false
+            default: break
+            }
+            return true
+        }
+        if key(k, app: app) { return true }
+        if k == .back { return false }
+        head = true
+        return true
+    }
+}
+
+/// a scrolling grid of cards with the focused cell kept in view
+struct PosterGrid: View {
+    @Environment(AppModel.self) private var app
+    let model: GridModel
+    let style: String
+    let cols: Int
+    let cellW: CGFloat
+    let cellH: CGFloat
+    let height: CGFloat
+    let active: Bool
+    var posterW: CGFloat?
+    @State private var heldLine: Int?
+
+    var body: some View {
+        let u = app.u
+        let line = model.index / max(1, cols)
+        let lines = (model.items.count + cols - 1) / max(1, cols)
+        // the focused line stays in view, a line's worth of room above it once it moved down
+        let maxScroll = max(0, CGFloat(lines) * cellH - height + 40 * u)
+        let scroll = min(maxScroll, max(0, CGFloat(heldLine ?? line) * cellH - cellH * 0.6))
+        let first = max(0, Int(scroll / cellH) - 1) * cols
+        let last = min(model.items.count, first + (Int(height / cellH) + 3) * cols)
+        ZStack(alignment: .topLeading) {
+            ForEach(first..<last, id: \.self) { i in
+                let it = model.items[i]
+                Card(media: it, style: style, focused: active && model.index == i, u: u, posterW: posterW)
+                    .contentShape(.rect)
+                    .onContinuousHover { phase in
+                        // a line half out of view doesn't take the pointer
+                        let top = CGFloat(i / cols) * cellH + 20 * u - scroll
+                        if case .active = phase, Input.pointerLive, top >= 0, top + cellH - 20 * u <= height + 1 { app.navFocused = false; model.head = false; model.index = i; if app.page == .search { app.search.zone = "grid" } }
+                    }
+                    .onTapGesture { model.index = i; app.open(it) }
+                    .zIndex(active && model.index == i ? 1 : 0)
+                    .geometryGroup()
+                    .offset(x: CGFloat(i % cols) * cellW + 20 * u, y: CGFloat(i / cols) * cellH + 20 * u - scroll)
+            }
+        }
+        .frame(width: CGFloat(cols) * cellW, height: height, alignment: .topLeading)
+        .clipped()
+        .animation(Theme.slide, value: scroll)
+        // the pointer moving the focus doesn't scroll the grid (the wheel does)
+        .onChange(of: model.index) { old, _ in heldLine = Input.pointerHolds ? heldLine ?? old / max(1, cols) : nil }
+    }
+}
+
+/// search laid out like the tv terminal: results on the left, the query on the right (the mac
+/// has a keyboard: the field takes typing, no on-screen keys)
+struct SearchPage: View {
+    @Environment(AppModel.self) private var app
+
+    var body: some View {
+        let u = app.u, W = app.size.width, H = app.size.height
+        let s = app.search
+        let margin = Theme.margin(u)
+        let columnW = 575 * u
+        let columnX = W - margin - columnW
+        let topY = 150 * u, bottomY = H - 44 * u
+        let gap = 40 * u
+        let posterW = (columnX - 64 * u - margin - 3 * gap) / 4
+        let cellW = posterW + gap, cellH = posterW * 1.5 + gap
+        let titleH = 19 * u * 1.3
+        let active = !app.navFocused && app.detailStack.isEmpty
+        // the keyboard on the terminal's 2160 grid, at the bottom of the column
+        let ku = u / 2
+        let kbH = 2 * 22 * ku + 4 * ((columnW - 2 * 22 * ku - 9 * 14 * ku) / 10 * 1.36) + 3 * 14 * ku
+        let fieldY = topY - 8 * u
+        let sugY = fieldY + 64 * u + 30 * u
+        let sugH = bottomY - kbH - 22 * u - sugY
+        let chipH = min(62 * u, (sugH - titleH - 12 * u - 5 * 8 * u) / 6)
+        let sugs = s.suggestions
+        ZStack(alignment: .topLeading) {
+            Wallpaper()
+            SearchSection(text: s.busy ? L("SEARCHING…") : s.typing ? (s.grid.items.isEmpty ? L("NO RESULTS") : L("TOP RESULTS")) : L("POPULAR"), u: u)
+                .offset(x: margin, y: topY)
+            PosterGrid(model: s.grid, style: "poster", cols: 4, cellW: cellW, cellH: cellH,
+                       height: bottomY - (topY + titleH + 8 * u), active: active && s.zone == "grid", posterW: posterW)
+                // the grid's 20 of lift room, where qml's cells hold their cards 10 down and centred
+                .offset(x: margin - 20 * u, y: topY + titleH + 8 * u)
+            // nothing found: say so where the results would be
+            if s.typing && !s.busy && s.grid.items.isEmpty {
+                VStack(spacing: 22 * u) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 64 * u, weight: .light)).foregroundStyle(Theme.fg3)
+                    Text(L("No results for “%1”", s.query.trimmingCharacters(in: .whitespaces)))
+                        .font(Theme.display(34 * u, .semibold)).foregroundStyle(Theme.fg).lineLimit(1)
+                    Text(L("Check the spelling, or try the original title")).font(Theme.text(25 * u)).foregroundStyle(Theme.fg2)
+                }
+                .frame(width: columnX - margin)
+                .offset(x: margin, y: topY + titleH + 18 * u + 160 * u)
+            }
+
+            // the right column: the query, suggestions, the keyboard
+            HStack(spacing: 16 * u) {
+                Image(systemName: "magnifyingglass").font(.system(size: 20 * u, weight: .semibold)).foregroundStyle(Theme.fg2)
+                    .frame(width: 26 * u, height: 26 * u)
+                FieldLine(text: s.query, placeholder: L("Movies and shows"), active: s.zone == "keys" && !app.navFocused, size: 26 * u, u: u)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 24 * u)
+            .frame(width: columnW, height: 64 * u)
+            .background {
+                Capsule().fill(Color.white.opacity(0.1))
+                    .overlay { Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1 * u) }
+            }
+            .offset(x: columnX, y: fieldY)
+
+            if !sugs.isEmpty {
+                SearchSection(text: L("SUGGESTIONS"), u: u).offset(x: columnX, y: sugY)
+                ForEach(Array(sugs.enumerated()), id: \.offset) { i, t in
+                    SuggestionChip(text: t, focused: active && s.zone == "suggestions" && s.suggestion == i, u: u)
+                        .frame(width: columnW, height: chipH)
+                        .offset(x: columnX, y: sugY + titleH + 12 * u + CGFloat(i) * (chipH + 8 * u))
+                        .onContinuousHover { phase in
+                            if case .active = phase, Input.pointerLive { app.navFocused = false; s.zone = "suggestions"; s.suggestion = i }
+                        }
+                        .onTapGesture { s.query = t }
+                }
+            }
+            KeyboardView(model: s.kb, u: ku, width: columnW, active: active && s.zone == "keys")
+                .offset(x: columnX, y: bottomY - kbH)
+                .onContinuousHover { phase in if case .active = phase, Input.pointerLive { app.navFocused = false; s.zone = "keys" } }
+        }
+        .frame(width: W, height: H, alignment: .topLeading)
+        .clipped()
+        .task(id: s.query) {
+            try? await Task.sleep(for: .milliseconds(320))
+            if !Task.isCancelled { await s.run() }
+        }
+        .onAppear { s.upFromTop = { [weak app] in app?.navFocused = true } }
+    }
+}
+
+/// a small caps title in the search page (qml Search Section)
+private struct SearchSection: View {
+    let text: String
+    let u: CGFloat
+
+    var body: some View {
+        Text(text).font(Theme.display(19 * u, .semibold)).tracking(1.1 * u).foregroundStyle(Color.white.opacity(0.5))
+            .frame(height: 19 * u * 1.3)
+    }
+}
+
+/// a suggestion: a dark key with the title, white and lifted when focused (qml KeyCap + Marquee)
+private struct SuggestionChip: View {
+    let text: String
+    let focused: Bool
+    let u: CGFloat
+
+    var body: some View {
+        Text(text).font(Theme.display(25 * u, .medium)).foregroundStyle(focused ? Theme.focusFg : .white)
+            .lineLimit(1)
+            .padding(.horizontal, 22 * u)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: 14 * u)
+                    .fill(focused ? Color.white.opacity(0.97) : Color.white.opacity(0.10))
+                    .shadow(color: .black.opacity(focused ? 0.45 : 0), radius: 10 * u, y: 7 * u)
+            }
+            .scaleEffect(focused ? 1.04 : 1)
+            .animation(Theme.lift, value: focused)
+            .contentShape(.rect)
+    }
+}
+
+extension SearchModel {
+    /// the three zones (qml Search); false = up into the top bar
+    func key(_ k: Key, app: AppModel) -> Bool {
+        switch zone {
+        case "suggestions":
+            let n = suggestions.count
+            switch k {
+            case .up: if suggestion > 0 { suggestion -= 1 } else { return false }
+            case .down:
+                if suggestion < n - 1 { suggestion += 1 } else { zone = "keys"; kb.enterAt("top", 0.5) }
+            case .left: if !grid.items.isEmpty { zone = "grid" }
+            case .ok: if let t = suggestions[safe: suggestion] { query = t }
+            case .back: return false
+            default: break
+            }
+            if n == 0 { zone = "keys" }
+            return true
+        case "grid":
+            grid.columns = 4
+            switch k {
+            case .right where grid.index % 4 == 3 || grid.index == grid.items.count - 1:
+                zone = suggestions.isEmpty ? "keys" : "suggestions"
+                return true
+            case .up where grid.index < 4: return false
+            case .back: return false
+            default: return grid.key(k, app: app) || true
+            }
+        default:
+            if k == .back { return false }
+            return kb.key(k)
+        }
+    }
+}

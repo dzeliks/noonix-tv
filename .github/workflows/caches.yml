@@ -1,0 +1,28 @@
+name: caches
+
+# every build saves a new cache (keys end in the commit), so the 10 GB fill up and github starts
+# evicting the slow ones (deps, ~25 min cold). after each run only the newest cache of a kind
+# (per branch) stays
+on:
+  workflow_run:
+    workflows: [ci, release, mac]
+    types: [completed]
+
+permissions:
+  actions: write
+
+concurrency:
+  group: caches
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - run: |
+          gh cache list --limit 200 --json id,key,ref,createdAt \
+            | jq -r 'map(.kind = (.key | gsub("-[0-9a-f]{16,}"; "")) + " " + .ref)
+                     | group_by(.kind)[] | sort_by(.createdAt) | .[:-1][] | .id' \
+            | xargs -r -n1 gh cache delete

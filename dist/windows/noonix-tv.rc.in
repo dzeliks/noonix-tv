@@ -1,0 +1,29 @@
+// the exe's icon and the version windows shows in its properties
+#include <winver.h>
+
+IDI_ICON1 ICON "@CMAKE_CURRENT_SOURCE_DIR@/dist/windows/noonix-tv.ico"
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION @NOONIX_VERSION_RC@
+PRODUCTVERSION @NOONIX_VERSION_RC@
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "aleksa.sh"
+            VALUE "FileDescription", "Noonix TV"
+            VALUE "FileVersion", "@NOONIX_VERSION@"
+            VALUE "LegalCopyright", "GPL-3.0-or-later"
+            VALUE "OriginalFilename", "noonix-tv.exe"
+            VALUE "ProductName", "Noonix TV"
+            VALUE "ProductVersion", "@NOONIX_VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

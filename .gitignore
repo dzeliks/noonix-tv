@@ -1,0 +1,7 @@
+/build/
+/compile_commands.json
+*.user
+.cache/
+__pycache__/
+target/
+.qmlls.ini

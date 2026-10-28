@@ -1,0 +1,15 @@
+#!/bin/sh
+# noonix tv appimage entry: `--cli <method> [json]...` runs noonix-tv-cli instead of the app
+here="$(dirname "$(readlink -f "$0")")"
+# host qt paths would load plugins built for another qt
+unset QT_PLUGIN_PATH QML_IMPORT_PATH QML2_IMPORT_PATH
+export APPDIR="${APPDIR:-$here}"
+if [ "$1" = "--cli" ]; then
+    shift
+    exec "$here/usr/bin/noonix-tv-cli" "$@"
+fi
+if [ "$1" = "--version" ]; then
+    cat "$here/usr/share/noonix-tv/version"
+    exit 0
+fi
+exec "$here/usr/bin/noonix-tv" "$@"

@@ -1,0 +1,228 @@
+name: release
+
+# a v* tag (tools/release.sh) builds the appimages (x86_64, aarch64), the windows setup (and the
+# mac preview), checks them end to end and publishes them with SHA256SUMS (the in-app updater
+# reads it). the files travel between jobs on a draft release. workflow_dispatch builds the same things into a
+# draft "ci-<run>" release (only the newest one is kept), never published
+# the appimage's base is ubuntu 22.04 (glibc 2.35): it runs on ubuntu 22.04, debian 12 and newer.
+# windows is cross-built on linux (llvm-mingw, tools/windows)
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  GH_REPO: ${{ github.repository }}
+  # the in-app updater follows the repo that built it
+  NOONIX_UPDATE_REPO: ${{ github.repository }}
+  GH_VERSION: 2.103.2
+
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - id: tag
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then t="$GITHUB_REF_NAME"; else t="ci-$GITHUB_RUN_ID"; fi
+          echo "tag=$t" >> "$GITHUB_OUTPUT"
+          # a rerun finds the draft from the first try
+          gh release view "$t" > /dev/null 2>&1 || gh release create "$t" --draft --target "$GITHUB_SHA" --title "Noonix TV ${t#v}" --notes "building"
+
+  appimage:
+    needs: draft
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+            base: jammy
+            glibc: '2.35'
+          # qt's official arm64 build needs glibc 2.38: this one runs on ubuntu 24.04, debian 13 and newer
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+            base: noble
+            glibc: '2.39'
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ${{ matrix.base == 'noble' && 'ubuntu:24.04' || 'ubuntu:22.04' }}
+      # the runner's own toolkits, mounted only to delete them: the build, the sources and the
+      # smoke test don't fit in the free space otherwise
+      volumes:
+        - /usr/share/dotnet:/host/dotnet
+        - /usr/local/lib/android:/host/android
+        - /opt/ghc:/host/ghc
+        - /opt/hostedtoolcache/CodeQL:/host/codeql
+    steps:
+      - name: disk space
+        run: |
+          rm -rf /host/dotnet/* /host/android/* /host/ghc/* /host/codeql/*
+          df -h / "$GITHUB_WORKSPACE"
+      - name: git (for the checkout)
+        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends git ca-certificates
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: system packages
+        run: tools/appimage/base.sh
+      # deps.sh's own stamp: a comment edit doesn't throw away a ~25 min build
+      - id: deps
+        run: echo "hash=$(grep -Ev '^[[:space:]]*(#|$)' tools/appimage/deps.sh | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
+      # qt, ffmpeg, mpv & co from pinned sources: ~25 min cold. saved right away, so a later
+      # failure doesn't throw it away
+      - uses: actions/cache/restore@v6
+        id: deps-cache
+        with:
+          path: /opt/noonix
+          key: deps-${{ matrix.base }}-${{ matrix.arch }}-${{ steps.deps.outputs.hash }}
+      - name: bundled libraries
+        run: tools/appimage/deps.sh /opt/noonix
+      - uses: actions/cache/save@v6
+        if: steps.deps-cache.outputs.cache-hit != 'true'
+        with:
+          path: /opt/noonix
+          key: deps-${{ matrix.base }}-${{ matrix.arch }}-${{ steps.deps.outputs.hash }}
+      - name: tag matches the version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          v="$(sed -n 's/^version = "\(.*\)"/\1/p' core/Cargo.toml | head -1)"
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME but core/Cargo.toml says $v"; exit 1; }
+      # the release build of the rust core takes ~15 min cold
+      - uses: actions/cache@v6
+        with:
+          path: build/out/work/cmake
+          key: appbuild-${{ matrix.base }}-${{ matrix.arch }}-${{ hashFiles('core/Cargo.lock', 'CMakeLists.txt') }}-${{ steps.deps.outputs.hash }}-${{ github.sha }}
+          # a new lock or deps still starts from the last build: cargo redoes only what changed
+          restore-keys: |
+            appbuild-${{ matrix.base }}-${{ matrix.arch }}-${{ hashFiles('core/Cargo.lock', 'CMakeLists.txt') }}-${{ steps.deps.outputs.hash }}-
+            appbuild-${{ matrix.base }}-${{ matrix.arch }}-
+      - name: appimage
+        # noonix tv's own app keys (repo secrets), compiled in; NOONIX_RELEASE fails the build without them
+        env:
+          NOONIX_TMDB_API_KEY: ${{ secrets.NOONIX_TMDB_API_KEY }}
+          NOONIX_TMDB_READ_TOKEN: ${{ secrets.NOONIX_TMDB_READ_TOKEN }}
+          NOONIX_TRAKT_CLIENT_ID: ${{ secrets.NOONIX_TRAKT_CLIENT_ID }}
+          NOONIX_TRAKT_CLIENT_SECRET: ${{ secrets.NOONIX_TRAKT_CLIENT_SECRET }}
+          NOONIX_GLIBC_MAX: ${{ matrix.glibc }}
+          NOONIX_RELEASE: '1'
+        run: . /opt/noonix/env.sh && tools/build-appimage.sh build/out
+      - name: smoke test
+        run: tools/smoke-appimage.sh build/out/*.AppImage
+      # matrix legs have no outputs of their own: the sum rides along as a .sha256 asset that
+      # publish folds into SHA256SUMS
+      - name: onto the draft
+        run: |
+          curl -fsSL "https://github.com/cli/cli/releases/download/v$GH_VERSION/gh_${GH_VERSION}_linux_$(dpkg --print-architecture).tar.gz" \
+            | tar -xz -C /usr/local --strip-components=1
+          gh release upload "${{ needs.draft.outputs.tag }}" build/out/*.AppImage build/out/*.AppImage.sha256 --clobber
+
+  windows:
+    needs: draft
+    runs-on: ubuntu-latest
+    container: ubuntu:24.04
+    outputs:
+      sum: ${{ steps.upload.outputs.sum }}
+    steps:
+      - name: git (for the checkout)
+        run: apt-get update -qq && apt-get install -y -qq --no-install-recommends git ca-certificates
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: system packages
+        run: tools/windows/base.sh
+      - name: tag matches the version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          v="$(sed -n 's/^version = "\(.*\)"/\1/p' core/Cargo.toml | head -1)"
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME but core/Cargo.toml says $v"; exit 1; }
+      # qt for windows + the linux host's tools, llvm-mingw, rust, sdl, libmpv
+      - uses: actions/cache/restore@v6
+        id: deps-cache
+        with:
+          path: /opt/noonix-win
+          key: deps-win-${{ hashFiles('tools/windows/deps.sh', 'tools/windows/qt-win.py', 'tools/windows/env.sh') }}
+      - name: toolchain and libraries
+        run: tools/windows/deps.sh /opt/noonix-win
+      - uses: actions/cache/save@v6
+        if: steps.deps-cache.outputs.cache-hit != 'true'
+        with:
+          path: /opt/noonix-win
+          key: deps-win-${{ hashFiles('tools/windows/deps.sh', 'tools/windows/qt-win.py', 'tools/windows/env.sh') }}
+      - uses: actions/cache@v6
+        with:
+          path: build/win/cmake
+          key: appbuild-win-${{ hashFiles('core/Cargo.lock', 'CMakeLists.txt', 'tools/windows/deps.sh') }}-${{ github.sha }}
+          restore-keys: |
+            appbuild-win-${{ hashFiles('core/Cargo.lock', 'CMakeLists.txt', 'tools/windows/deps.sh') }}-
+            appbuild-win-
+      - name: build
+        env:
+          NOONIX_TMDB_API_KEY: ${{ secrets.NOONIX_TMDB_API_KEY }}
+          NOONIX_TMDB_READ_TOKEN: ${{ secrets.NOONIX_TMDB_READ_TOKEN }}
+          NOONIX_TRAKT_CLIENT_ID: ${{ secrets.NOONIX_TRAKT_CLIENT_ID }}
+          NOONIX_TRAKT_CLIENT_SECRET: ${{ secrets.NOONIX_TRAKT_CLIENT_SECRET }}
+          NOONIX_RELEASE: '1'
+        run: tools/windows/build.sh /opt/noonix-win build/win/cmake build/win/out
+      - name: setup
+        run: tools/windows/package.sh "build/win/out/Noonix TV" build/win/dist
+      - name: onto the draft
+        id: upload
+        run: |
+          curl -fsSL "https://github.com/cli/cli/releases/download/v$GH_VERSION/gh_${GH_VERSION}_linux_amd64.tar.gz" \
+            | tar -xz -C /usr/local --strip-components=1
+          gh release upload "${{ needs.draft.outputs.tag }}" build/win/dist/*-setup.exe --clobber
+          echo "sum=$(cd build/win/dist && sha256sum *-setup.exe)" >> "$GITHUB_OUTPUT"
+
+  windows-smoke:
+    needs: [draft, windows]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: smoke test
+        run: |
+          gh release download "${{ needs.draft.outputs.tag }}" --pattern '*-setup.exe' --dir dist
+          powershell -ExecutionPolicy Bypass -File tools\windows\smoke.ps1 (Get-Item dist\*-setup.exe).FullName
+
+  # the mac preview: the release doesn't wait for it and the updater doesn't know it
+  macos:
+    needs: draft
+    uses: ./.github/workflows/mac.yml
+    with:
+      tag: ${{ needs.draft.outputs.tag }}
+    secrets: inherit
+
+  publish:
+    needs: [draft, appimage, windows, windows-smoke]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: publish
+        env:
+          TAG: ${{ needs.draft.outputs.tag }}
+        run: |
+          gh release download "$TAG" --pattern '*.AppImage.sha256' --dir sums
+          { cat sums/*.sha256; printf '%s\n' "${{ needs.windows.outputs.sum }}"; } > SHA256SUMS
+          gh release upload "$TAG" SHA256SUMS --clobber
+          for f in sums/*.sha256; do gh release delete-asset "$TAG" "$(basename "$f")" --yes; done
+          if [ "$GITHUB_REF_TYPE" != tag ]; then
+            # a test build stays a draft; older test drafts go
+            gh release list --limit 100 --json tagName,isDraft -q '.[] | select(.isDraft) | .tagName' \
+              | grep '^ci-' | grep -vx "$TAG" | xargs -r -n1 gh release delete --yes
+            exit 0
+          fi
+          prev="$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)"
+          {
+            echo "## Changes"
+            if [ -n "$prev" ]; then git log --format='- %s' "$prev..$TAG"; else echo "- first release"; fi
+          } > notes.md
+          gh release edit "$TAG" --draft=false --notes-file notes.md

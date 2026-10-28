@@ -1,0 +1,23 @@
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /core
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      crates:
+        patterns: ['*']
+        exclude-patterns: ['cxx-qt*']
+    # cxx-qt moves with the cmake helper in CMakeLists.txt: bump them together by hand
+    ignore:
+      - dependency-name: 'cxx-qt*'
+        update-types: ['version-update:semver-minor', 'version-update:semver-major']
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ['*']

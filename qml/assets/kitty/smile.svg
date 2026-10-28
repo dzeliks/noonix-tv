@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="160" height="112" viewBox="432 680 160 112">
+  <defs><clipPath id="m"><path d="M462 702 Q512 716 562 702 Q556 772 512 776 Q468 772 462 702 Z"/></clipPath></defs>
+  <path d="M462 702 Q512 716 562 702 Q556 772 512 776 Q468 772 462 702 Z" fill="#3B1230" stroke="#3B1230" stroke-width="8" stroke-linejoin="round"/>
+  <ellipse cx="512" cy="772" rx="34" ry="24" fill="#FF6FAE" clip-path="url(#m)"/>
+</svg>
