@@ -35,7 +35,7 @@ try {
     # one json document per call: the last is extensions.list
     $ext = ($text.Substring($text.LastIndexOf("`n[") + 1)) | ConvertFrom-Json
     if (@($ext).Count -ne 0) { throw "extensions: $text" }
-    if ($text -notmatch '"folders":\[\{') { throw "library: $text" }
+    if ($text -notmatch '"folders":\s*\[\s*\{') { throw "library: $text" }
 
     Write-Host '== ui'
     $shot = "$tmp\frame.png"
