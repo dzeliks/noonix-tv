@@ -1,6 +1,4 @@
-import QtCore
 import QtQuick
-import QtQuick.Dialogs
 
 // the library and the user's own sources, for setup's "your videos" step and settings › sources
 // and accounts: the lines, what ok on them does, and the sheets and pickers they open. debrid
@@ -15,6 +13,8 @@ Item {
     property var enterKey: null       // function (key): the page's key sheet
     property var pending: null        // a preview waiting for the entry sheet to close
     property string focusAct: ""      // the row of what was just added: the page focuses it
+    property string removing: ""      // the folder whose remove waits for the second press
+    Timer { id: removeTimer; interval: 4000; onTriggered: flow.removing = "" }
     signal changed()
     signal back()                     // a sheet closed: the page takes the focus again
 
@@ -41,7 +41,10 @@ Item {
                          : Theme.counted(qsTr("%n video(s) found", "", l.files || 0), l.files || 0) + (l.unmatched ? "  ·  " + qsTr("%n not recognized", "", l.unmatched) : "") })
         if (on) {
             folders.forEach(function (f) {
-                out.push({ label: f.label || f.path, detail: Theme.counted(qsTr("%n video(s)  ·  OK takes it out of the library, the files stay", "", f.files), f.files), value: qsTr("Remove"), act: "lib:remove:" + f.path })
+                var asked = flow.removing === f.path
+                out.push({ label: f.label || f.path, value: asked ? qsTr("Press Again to Remove") : qsTr("Remove"), act: "lib:remove:" + f.path,
+                           detail: asked ? qsTr("Takes it out of the library, the files stay")
+                                         : Theme.counted(qsTr("%n video(s)  ·  OK takes it out of the library, the files stay", "", f.files), f.files) })
             })
             out.push({ label: qsTr("Add a folder"), detail: qsTr("Movies and shows, named the usual way: Show/Season 1/Show S01E02.mkv, Movie (2010).mkv"), value: "+", act: "lib:add" })
             if (folders.length)
@@ -98,6 +101,9 @@ Item {
         } else if (a === "lib:add") {
             folders.open()
         } else if (a.indexOf("lib:remove:") === 0) {
+            // one press asks, the second takes it out
+            if (removing !== a.slice(11)) { removing = a.slice(11); removeTimer.restart(); return true }
+            removing = ""
             Api.call("library.removeFolder", { path: a.slice(11) }, function (ok, d) { if (ok) flow.lib = d; flow.changed() })
         } else if (a === "lib:scan") {
             var l = Object.assign({}, lib); l.scanning = true; lib = l
@@ -121,7 +127,6 @@ Item {
             entry.after = function () { Qt.callLater(function () { if (flow.pending) sheet.preview(flow.pending); flow.pending = null }) }
         } else if (a === "src:file") {
             filePick.open()
-            waiting.show()
         } else if (a === "help:debrid") {
             help.open("debrid")
         } else if (a === "help:torrent") {
@@ -162,17 +167,18 @@ Item {
         }
         onClosed: flow.back()
     }
-    FileDialog {
+    FolderPicker {
         id: filePick
-        title: qsTr("A Noonix TV extension")
-        currentFolder: StandardPaths.writableLocation(StandardPaths.DownloadLocation)
-        nameFilters: [qsTr("Noonix TV extensions (*.noonix *.json)"), qsTr("All files (*)")]
-        onVisibleChanged: if (!visible) waiting.hide()
-        onAccepted: Api.call("extensions.preview", { path: selectedFile.toString() }, function (ok, d) {
-            if (ok) sheet.preview(d)
-            else { toast.show((d && d.error) ? qsTranslate("core", d.error) : qsTr("Couldn't read that file")); flow.back() }
-        })
-        onRejected: flow.back()
+        anchors.fill: parent
+        files: ["noonix", "json"]
+        caption: qsTr("Open an extension file")
+        onPicked: function (path) {
+            Api.call("extensions.preview", { path: path }, function (ok, d) {
+                if (ok) sheet.preview(d)
+                else { toast.show((d && d.error) ? qsTranslate("core", d.error) : qsTr("Couldn't read that file")); flow.back() }
+            })
+        }
+        onClosed: if (!sheet.visible) flow.back()
     }
     ExtensionSheet {
         id: sheet
@@ -191,44 +197,5 @@ Item {
             if (k) Qt.callLater(function () { flow.enterKey(k) })
         }
         onClosed: if (!flow.keyAfter && !(flow.entry && flow.entry.isOpen)) flow.back()
-    }
-
-    // while the system's picker is up: say where to look, back cancels it (the remote's keys may
-    // still land here when the picker is another app's window)
-    FocusScope {
-        id: waiting
-        anchors.fill: parent
-        visible: opacity > 0
-        opacity: 0
-        Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
-        function show() { opacity = 1; forceActiveFocus() }
-        // the picker's window had the focus: take it back, or the sheet after it shows no focus
-        function hide() { opacity = 0; if (flow.Window.window) flow.Window.window.requestActivate() }
-        function cancel() { filePick.close(); hide(); flow.back() }
-        Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: 0.6 }
-        // above the picker, which opens in the middle
-        Column {
-            anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: 150 * Theme.u }
-            width: 1240 * Theme.u
-            spacing: 20 * Theme.u
-            Text {
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                text: qsTr("Pick the file in the window that opened")
-                wrapMode: Text.Wrap
-                color: Theme.fg
-                font { family: Theme.display; pixelSize: 48 * Theme.u; weight: Font.Bold }
-            }
-            Text {
-                width: parent.width
-                horizontalAlignment: Text.AlignHCenter
-                text: qsTr("Back cancels it")
-                color: Theme.fg3
-                font { family: Theme.text; pixelSize: 28 * Theme.u }
-            }
-        }
-        Keys.onEscapePressed: cancel()
-        Keys.onBackPressed: cancel()
-        Keys.onPressed: function (e) { e.accepted = true }
     }
 }

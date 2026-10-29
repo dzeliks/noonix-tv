@@ -14,6 +14,9 @@ final class SourcesFlow {
     var acc: [String: Any] = [:]
     /// the row of what was just added: the page focuses it
     var focusAct = ""
+    /// the folder whose remove waits for the second press
+    var removing = ""
+    @ObservationIgnored private var removeReset: Task<Void, Never>?
     /// the system's folder / file picker while it's up (back cancels it)
     @ObservationIgnored var panel: NSOpenPanel?
     var picking = false
@@ -72,9 +75,11 @@ final class SourcesFlow {
                         checkable: true, checked: on, act: "lib:on"))
         if on {
             for f in folders {
-                let path = f["path"] as? String ?? ""
-                out.append(Line(label: f["label"] as? String ?? path, detail: Ln("%n video(s)  ·  OK takes it out of the library, the files stay", (f["files"] as? NSNumber)?.intValue ?? 0),
-                                value: L("Remove"), act: "lib:remove:" + path))
+                let path = f["path"] as? String ?? "", asked = removing == path
+                out.append(Line(label: f["label"] as? String ?? path,
+                                detail: asked ? L("Takes it out of the library, the files stay")
+                                    : Ln("%n video(s)  ·  OK takes it out of the library, the files stay", (f["files"] as? NSNumber)?.intValue ?? 0),
+                                value: asked ? L("Press Again to Remove") : L("Remove"), act: "lib:remove:" + path))
             }
             out.append(Line(label: L("Add a folder"), detail: L("Movies and shows, named the usual way: Show/Season 1/Show S01E02.mkv, Movie (2010).mkv"), value: "+", act: "lib:add"))
             if !folders.isEmpty {
@@ -146,7 +151,16 @@ final class SourcesFlow {
         } else if a == "lib:add" {
             pickFolder(app: app)
         } else if a.hasPrefix("lib:remove:") {
-            Task { if let d = await json("library.removeFolder", ["path": String(a.dropFirst(11))]) as? [String: Any] { lib = d }; changed() }
+            // one press asks, the second takes it out
+            let path = String(a.dropFirst(11))
+            removeReset?.cancel()
+            guard removing == path else {
+                removing = path
+                removeReset = Task { try? await Task.sleep(for: .seconds(4)); if !Task.isCancelled { removing = "" } }
+                return true
+            }
+            removing = ""
+            Task { if let d = await json("library.removeFolder", ["path": path]) as? [String: Any] { lib = d }; changed() }
         } else if a == "lib:scan" {
             lib["scanning"] = true
             Task { if let d = await json("library.scan") as? [String: Any] { lib = d }; changed() }
@@ -309,8 +323,13 @@ final class ExtensionSheetModel {
         let hosts = (d["hosts"] as? [String] ?? []).joined(separator: ", ")
         if n > 0 { out.append(Ln("Adds %n source(s) from %1", n).replacingOccurrences(of: "%1", with: hosts.isEmpty ? d["source"] as? String ?? "" : hosts)) }
         for k in d["keys"] as? [[String: Any]] ?? [] {
-            out.append(L("Sends your %1 key to %2", k["name"] as? String ?? "", (k["hosts"] as? [String] ?? []).joined(separator: ", "))
-                       + (k["set"] as? Bool == true || mode != "preview" ? "" : "  ·  " + L("you'll add the key next")))
+            let name = k["name"] as? String ?? "", to = (k["hosts"] as? [String] ?? []).joined(separator: ", ")
+            let set = k["set"] as? Bool == true
+            if !set && k["bundled"] as? Bool == true && mode == "preview" {
+                out.append(L("Brings a %1 key, sent only to %2", name, to))
+            } else {
+                out.append(L("Sends your %1 key to %2", name, to) + (set || mode != "preview" ? "" : "  ·  " + L("you'll add the key next")))
+            }
         }
         if d["torrents"] as? Bool == true { out.append(L("Its sources are torrents: they play only once you allow torrents")) }
         let p = d["patterns"] as? [String: Any] ?? [:]

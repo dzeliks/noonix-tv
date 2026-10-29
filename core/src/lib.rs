@@ -20,6 +20,7 @@ pub mod local;
 pub mod matches;
 pub mod playback;
 pub mod probe;
+pub mod profile_file;
 pub mod quality;
 pub mod ranking;
 pub mod rpc;

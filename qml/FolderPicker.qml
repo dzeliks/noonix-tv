@@ -1,12 +1,15 @@
 import QtQuick
 
-// picking a library folder with the remote (the system's dialog wants a mouse): the places to start
-// from (home, its video folder, the drives), then folder by folder. ok opens a folder, back goes up
+// picking a library folder, or a noonix file (files: true), with the remote (the system's dialog
+// wants a mouse): the places to start from (home, its video or downloads folder, the drives), then
+// folder by folder. ok opens a folder or picks the file, back goes up
 FocusScope {
     id: picker
     readonly property real u: Theme.u
-    property var view: ({})               // library.browse: path, label, parent, folders, videos
+    property var view: ({})               // library.browse: path, label, parent, folders, videos, files
     property bool busy: false
+    property var files: []               // file extensions to list and pick, none = a folder
+    property string caption: qsTr("Add a folder")
     signal picked(string path)
     signal closed()
     visible: opacity > 0
@@ -17,7 +20,7 @@ FocusScope {
     function close() { opacity = 0; closed() }
     function go(path) {
         busy = true
-        Api.call("library.browse", { path: path }, function (ok, d) {
+        Api.call("library.browse", { path: path, files: picker.files }, function (ok, d) {
             picker.busy = false
             if (!ok) { toast.show((d && d.error) ? qsTranslate("core", d.error) : qsTr("Couldn't open that folder")); return }
             picker.view = d
@@ -33,16 +36,21 @@ FocusScope {
     function placeName(f) {
         if (f.place === "home") return qsTr("Home folder")
         if (f.place === "videos") return f.name === "Movies" ? qsTr("Movies folder") : qsTr("Videos folder")
+        if (f.place === "downloads") return qsTr("Downloads folder")
         return f.name
     }
     readonly property var lines: {
         var v = view, out = []
-        if (v.path) {
+        if (v.path && !picker.files.length)
             out.push({ label: qsTr("Use this folder"), act: "use", value: qsTr("Add"),
                        detail: v.videos ? Theme.counted(qsTr("%n video(s) right here, and what's in the folders inside", "", v.videos), v.videos)
                                         : qsTr("With what's in the folders inside") })
-            out.push({ label: qsTr("Up a folder"), act: "up", value: "‹", detail: v.parent ? v.parent : qsTr("Back to where your videos may be") })
-        }
+        if (v.path)
+            out.push({ label: qsTr("Up a folder"), act: "up", value: "‹",
+                       detail: v.parent ? v.parent : picker.files.length ? qsTr("Back to where it may be") : qsTr("Back to where your videos may be") })
+        ;(v.files || []).forEach(function (f) {
+            out.push({ label: f.name, act: "file", path: f.path, value: qsTr("Open"), detail: "" })
+        })
         ;(v.folders || []).forEach(function (f) {
             out.push({ label: picker.placeName(f), act: "open", path: f.path, value: "›",
                        detail: f.place === "drive" ? qsTr("Drive") + "  ·  " + f.label : f.place ? f.label : "" })
@@ -52,6 +60,7 @@ FocusScope {
     function run(l) {
         if (!l || busy) return
         if (l.act === "use") { close(); picked(view.path) }
+        else if (l.act === "file") { close(); picked(l.path) }
         else if (l.act === "up") up()
         else go(l.path)
     }
@@ -66,7 +75,7 @@ FocusScope {
         scale: picker.opacity > 0.5 ? 1 : 0.96
         Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
         Text {
-            text: qsTr("Add a folder")
+            text: picker.caption
             color: Theme.fg3
             font { family: Theme.text; pixelSize: 26 * picker.u; weight: Font.Medium }
         }
@@ -75,7 +84,7 @@ FocusScope {
             spacing: 6 * picker.u
             Text {
                 width: parent.width
-                text: picker.view.path ? picker.view.name : qsTr("Where are your videos?")
+                text: picker.view.path ? picker.view.name : picker.files.length ? qsTr("Where is it?") : qsTr("Where are your videos?")
                 elide: Text.ElideRight
                 color: Theme.fg
                 font { family: Theme.display; pixelSize: 60 * picker.u; weight: Font.Bold }
@@ -123,14 +132,14 @@ FocusScope {
                 Text {
                     anchors.centerIn: parent
                     visible: !picker.busy && list.count === 0
-                    text: qsTr("No folders here")
+                    text: picker.files.length ? qsTr("No folders or files here") : qsTr("No folders here")
                     color: Theme.fg3
                     font { family: Theme.text; pixelSize: 28 * picker.u }
                 }
             }
         }
         Text {
-            text: qsTr("OK opens a folder, Back goes up")
+            text: picker.files.length ? qsTr("OK opens a folder or the file, Back goes up") : qsTr("OK opens a folder, Back goes up")
             color: Theme.fg3
             font { family: Theme.text; pixelSize: 24 * picker.u }
         }

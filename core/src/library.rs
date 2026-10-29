@@ -121,46 +121,56 @@ fn label(path: &str) -> String {
 }
 
 /// the folder picker (the remote can't drive the system's dialog): a folder's subfolders and how
-/// many videos sit right in it; "" = the places to start from
-pub fn browse(path: &str) -> Result<Value> {
+/// many videos sit right in it; "" = the places to start from. files: the files in it too
+/// with these extensions (noonix, json)
+pub fn browse(path: &str, files: &[String]) -> Result<Value> {
     if path.is_empty() {
-        return Ok(json!({ "path": "", "label": "", "parent": null, "folders": places(), "videos": 0 }));
+        return Ok(json!({ "path": "", "label": "", "parent": null, "folders": places(!files.is_empty()), "videos": 0, "files": [] }));
     }
     let dir = Path::new(path);
     anyhow::ensure!(dir.is_dir(), "That folder isn't there");
-    let (mut folders, mut videos) = (Vec::new(), 0);
+    let (mut folders, mut found, mut videos) = (Vec::new(), Vec::new(), 0);
     for e in std::fs::read_dir(dir)?.flatten() {
         let name = e.file_name().to_string_lossy().into_owned();
         if name.starts_with('.') || name.starts_with('$') {
             continue;
         }
         let p = e.path();
+        let ext = p.extension().map(|x| x.to_string_lossy().to_lowercase()).unwrap_or_default();
         if p.is_dir() {
             folders.push((name, p.to_string_lossy().into_owned()));
-        } else if p.extension().is_some_and(|x| VIDEO.contains(&x.to_string_lossy().to_lowercase().as_str())) {
+        } else if VIDEO.contains(&ext.as_str()) {
             videos += 1;
+        } else if files.contains(&ext) {
+            found.push((name, p.to_string_lossy().into_owned()));
         }
     }
     folders.sort_by_key(|f| f.0.to_lowercase());
+    found.sort_by_key(|f| f.0.to_lowercase());
     // up from a drive or the home folder goes back to the places
-    let place = places().iter().any(|p| p["path"].as_str() == Some(path));
+    let place = places(!files.is_empty()).iter().any(|p| p["path"].as_str() == Some(path));
     let parent = if place { String::new() } else { dir.parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default() };
     let name = dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| path.to_owned());
     Ok(json!({
         "path": path, "name": name, "label": label(path), "parent": parent, "videos": videos,
         "folders": folders.into_iter().map(|(name, path)| json!({ "name": name, "path": path })).collect::<Vec<_>>(),
+        "files": found.into_iter().map(|(name, path)| json!({ "name": name, "path": path })).collect::<Vec<_>>(),
     }))
 }
 
-/// where looking for videos starts: home and its video folder, then the drives
-fn places() -> Vec<Value> {
+/// where looking starts: home and its video folder (files: its downloads), then the drives
+fn places(files: bool) -> Vec<Value> {
     let mut out = Vec::new();
     let home = std::env::var(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).unwrap_or_default();
     if !home.is_empty() {
+        let p = Path::new(&home).join("Downloads");
+        if files && p.is_dir() {
+            out.push(json!({ "name": "Downloads", "path": p.to_string_lossy(), "label": label(&p.to_string_lossy()), "place": "downloads" }));
+        }
         out.push(json!({ "name": "Home", "path": home, "label": "~", "place": "home" }));
         for v in ["Videos", "Movies"] {
             let p = Path::new(&home).join(v);
-            if p.is_dir() {
+            if !files && p.is_dir() {
                 out.push(json!({ "name": v, "path": p.to_string_lossy(), "label": label(&p.to_string_lossy()), "place": "videos" }));
             }
         }
@@ -517,11 +527,14 @@ mod tests {
         std::fs::create_dir_all(root.join("Movies/Sintel (2010)")).unwrap();
         std::fs::create_dir_all(root.join(".hidden")).unwrap();
         std::fs::write(root.join("Movies/clip.mkv"), b"x").unwrap();
-        let v = browse(&root.join("Movies").to_string_lossy()).unwrap();
+        std::fs::write(root.join("Movies/Me.noonix"), b"{}").unwrap();
+        let v = browse(&root.join("Movies").to_string_lossy(), &[]).unwrap();
         assert_eq!(v["folders"][0]["name"], "Sintel (2010)");
         assert_eq!(v["videos"], 1);
-        assert_eq!(browse(&root.to_string_lossy()).unwrap()["folders"].as_array().unwrap().len(), 1);
-        assert!(browse("").unwrap()["folders"].as_array().is_some());
+        assert_eq!(v["files"].as_array().unwrap().len(), 0);
+        assert_eq!(browse(&root.join("Movies").to_string_lossy(), &["noonix".into()]).unwrap()["files"][0]["name"], "Me.noonix");
+        assert_eq!(browse(&root.to_string_lossy(), &[]).unwrap()["folders"].as_array().unwrap().len(), 1);
+        assert!(browse("", &[]).unwrap()["folders"].as_array().is_some());
         std::fs::remove_dir_all(&root).unwrap();
     }
 

@@ -126,6 +126,10 @@
             </translation>
         </message>
         <message>
+            <source>Brings a %1 key, sent only to %2</source>
+            <translation>Donosi %1 ključ, šalje se samo na %2</translation>
+        </message>
+        <message>
             <source>Sends your %1 key to %2</source>
             <translation>Šalje tvoj %1 ključ na %2</translation>
         </message>
@@ -252,6 +256,10 @@
             <translation>Folder Video snimci</translation>
         </message>
         <message>
+            <source>Downloads folder</source>
+            <translation>Folder Preuzimanja</translation>
+        </message>
+        <message>
             <source>Use this folder</source>
             <translation>Koristi ovaj folder</translation>
         </message>
@@ -280,8 +288,20 @@
             <translation>Nazad na mesta gde ti mogu biti snimci</translation>
         </message>
         <message>
+            <source>Back to where it may be</source>
+            <translation>Nazad na mesta gde može biti</translation>
+        </message>
+        <message>
+            <source>Open</source>
+            <translation>Otvori</translation>
+        </message>
+        <message>
             <source>Drive</source>
             <translation>Disk</translation>
+        </message>
+        <message>
+            <source>OK opens a folder or the file, Back goes up</source>
+            <translation>OK otvara folder ili fajl, Nazad ide gore</translation>
         </message>
         <message>
             <source>Add a folder</source>
@@ -292,8 +312,16 @@
             <translation>Gde su ti snimci?</translation>
         </message>
         <message>
+            <source>Where is it?</source>
+            <translation>Gde je?</translation>
+        </message>
+        <message>
             <source>No folders here</source>
             <translation>Ovde nema foldera</translation>
+        </message>
+        <message>
+            <source>No folders or files here</source>
+            <translation>Ovde nema foldera ni fajlova</translation>
         </message>
         <message>
             <source>OK opens a folder, Back goes up</source>
@@ -791,6 +819,193 @@
         </message>
     </context>
     <context>
+        <name>ProfileSheet</name>
+        <message>
+            <source>Couldn't read that profile</source>
+            <translation>Profil nije mogao da se pročita</translation>
+        </message>
+        <message>
+            <source>Couldn't read that file</source>
+            <translation>Ne mogu da pročitam taj fajl</translation>
+        </message>
+        <message>
+            <source>Audio: %1</source>
+            <translation>Zvuk: %1</translation>
+        </message>
+        <message>
+            <source>Subtitles: %1</source>
+            <translation>Titlovi: %1</translation>
+        </message>
+        <message numerus="yes">
+            <source>%n extension(s): %1</source>
+            <translation>
+                <numerusform>%n ekstenzija: %1</numerusform>
+                <numerusform>%n ekstenzije: %1</numerusform>
+                <numerusform>%n ekstenzija: %1</numerusform>
+            </translation>
+        </message>
+        <message numerus="yes">
+            <source>%n addon(s): %1</source>
+            <translation>
+                <numerusform>%n addon: %1</numerusform>
+                <numerusform>%n addona: %1</numerusform>
+                <numerusform>%n addona: %1</numerusform>
+            </translation>
+        </message>
+        <message>
+            <source>No addons or extensions</source>
+            <translation>Bez addona i ekstenzija</translation>
+        </message>
+        <message numerus="yes">
+            <source>Adds %n extension(s): %1</source>
+            <translation>
+                <numerusform>Dodaje %n ekstenziju: %1</numerusform>
+                <numerusform>Dodaje %n ekstenzije: %1</numerusform>
+                <numerusform>Dodaje %n ekstenzija: %1</numerusform>
+            </translation>
+        </message>
+        <message numerus="yes">
+            <source>Adds %n addon(s): %1</source>
+            <translation>
+                <numerusform>Dodaje %n addon: %1</numerusform>
+                <numerusform>Dodaje %n addona: %1</numerusform>
+                <numerusform>Dodaje %n addona: %1</numerusform>
+            </translation>
+        </message>
+        <message>
+            <source>Its sources are torrents: they play only once you allow torrents</source>
+            <translation>Izvori su mu torenti: puštaju se tek kad dozvoliš torente</translation>
+        </message>
+        <message numerus="yes">
+            <source>%n release pattern(s)</source>
+            <translation>
+                <numerusform>%n obrazac izdanja</numerusform>
+                <numerusform>%n obrasca izdanja</numerusform>
+                <numerusform>%n obrazaca izdanja</numerusform>
+            </translation>
+        </message>
+        <message numerus="yes">
+            <source>Adds %n release pattern(s) to yours</source>
+            <translation>
+                <numerusform>Dodaje %n obrazac izdanja tvojima</numerusform>
+                <numerusform>Dodaje %n obrasca izdanja tvojima</numerusform>
+                <numerusform>Dodaje %n obrazaca izdanja tvojima</numerusform>
+            </translation>
+        </message>
+        <message>
+            <source>Brings keys for %1</source>
+            <translation>Donosi ključeve za %1</translation>
+        </message>
+        <message>
+            <source>Keeps the keys here for %1</source>
+            <translation>Zadržava ovdašnje ključeve za %1</translation>
+        </message>
+        <message numerus="yes">
+            <source>With its watch history: %n title(s)</source>
+            <translation>
+                <numerusform>Sa istorijom gledanja: %n naslov</numerusform>
+                <numerusform>Sa istorijom gledanja: %n naslova</numerusform>
+                <numerusform>Sa istorijom gledanja: %n naslova</numerusform>
+            </translation>
+        </message>
+        <message>
+            <source>Without watch history</source>
+            <translation>Bez istorije gledanja</translation>
+        </message>
+        <message numerus="yes">
+            <source>Leaves out %n address(es) that may hold a key: %1</source>
+            <translation>
+                <numerusform>Izostavlja %n adresu koja može imati ključ: %1</numerusform>
+                <numerusform>Izostavlja %n adrese koje mogu imati ključ: %1</numerusform>
+                <numerusform>Izostavlja %n adresa koje mogu imati ključ: %1</numerusform>
+            </translation>
+        </message>
+        <message>
+            <source>Trakt stays here: sign in again on the other one</source>
+            <translation>Trakt ostaje ovde: na drugom se prijavi ponovo</translation>
+        </message>
+        <message>
+            <source>Sign in to Trakt again after adding it</source>
+            <translation>Posle dodavanja se ponovo prijavi na Trakt</translation>
+        </message>
+        <message>
+            <source>Watch history</source>
+            <translation>Istorija gledanja</translation>
+        </message>
+        <message numerus="yes">
+            <source>Progress, history, watchlist and rated sources: %n title(s)</source>
+            <translation>
+                <numerusform>Napredak, istorija, lista za gledanje i ocenjeni izvori: %n naslov</numerusform>
+                <numerusform>Napredak, istorija, lista za gledanje i ocenjeni izvori: %n naslova</numerusform>
+                <numerusform>Napredak, istorija, lista za gledanje i ocenjeni izvori: %n naslova</numerusform>
+            </translation>
+        </message>
+        <message>
+            <source>Progress, history, watchlist and rated sources</source>
+            <translation>Napredak, istorija, lista za gledanje i ocenjeni izvori</translation>
+        </message>
+        <message>
+            <source>Keys</source>
+            <translation>Ključevi</translation>
+        </message>
+        <message>
+            <source>Your keys for %1, and addresses with a key in them</source>
+            <translation>Tvoji ključevi za %1 i adrese sa ključem u sebi</translation>
+        </message>
+        <message>
+            <source>Addresses with a key in them</source>
+            <translation>Adrese sa ključem u sebi</translation>
+        </message>
+        <message>
+            <source>Anyone with the file can use them</source>
+            <translation>Svako ko ima fajl može da ih koristi</translation>
+        </message>
+        <message>
+            <source>Save to Downloads</source>
+            <translation>Sačuvaj u Preuzimanja</translation>
+        </message>
+        <message>
+            <source>Cancel</source>
+            <translation>Otkaži</translation>
+        </message>
+        <message>
+            <source>Add Profile</source>
+            <translation>Dodaj profil</translation>
+        </message>
+        <message>
+            <source>Couldn't save it</source>
+            <translation>Nije sačuvano</translation>
+        </message>
+        <message>
+            <source>Saved to Downloads as %1</source>
+            <translation>Sačuvano u Preuzimanja kao %1</translation>
+        </message>
+        <message>
+            <source>Couldn't add it</source>
+            <translation>Nije dodato</translation>
+        </message>
+        <message>
+            <source>Added %1, without %2</source>
+            <translation>Dodato: %1, bez %2</translation>
+        </message>
+        <message>
+            <source>Added %1</source>
+            <translation>Dodato: %1</translation>
+        </message>
+        <message>
+            <source>Export a profile</source>
+            <translation>Izvoz profila</translation>
+        </message>
+        <message>
+            <source>Add this profile?</source>
+            <translation>Dodati ovaj profil?</translation>
+        </message>
+        <message>
+            <source>Noonix TV doesn't check what an addon or extension offers. Only add ones you trust, for videos you have the right to watch.</source>
+            <translation>Noonix TV ne proverava šta addon ili ekstenzija nudi. Dodaj samo one kojima veruješ, za snimke koje imaš pravo da gledaš.</translation>
+        </message>
+    </context>
+    <context>
         <name>Search</name>
         <message>
             <source>SEARCHING…</source>
@@ -1090,6 +1305,26 @@
         <message>
             <source>Open on the last profile without asking who's watching</source>
             <translation>Otvara poslednji profil bez pitanja ko gleda</translation>
+        </message>
+        <message>
+            <source>Another computer</source>
+            <translation>Drugi računar</translation>
+        </message>
+        <message>
+            <source>Export this profile</source>
+            <translation>Izvezi ovaj profil</translation>
+        </message>
+        <message>
+            <source>%1's languages, sources and history as a file, for Noonix TV on another computer</source>
+            <translation>Jezici, izvori i istorija profila %1 kao fajl, za Noonix TV na drugom računaru</translation>
+        </message>
+        <message>
+            <source>Import a profile</source>
+            <translation>Uvezi profil</translation>
+        </message>
+        <message>
+            <source>A .noonix file from another computer, as a new profile</source>
+            <translation>.noonix fajl sa drugog računara, kao novi profil</translation>
         </message>
         <message>
             <source>In order of preference: the first one a source has plays</source>
@@ -1944,6 +2179,14 @@
             <translation>Ukloni</translation>
         </message>
         <message>
+            <source>Press Again to Remove</source>
+            <translation>Pritisni opet za brisanje</translation>
+        </message>
+        <message>
+            <source>Takes it out of the library, the files stay</source>
+            <translation>Uklanja ga iz biblioteke, fajlovi ostaju</translation>
+        </message>
+        <message>
             <source>Add a folder</source>
             <translation>Dodaj folder</translation>
         </message>
@@ -2084,28 +2327,8 @@
             <translation>Ne mogu da dodam taj folder</translation>
         </message>
         <message>
-            <source>A Noonix TV extension</source>
-            <translation>Noonix TV ekstenzija</translation>
-        </message>
-        <message>
-            <source>Noonix TV extensions (*.noonix *.json)</source>
-            <translation>Noonix TV ekstenzije (*.noonix *.json)</translation>
-        </message>
-        <message>
-            <source>All files (*)</source>
-            <translation>Svi fajlovi (*)</translation>
-        </message>
-        <message>
             <source>Couldn't read that file</source>
             <translation>Ne mogu da pročitam taj fajl</translation>
-        </message>
-        <message>
-            <source>Pick the file in the window that opened</source>
-            <translation>Izaberi fajl u prozoru koji se otvorio</translation>
-        </message>
-        <message>
-            <source>Back cancels it</source>
-            <translation>Nazad otkazuje</translation>
         </message>
     </context>
     <context>
@@ -2519,6 +2742,34 @@
         <message>
             <source>That preview is gone: add it again</source>
             <translation>Taj pregled je istekao: dodaj ponovo</translation>
+        </message>
+        <message>
+            <source>That's a profile: import it in Settings › Profiles</source>
+            <translation>To je profil: uvezi ga u Podešavanja › Profili</translation>
+        </message>
+        <message>
+            <source>This isn't a Noonix TV profile</source>
+            <translation>Ovo nije Noonix TV profil</translation>
+        </message>
+        <message>
+            <source>This profile needs a newer Noonix TV</source>
+            <translation>Ovaj profil traži noviji Noonix TV</translation>
+        </message>
+        <message>
+            <source>That file is too big for a profile</source>
+            <translation>Taj fajl je prevelik za profil</translation>
+        </message>
+        <message>
+            <source>That preview is gone: open the file again</source>
+            <translation>Taj pregled je istekao: otvori fajl ponovo</translation>
+        </message>
+        <message>
+            <source>Couldn't write there</source>
+            <translation>Tu nije moglo da se upiše</translation>
+        </message>
+        <message>
+            <source>The extension has a key none of its addresses use</source>
+            <translation>Ekstenzija ima ključ koji nijedna njena adresa ne koristi</translation>
         </message>
         <message>
             <source>This one came from a file: open the new file instead</source>

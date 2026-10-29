@@ -42,6 +42,7 @@ adds the ones they choose, from a file or from an address, in setup or in Settin
 | `addons` | no | Up to 20 Stremio addon addresses (see below). |
 | `torrents` | no | `true` if these addons answer with torrents. The user is then asked whether to allow torrents. |
 | `patterns` | no | `preferred` and `excluded` release patterns, at most 50 in all (see below). |
+| `keys` | no | Your own debrid keys for these addresses, like `{"torbox": "…"}`, to set up your own devices in one step. Only for files you keep to yourself (see below). |
 
 ## Addon addresses
 
@@ -53,6 +54,9 @@ adds the ones they choose, from a file or from an address, in setup or in Settin
   doesn't have one yet.
 - Before anything is added, the preview names every host that gets a key. The key goes only to
   those addresses.
+- An extension may bring the key itself in `keys`. Noonix TV uses it only when it has no key for
+  that service yet, checks it with the service first, and asks for one if it's refused. The key
+  isn't kept in the extension. Anyone with such a file can use the key, so never share it.
 - If the user changes or removes the key later, the addons that use it follow. An address whose key
   is gone is taken out until the key is back.
 

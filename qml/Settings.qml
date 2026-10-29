@@ -204,6 +204,11 @@ FocusScope {
             out.push({ label: qsTr("Add profile"), checkable: false, value: "+", act: "profile-add" })
             out.push({ label: qsTr("Sign in automatically"), detail: qsTr("Open on the last profile without asking who's watching"),
                        checkable: true, checked: win.autoLogin, act: "auto-login" })
+            out.push({ header: true, label: qsTr("Another computer"), checkable: false })
+            out.push({ label: qsTr("Export this profile"), checkable: false, value: "›", act: "profile-export",
+                       detail: qsTr("%1's languages, sources and history as a file, for Noonix TV on another computer").arg(win.profile ? win.profile.name : "") })
+            out.push({ label: qsTr("Import a profile"), checkable: false, value: "+", act: "profile-import",
+                       detail: qsTr("A .noonix file from another computer, as a new profile") })
         } else if (sectionId === "audio" && prefs && langOptions) {
             out.push({ label: qsTr("In order of preference: the first one a source has plays"), checkable: false, header: true })
             var opts = Theme.preferredFirst(langOptions.audio, (langSnap || prefs).languages)
@@ -391,6 +396,10 @@ FocusScope {
             win.editProfile(win.profiles[Number(a.slice(8))], page)
         } else if (a === "profile-add") {
             win.addProfile(page)
+        } else if (a === "profile-export") {
+            if (win.profile) profileSheet.exportProfile(win.profile.id)
+        } else if (a === "profile-import") {
+            profilePick.open()
         } else if (a === "auto-login") {
             win.setAutoLogin(!win.autoLogin)
         }
@@ -604,6 +613,24 @@ FocusScope {
         entry: entry
         enterKey: settings.enter
         onBack: page.forceActiveFocus()
+    }
+
+    FolderPicker {
+        id: profilePick
+        parent: win.sheetLayer
+        anchors.fill: parent
+        files: ["noonix"]
+        caption: qsTr("Import a profile")
+        onPicked: function (path) { profileSheet.importFile(path) }
+        onClosed: if (!profileSheet.visible) page.forceActiveFocus()
+    }
+
+    ProfileSheet {
+        id: profileSheet
+        parent: win.sheetLayer
+        anchors.fill: parent
+        onClosed: page.forceActiveFocus()
+        onImported: { win.refreshProfiles(); settings.load() }
     }
 
     KeyEntry {

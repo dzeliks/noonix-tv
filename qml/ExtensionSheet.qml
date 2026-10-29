@@ -42,8 +42,10 @@ FocusScope {
         var n = mode === "preview" ? d.addons : d.listed
         if (n) out.push(Theme.counted(qsTr("Adds %n source(s) from %1", "", n), n).arg((d.hosts || []).join(", ") || d.source || ""))
         ;(d.keys || []).forEach(function (k) {
-            out.push(qsTr("Sends your %1 key to %2").arg(k.name).arg((k.hosts || []).join(", "))
-                     + (k.set || mode !== "preview" ? "" : "  ·  " + qsTr("you'll add the key next")))
+            var to = (k.hosts || []).join(", ")
+            if (!k.set && k.bundled && mode === "preview") out.push(qsTr("Brings a %1 key, sent only to %2").arg(k.name).arg(to))
+            else out.push(qsTr("Sends your %1 key to %2").arg(k.name).arg(to)
+                          + (k.set || mode !== "preview" ? "" : "  ·  " + qsTr("you'll add the key next")))
         })
         if (d.torrents) out.push(qsTr("Its sources are torrents: they play only once you allow torrents"))
         var p = d.patterns || {}

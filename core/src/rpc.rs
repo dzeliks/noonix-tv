@@ -280,6 +280,14 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
             .await?;
             Ok(json!({ "id": id }))
         }
+        // a profile as a .noonix file and back (profile_file.rs)
+        "profiles.exportSummary" => crate::profile_file::summary(arg_i64(&args, "id")?).await,
+        "profiles.export" => {
+            let flag = |k: &str| args.get(k).and_then(Value::as_bool).unwrap_or(false);
+            crate::profile_file::export(arg_i64(&args, "id")?, args.get("folder").and_then(Value::as_str), flag("watch"), flag("keys")).await
+        }
+        "profiles.importPreview" => crate::profile_file::preview(arg_str(&args, "path")?).await,
+        "profiles.import" => crate::profile_file::import(arg_str(&args, "token")?).await,
         "profiles.select" => {
             let id = arg_i64(&args, "id")?;
             store::with(move |c| {
@@ -376,7 +384,8 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
         "library.status" => Ok(crate::library::status().await),
         "library.browse" => {
             let path = args.get("path").and_then(Value::as_str).unwrap_or("").to_owned();
-            tokio::task::spawn_blocking(move || crate::library::browse(&path)).await?
+            let files: Vec<String> = serde_json::from_value(args.get("files").cloned().unwrap_or(json!([]))).unwrap_or_default();
+            tokio::task::spawn_blocking(move || crate::library::browse(&path, &files)).await?
         }
         "library.addFolder" => crate::library::add_folder(arg_str(&args, "path")?).await,
         "library.removeFolder" => crate::library::remove_folder(arg_str(&args, "path")?).await,

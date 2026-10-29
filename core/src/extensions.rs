@@ -11,7 +11,7 @@ use once_cell::sync::Lazy;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::Mutex;
 
 pub const FORMAT: u32 = 1;
@@ -45,6 +45,10 @@ pub struct Manifest {
     pub torrents: bool,
     #[serde(default)]
     pub patterns: Patterns,
+    /// the user's own debrid keys for its addresses ({"torbox": "…"}), for their own devices. used
+    /// when the install has none; never stored with the extension
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub keys: BTreeMap<String, String>,
 }
 
 /// the debrid ids an address asks for
@@ -76,7 +80,7 @@ pub fn render(template: &str, key: impl Fn(&str) -> Option<String>) -> Option<St
     Some(url)
 }
 
-fn host(template: &str) -> String {
+pub fn host(template: &str) -> String {
     let probe = config::DEBRIDS.iter().fold(template.replace("stremio://", "https://"), |u, d| u.replace(&format!("{{{}}}", d.0), "x"));
     url::Url::parse(&probe).ok().and_then(|u| u.host_str().map(str::to_owned)).unwrap_or_else(|| "?".into())
 }
@@ -103,6 +107,10 @@ pub fn parse(text: &str) -> Result<Manifest> {
         }
         stremio::check_url(&probe)?;
     }
+    let needs = m.needs();
+    if m.keys.iter().any(|(id, v)| !needs.contains(&id.as_str()) || v.trim().is_empty()) {
+        bail!("The extension has a key none of its addresses use");
+    }
     for p in m.patterns.preferred.iter().chain(&m.patterns.excluded) {
         if p.trim().is_empty() || crate::ranking::pattern(p).is_none() {
             bail!("The extension has a pattern that doesn't work: {p}");
@@ -114,7 +122,7 @@ pub fn parse(text: &str) -> Result<Manifest> {
 // ---- preview, then install
 
 enum Pending {
-    Extension { m: Manifest, source: String },
+    Extension { m: Box<Manifest>, source: String },
     Addon { url: String },
 }
 
@@ -146,10 +154,15 @@ async fn fetch(url: &str) -> Result<String> {
     Ok(String::from_utf8_lossy(&out).into_owned())
 }
 
-fn read_file(path: &str) -> Result<String> {
+/// a path or a file:// url (what the ui's file dialogs give)
+pub fn local_path(path: &str) -> String {
     let path = path.strip_prefix("file://").map(|p| urlencoding::decode(p).map(|c| c.into_owned()).unwrap_or_else(|_| p.to_owned())).unwrap_or_else(|| path.to_owned());
     // windows: file:///C:/...
-    let path = if cfg!(windows) { path.trim_start_matches('/').to_owned() } else { path };
+    if cfg!(windows) { path.trim_start_matches('/').to_owned() } else { path }
+}
+
+fn read_file(path: &str) -> Result<String> {
+    let path = local_path(path);
     let meta = std::fs::metadata(&path).context("Couldn't open that file")?;
     if meta.len() as usize > MAX_BYTES {
         bail!("That file is too big for an extension");
@@ -157,7 +170,7 @@ fn read_file(path: &str) -> Result<String> {
     std::fs::read_to_string(&path).context("Couldn't read that file")
 }
 
-fn token() -> String {
+pub fn token() -> String {
     let mut b = [0u8; 8];
     let _ = getrandom::fill(&mut b);
     b.iter().map(|x| format!("{x:02x}")).collect()
@@ -177,6 +190,9 @@ pub async fn preview(args: &Value) -> Result<Value> {
         }
     };
     let v: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+    if v.get("kind").and_then(Value::as_str) == Some("profile") {
+        bail!("That's a profile: import it in Settings › Profiles");
+    }
     if v.get("noonix").is_some() {
         let m = parse(&text)?;
         return describe_extension(m, source).await;
@@ -214,7 +230,7 @@ fn key_lines(m: &Manifest) -> Vec<Value> {
             let mut hosts: Vec<String> = m.addons.iter().filter(|a| placeholders(a).contains(id)).map(|a| host(a)).collect();
             hosts.sort();
             hosts.dedup();
-            json!({ "id": id, "key": key, "name": name, "set": config::has_secret(key), "hosts": hosts })
+            json!({ "id": id, "key": key, "name": name, "set": config::has_secret(key), "bundled": m.keys.contains_key(*id), "hosts": hosts })
         })
         .collect()
 }
@@ -243,7 +259,7 @@ async fn describe_extension(m: Manifest, source: String) -> Result<Value> {
         "installed": installed.is_some(), "installedVersion": installed,
         "source": if source == "file" { "file".to_owned() } else { config::preview(&source) },
     });
-    remember(t, Pending::Extension { m, source });
+    remember(t, Pending::Extension { m: Box::new(m), source });
     Ok(out)
 }
 
@@ -255,27 +271,41 @@ pub async fn install(token: &str) -> Result<Value> {
             let row = crate::addons::add(&url).await?;
             Ok(json!({ "kind": "addon", "id": row.id, "name": row.name }))
         }
-        Pending::Extension { m, source } => {
+        Pending::Extension { mut m, source } => {
             let (id, name, torrents) = (m.id.clone(), m.name.clone(), m.torrents);
-            let text = serde_json::to_string(&m)?;
-            let row = (m.id.clone(), m.name.clone(), m.version.clone());
-            store::with(move |c| {
-                c.execute(
-                    "insert into extensions (id, name, version, source, manifest, enabled, added) values (?1, ?2, ?3, ?4, ?5, 1, ?6)
-                     on conflict(id) do update set name = excluded.name, version = excluded.version, source = excluded.source, manifest = excluded.manifest",
-                    params![row.0, row.1, row.2, source, text, store::now()],
-                )?;
-                Ok(())
-            })
-            .await?;
-            let added = sync(&id).await?;
+            // its keys where the install has none; one its service refuses is asked for like a missing one
+            for (did, value) in std::mem::take(&mut m.keys) {
+                let Some(key) = config::DEBRIDS.iter().find(|d| d.0 == did).map(|d| d.1) else { continue };
+                if !config::has_secret(key) {
+                    if let Err(e) = crate::setup::set_credential(key, &json!(value)).await {
+                        tracing::warn!("extension {id}: its key: {e:#}");
+                    }
+                }
+            }
+            let added = add(&m, &source, true).await?;
             let needs: Vec<Value> = key_lines(&m).into_iter().filter(|k| k["set"] == false).collect();
             Ok(json!({ "kind": "extension", "id": id, "name": name, "addons": added, "torrents": torrents, "needKeys": needs }))
         }
     }
 }
 
-fn manifests(c: &Connection, only_enabled: bool) -> Result<Vec<(String, bool, String, Manifest)>> {
+/// stores it (or the newer version of it) and adds its addons; how many it has now
+pub async fn add(m: &Manifest, source: &str, on: bool) -> Result<usize> {
+    let text = serde_json::to_string(&Manifest { keys: BTreeMap::new(), ..m.clone() })?;
+    let row = (m.id.clone(), m.name.clone(), m.version.clone(), source.to_owned());
+    store::with(move |c| {
+        c.execute(
+            "insert into extensions (id, name, version, source, manifest, enabled, added) values (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+             on conflict(id) do update set name = excluded.name, version = excluded.version, source = excluded.source, manifest = excluded.manifest",
+            params![row.0, row.1, row.2, row.3, text, on as i64, store::now()],
+        )?;
+        Ok(())
+    })
+    .await?;
+    sync(&m.id).await
+}
+
+pub fn manifests(c: &Connection, only_enabled: bool) -> Result<Vec<(String, bool, String, Manifest)>> {
     let mut st = c.prepare("select id, enabled, source, manifest from extensions order by added")?;
     let rows = st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)? != 0, r.get::<_, String>(2)?, r.get::<_, String>(3)?)))?;
     let mut out = Vec::new();
@@ -473,5 +503,10 @@ mod tests {
         assert!(parse(&SAMPLE.replace("{torbox}", "{premiumize}")).is_err());
         assert!(parse(&SAMPLE.replace("\"HC\"", "\"/(/\"")).is_err());
         assert!(parse("{\"name\": \"x\"}").is_err());
+        // a key only for a service its addresses use
+        let keyed = |k: &str| SAMPLE.replace("\"noonix\": 1,", &format!("\"noonix\": 1, \"keys\": {{{k}}},"));
+        assert_eq!(parse(&keyed("\"torbox\": \"abc\"")).unwrap().keys["torbox"], "abc");
+        assert!(parse(&keyed("\"alldebrid\": \"abc\"")).is_err());
+        assert!(parse(&keyed("\"torbox\": \" \"")).is_err());
     }
 }
