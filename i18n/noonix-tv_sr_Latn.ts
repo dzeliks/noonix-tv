@@ -234,6 +234,73 @@
         </message>
     </context>
     <context>
+        <name>FolderPicker</name>
+        <message>
+            <source>Couldn't open that folder</source>
+            <translation>Folder nije mogao da se otvori</translation>
+        </message>
+        <message>
+            <source>Home folder</source>
+            <translation>Lični folder</translation>
+        </message>
+        <message>
+            <source>Movies folder</source>
+            <translation>Folder Filmovi</translation>
+        </message>
+        <message>
+            <source>Videos folder</source>
+            <translation>Folder Video snimci</translation>
+        </message>
+        <message>
+            <source>Use this folder</source>
+            <translation>Koristi ovaj folder</translation>
+        </message>
+        <message>
+            <source>Add</source>
+            <translation>Dodaj</translation>
+        </message>
+        <message numerus="yes">
+            <source>%n video(s) right here, and what's in the folders inside</source>
+            <translation>
+                <numerusform>%n snimak ovde, i sve iz foldera unutra</numerusform>
+                <numerusform>%n snimka ovde, i sve iz foldera unutra</numerusform>
+                <numerusform>%n snimaka ovde, i sve iz foldera unutra</numerusform>
+            </translation>
+        </message>
+        <message>
+            <source>With what's in the folders inside</source>
+            <translation>Sa svim iz foldera unutra</translation>
+        </message>
+        <message>
+            <source>Up a folder</source>
+            <translation>Folder iznad</translation>
+        </message>
+        <message>
+            <source>Back to where your videos may be</source>
+            <translation>Nazad na mesta gde ti mogu biti snimci</translation>
+        </message>
+        <message>
+            <source>Drive</source>
+            <translation>Disk</translation>
+        </message>
+        <message>
+            <source>Add a folder</source>
+            <translation>Dodaj folder</translation>
+        </message>
+        <message>
+            <source>Where are your videos?</source>
+            <translation>Gde su ti snimci?</translation>
+        </message>
+        <message>
+            <source>No folders here</source>
+            <translation>Ovde nema foldera</translation>
+        </message>
+        <message>
+            <source>OK opens a folder, Back goes up</source>
+            <translation>OK otvara folder, Nazad ide gore</translation>
+        </message>
+    </context>
+    <context>
         <name>Hero</name>
         <message>
             <source>Starring %1</source>
@@ -2013,10 +2080,6 @@
             <translation>Dodato: %1</translation>
         </message>
         <message>
-            <source>A folder with your movies or shows</source>
-            <translation>Folder sa tvojim filmovima ili serijama</translation>
-        </message>
-        <message>
             <source>Couldn't add that folder</source>
             <translation>Ne mogu da dodam taj folder</translation>
         </message>
@@ -2035,10 +2098,6 @@
         <message>
             <source>Couldn't read that file</source>
             <translation>Ne mogu da pročitam taj fajl</translation>
-        </message>
-        <message>
-            <source>Pick the folder in the window that opened</source>
-            <translation>Izaberi folder u prozoru koji se otvorio</translation>
         </message>
         <message>
             <source>Pick the file in the window that opened</source>

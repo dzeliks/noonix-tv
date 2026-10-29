@@ -5,7 +5,6 @@ import QtQuick.Dialogs
 // the library and the user's own sources, for setup's "your videos" step and settings › sources
 // and accounts: the lines, what ok on them does, and the sheets and pickers they open. debrid
 // keys and torrents only show up once something the user added asks for them
-// (todo: a folder picker of our own for the remote; the system's dialog wants a mouse)
 Item {
     id: flow
     property var lib: ({})
@@ -97,8 +96,7 @@ Item {
         if (a === "lib:on") {
             Api.call("library.setOn", { on: lib.on === false }, function (ok, d) { if (ok) flow.lib = d; flow.changed() })
         } else if (a === "lib:add") {
-            folderPick.open()
-            waiting.show()
+            folders.open()
         } else if (a.indexOf("lib:remove:") === 0) {
             Api.call("library.removeFolder", { path: a.slice(11) }, function (ok, d) { if (ok) flow.lib = d; flow.changed() })
         } else if (a === "lib:scan") {
@@ -152,18 +150,17 @@ Item {
         else back()
     }
 
-    FolderDialog {
-        id: folderPick
-        title: qsTr("A folder with your movies or shows")
-        currentFolder: StandardPaths.writableLocation(StandardPaths.HomeLocation)
-        onVisibleChanged: if (!visible) waiting.hide()
-        onAccepted: Api.call("library.addFolder", { path: selectedFolder.toString() }, function (ok, d) {
-            if (ok) flow.lib = d
-            else toast.show((d && d.error) ? qsTranslate("core", d.error) : qsTr("Couldn't add that folder"))
-            flow.changed()
-            flow.back()
-        })
-        onRejected: flow.back()
+    FolderPicker {
+        id: folders
+        anchors.fill: parent
+        onPicked: function (path) {
+            Api.call("library.addFolder", { path: path }, function (ok, d) {
+                if (ok) flow.lib = d
+                else toast.show((d && d.error) ? qsTranslate("core", d.error) : qsTr("Couldn't add that folder"))
+                flow.changed()
+            })
+        }
+        onClosed: flow.back()
     }
     FileDialog {
         id: filePick
@@ -207,7 +204,7 @@ Item {
         function show() { opacity = 1; forceActiveFocus() }
         // the picker's window had the focus: take it back, or the sheet after it shows no focus
         function hide() { opacity = 0; if (flow.Window.window) flow.Window.window.requestActivate() }
-        function cancel() { folderPick.close(); filePick.close(); hide(); flow.back() }
+        function cancel() { filePick.close(); hide(); flow.back() }
         Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: 0.6 }
         // above the picker, which opens in the middle
         Column {
@@ -217,7 +214,7 @@ Item {
             Text {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
-                text: folderPick.visible ? qsTr("Pick the folder in the window that opened") : qsTr("Pick the file in the window that opened")
+                text: qsTr("Pick the file in the window that opened")
                 wrapMode: Text.Wrap
                 color: Theme.fg
                 font { family: Theme.display; pixelSize: 48 * Theme.u; weight: Font.Bold }

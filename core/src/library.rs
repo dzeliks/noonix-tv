@@ -120,6 +120,75 @@ fn label(path: &str) -> String {
     }
 }
 
+/// the folder picker (the remote can't drive the system's dialog): a folder's subfolders and how
+/// many videos sit right in it; "" = the places to start from
+pub fn browse(path: &str) -> Result<Value> {
+    if path.is_empty() {
+        return Ok(json!({ "path": "", "label": "", "parent": null, "folders": places(), "videos": 0 }));
+    }
+    let dir = Path::new(path);
+    anyhow::ensure!(dir.is_dir(), "That folder isn't there");
+    let (mut folders, mut videos) = (Vec::new(), 0);
+    for e in std::fs::read_dir(dir)?.flatten() {
+        let name = e.file_name().to_string_lossy().into_owned();
+        if name.starts_with('.') || name.starts_with('$') {
+            continue;
+        }
+        let p = e.path();
+        if p.is_dir() {
+            folders.push((name, p.to_string_lossy().into_owned()));
+        } else if p.extension().is_some_and(|x| VIDEO.contains(&x.to_string_lossy().to_lowercase().as_str())) {
+            videos += 1;
+        }
+    }
+    folders.sort_by_key(|f| f.0.to_lowercase());
+    // up from a drive or the home folder goes back to the places
+    let place = places().iter().any(|p| p["path"].as_str() == Some(path));
+    let parent = if place { String::new() } else { dir.parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default() };
+    let name = dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| path.to_owned());
+    Ok(json!({
+        "path": path, "name": name, "label": label(path), "parent": parent, "videos": videos,
+        "folders": folders.into_iter().map(|(name, path)| json!({ "name": name, "path": path })).collect::<Vec<_>>(),
+    }))
+}
+
+/// where looking for videos starts: home and its video folder, then the drives
+fn places() -> Vec<Value> {
+    let mut out = Vec::new();
+    let home = std::env::var(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).unwrap_or_default();
+    if !home.is_empty() {
+        out.push(json!({ "name": "Home", "path": home, "label": "~", "place": "home" }));
+        for v in ["Videos", "Movies"] {
+            let p = Path::new(&home).join(v);
+            if p.is_dir() {
+                out.push(json!({ "name": v, "path": p.to_string_lossy(), "label": label(&p.to_string_lossy()), "place": "videos" }));
+            }
+        }
+    }
+    let mut drives: Vec<PathBuf> = Vec::new();
+    if cfg!(windows) {
+        drives.extend((b'C'..=b'Z').map(|d| PathBuf::from(format!("{}:\\", d as char))).filter(|p| p.is_dir()));
+    } else {
+        let user = std::env::var("USER").unwrap_or_default();
+        for base in [format!("/run/media/{user}"), format!("/media/{user}"), "/media".into(), "/mnt".into(), "/Volumes".into()] {
+            for p in std::fs::read_dir(&base).into_iter().flatten().flatten().map(|e| e.path()) {
+                // boot and efi partitions hold no videos
+                let name = p.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+                let system = name.contains("efi") || name == "boot" || name == "recovery";
+                if p.is_dir() && !system && !drives.contains(&p) && p != Path::new("/media").join(&user) {
+                    drives.push(p);
+                }
+            }
+        }
+    }
+    drives.sort();
+    for d in drives {
+        let name = d.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| d.to_string_lossy().into_owned());
+        out.push(json!({ "name": name, "path": d.to_string_lossy(), "label": d.to_string_lossy(), "place": "drive" }));
+    }
+    out
+}
+
 pub fn scan_later() {
     tokio::spawn(async {
         if let Err(e) = scan().await {
@@ -440,6 +509,20 @@ mod tests {
         assert_eq!(g("Some Show/S02/Episode 4.mkv"), Guess { kind: "episode", name: "Some Show".into(), year: None, season: Some(2), episode: Some(4) });
         assert_eq!(g("show/1x05.mkv"), Guess { kind: "episode", name: "show".into(), year: None, season: Some(1), episode: Some(5) });
         assert_eq!(g("2001 A Space Odyssey 1968.mkv"), Guess { kind: "movie", name: "2001 A Space Odyssey".into(), year: Some(1968), ..Default::default() });
+    }
+
+    #[test]
+    fn browses_folders() {
+        let root = std::env::temp_dir().join(format!("noonix-browse-{}", std::process::id()));
+        std::fs::create_dir_all(root.join("Movies/Sintel (2010)")).unwrap();
+        std::fs::create_dir_all(root.join(".hidden")).unwrap();
+        std::fs::write(root.join("Movies/clip.mkv"), b"x").unwrap();
+        let v = browse(&root.join("Movies").to_string_lossy()).unwrap();
+        assert_eq!(v["folders"][0]["name"], "Sintel (2010)");
+        assert_eq!(v["videos"], 1);
+        assert_eq!(browse(&root.to_string_lossy()).unwrap()["folders"].as_array().unwrap().len(), 1);
+        assert!(browse("").unwrap()["folders"].as_array().is_some());
+        std::fs::remove_dir_all(&root).unwrap();
     }
 
     #[test]

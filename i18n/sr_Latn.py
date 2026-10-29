@@ -607,6 +607,19 @@ T = {
     "Update": "Ažuriraj",
     "Cancel": "Otkaži",
     "Remove": "Ukloni",
+    # ---- folder picker
+    "Couldn't open that folder": "Folder nije mogao da se otvori",
+    "Home folder": "Lični folder",
+    "Movies folder": "Folder Filmovi",
+    "Videos folder": "Folder Video snimci",
+    "Use this folder": "Koristi ovaj folder",
+    "With what's in the folders inside": "Sa svim iz foldera unutra",
+    "Up a folder": "Folder iznad",
+    "Back to where your videos may be": "Nazad na mesta gde ti mogu biti snimci",
+    "Drive": "Disk",
+    "Where are your videos?": "Gde su ti snimci?",
+    "No folders here": "Ovde nema foldera",
+    "OK opens a folder, Back goes up": "OK otvara folder, Nazad ide gore",
 }
 
 # the same english, another meaning
@@ -622,6 +635,7 @@ PLURALS = {
     "%n more to try": ["još %n opcija", "još %n opcije", "još %n opcija"],
     "Adds %n source(s) from %1": ["Dodaje %n izvor sa %1", "Dodaje %n izvora sa %1", "Dodaje %n izvora sa %1"],
     "%n torrent source(s) hidden": ["%n torent izvor skriven", "%n torent izvora skrivena", "%n torent izvora skriveno"],
+    "%n video(s) right here, and what's in the folders inside": ["%n snimak ovde, i sve iz foldera unutra", "%n snimka ovde, i sve iz foldera unutra", "%n snimaka ovde, i sve iz foldera unutra"],
     "%n video(s) found": ["pronađen %n snimak", "pronađena %n snimka", "pronađeno %n snimaka"],
     "%n not recognized": ["%n nije prepoznat", "%n nisu prepoznata", "%n nije prepoznato"],
     "%n video(s)  ·  OK takes it out of the library, the files stay": ["%n snimak  ·  OK ga vadi iz biblioteke, fajlovi ostaju", "%n snimka  ·  OK ga vadi iz biblioteke, fajlovi ostaju", "%n snimaka  ·  OK ga vadi iz biblioteke, fajlovi ostaju"],

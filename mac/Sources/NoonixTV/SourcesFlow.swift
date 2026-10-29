@@ -219,23 +219,22 @@ final class SourcesFlow {
         }
     }
 
-    // ---- the system's pickers (todo: one of our own for the remote)
+    // ---- library folders: our own picker (the remote can't drive the system's panel)
     private func pickFolder(app: AppModel) {
-        let p = NSOpenPanel()
-        p.canChooseDirectories = true
-        p.canChooseFiles = false
-        p.allowsMultipleSelection = false
-        p.message = L("A folder with your movies or shows")
-        p.prompt = L("Add a folder")
-        p.directoryURL = FileManager.default.homeDirectoryForCurrentUser
-        open(p) { [weak self] url in
-            guard let self else { return }
-            let (d, err) = await answer("library.addFolder", ["path": url.path])
-            if let d = d as? [String: Any] { lib = d } else { app.toast(err ?? L("Couldn't add that folder")) }
-            changed()
+        let p = FolderPickerModel()
+        p.picked = { [weak self, weak app] path in
+            guard let self, let app else { return }
+            Task {
+                let (d, err) = await self.answer("library.addFolder", ["path": path])
+                if let d = d as? [String: Any] { self.lib = d } else { app.toast(err ?? L("Couldn't add that folder")) }
+                self.changed()
+            }
         }
+        app.folderPicker = p
+        p.go("", app: app)
     }
 
+    // ---- the system's file picker for an extension file
     private func pickFile(app: AppModel) {
         let p = NSOpenPanel()
         p.canChooseDirectories = false

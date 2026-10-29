@@ -91,6 +91,9 @@ struct RootView: View {
             if let e = app.extSheet {
                 ExtensionSheetView(model: e).transition(.opacity).zIndex(8.8)
             }
+            if let f = app.folderPicker {
+                FolderPickerView(model: f).transition(.opacity).zIndex(8.8)
+            }
             if let h = app.help {
                 SourcesHelpView(model: h).transition(.opacity).zIndex(9)
             }
@@ -122,6 +125,7 @@ struct RootView: View {
         .animation(.easeOut(duration: 0.23), value: app.entry.isOpen)
         .animation(.easeOut(duration: 0.18), value: app.help == nil)
         .animation(.easeOut(duration: 0.18), value: app.extSheet == nil)
+        .animation(.easeOut(duration: 0.18), value: app.folderPicker == nil)
         .animation(.easeOut(duration: 0.18), value: app.flow.picking)
         .animation(.timingCurve(0.33, 1, 0.68, 1, duration: 0.18), value: app.exitChoice == nil)
     }

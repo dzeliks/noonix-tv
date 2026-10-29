@@ -374,6 +374,10 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
         }
 
         "library.status" => Ok(crate::library::status().await),
+        "library.browse" => {
+            let path = args.get("path").and_then(Value::as_str).unwrap_or("").to_owned();
+            tokio::task::spawn_blocking(move || crate::library::browse(&path)).await?
+        }
         "library.addFolder" => crate::library::add_folder(arg_str(&args, "path")?).await,
         "library.removeFolder" => crate::library::remove_folder(arg_str(&args, "path")?).await,
         "library.scan" => crate::library::scan().await,

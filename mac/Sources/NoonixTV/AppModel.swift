@@ -123,6 +123,8 @@ final class AppModel {
     var help: SourcesHelpModel?
     /// an addon or extension: what it brings, before it's added or once it's in
     var extSheet: ExtensionSheetModel?
+    /// picking a library folder with the remote (FolderPicker)
+    var folderPicker: FolderPickerModel?
     /// the library and the user's own sources, shared by setup and settings
     let flow = SourcesFlow()
     /// the launch splash until it has played (off with NOONIX_SPLASH=0)
@@ -545,6 +547,7 @@ final class AppModel {
             return true
         }
         if let h = help { h.key(k, app: self); return true }
+        if let f = folderPicker { f.key(k, app: self); return true }
         if let e = extSheet { e.key(k, app: self); return true }
         if let p = profileEdit { return p.key(k) }
         if trakt != nil {
