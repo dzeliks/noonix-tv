@@ -96,12 +96,10 @@ pub async fn status() -> Value {
     let per: Vec<Value> = {
         let fs = folders.clone();
         let counts = store::with(move |c| {
-            let mut out = Vec::new();
-            for f in &fs {
-                let n: i64 = c.query_row("select count(*) from library_files where path like ?1 || '%'", params![f], |r| r.get(0))?;
-                out.push(n);
-            }
-            Ok(out)
+            let mut st = c.prepare("select path from library_files")?;
+            let paths: Vec<String> = st.query_map([], |r| r.get(0))?.filter_map(|r| r.ok()).collect();
+            // by path parts: /media/Movies doesn't count /media/Movies2
+            Ok(fs.iter().map(|f| paths.iter().filter(|p| Path::new(p).starts_with(f)).count() as i64).collect::<Vec<_>>())
         })
         .await
         .unwrap_or_default();
@@ -183,6 +181,8 @@ pub async fn scan() -> Result<Value> {
 
 async fn scan_inner() -> Result<()> {
     let roots: Vec<PathBuf> = folders().await.into_iter().map(PathBuf::from).collect();
+    // a folder on a drive that isn't there right now keeps its files and their matches
+    let missing: Vec<PathBuf> = roots.iter().filter(|r| !r.is_dir()).cloned().collect();
     let found = tokio::task::spawn_blocking(move || {
         let mut out = Vec::new();
         for r in &roots {
@@ -206,7 +206,14 @@ async fn scan_inner() -> Result<()> {
         for p in &seen {
             tx.execute("update library_files set seen = ?2 where path = ?1", params![p, now])?;
         }
-        tx.execute("delete from library_files where seen < ?1", params![now])?;
+        let gone: Vec<String> = {
+            let mut st = tx.prepare("select path from library_files where seen < ?1")?;
+            let rows = st.query_map(params![now], |r| r.get::<_, String>(0))?;
+            rows.filter_map(|r| r.ok()).filter(|p| !missing.iter().any(|m| Path::new(p).starts_with(m))).collect()
+        };
+        for p in &gone {
+            tx.execute("delete from library_files where path = ?1", params![p])?;
+        }
         tx.commit()?;
         Ok(())
     })
@@ -215,7 +222,7 @@ async fn scan_inner() -> Result<()> {
     let todo: Vec<(String, u64, i64, Guess)> = fresh
         .into_iter()
         .map(|f| {
-            let root = roots.iter().find(|r| f.path.starts_with(r.as_str())).cloned().unwrap_or_default();
+            let root = roots.iter().find(|r| Path::new(&f.path).starts_with(r)).cloned().unwrap_or_default();
             let g = guess(Path::new(&f.path), Path::new(&root));
             (f.path.clone(), f.size, f.mtime, g)
         })

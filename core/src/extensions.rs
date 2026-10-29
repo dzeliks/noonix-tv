@@ -120,6 +120,15 @@ enum Pending {
 
 static PENDING: Lazy<Mutex<HashMap<String, Pending>>> = Lazy::new(Default::default);
 
+/// a preview waits for its yes; sheets closed without one are dropped once there are many
+fn remember(token: String, p: Pending) {
+    let mut m = PENDING.lock().unwrap();
+    if m.len() >= 16 {
+        m.clear();
+    }
+    m.insert(token, p);
+}
+
 async fn fetch(url: &str) -> Result<String> {
     let u = stremio::check_url(&url.trim().replace("stremio://", "https://"))?;
     let quiet = |e: reqwest::Error| {
@@ -170,7 +179,7 @@ pub async fn preview(args: &Value) -> Result<Value> {
     let v: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
     if v.get("noonix").is_some() {
         let m = parse(&text)?;
-        return Ok(describe_extension(m, source));
+        return describe_extension(m, source).await;
     }
     if source == "file" {
         bail!("This isn't a Noonix TV extension");
@@ -193,7 +202,7 @@ pub async fn preview(args: &Value) -> Result<Value> {
         "keys": [], "torrents": false, "patterns": Patterns::default(),
         "installed": store::with({ let u = a.manifest_url.clone(); move |c| Ok(c.query_row("select 1 from addons where manifest_url = ?1", params![u], |_| Ok(())).optional()?.is_some()) }).await?,
     });
-    PENDING.lock().unwrap().insert(t, Pending::Addon { url: a.manifest_url });
+    remember(t, Pending::Addon { url: a.manifest_url });
     Ok(out)
 }
 
@@ -218,10 +227,14 @@ fn hosts(m: &Manifest) -> Vec<String> {
     out
 }
 
-fn describe_extension(m: Manifest, source: String) -> Value {
+async fn describe_extension(m: Manifest, source: String) -> Result<Value> {
     let t = token();
     let hosts = hosts(&m);
-    let installed = store::DB.lock().ok().and_then(|c| c.query_row("select version from extensions where id = ?1", params![m.id], |r| r.get::<_, String>(0)).optional().ok().flatten());
+    let installed = store::with({
+        let id = m.id.clone();
+        move |c| Ok(c.query_row("select version from extensions where id = ?1", params![id], |r| r.get::<_, String>(0)).optional()?)
+    })
+    .await?;
     let out = json!({
         "token": t, "kind": "extension", "id": m.id, "name": m.name, "version": m.version,
         "description": m.description, "author": m.author,
@@ -230,8 +243,8 @@ fn describe_extension(m: Manifest, source: String) -> Value {
         "installed": installed.is_some(), "installedVersion": installed,
         "source": if source == "file" { "file".to_owned() } else { config::preview(&source) },
     });
-    PENDING.lock().unwrap().insert(t, Pending::Extension { m, source });
-    out
+    remember(t, Pending::Extension { m, source });
+    Ok(out)
 }
 
 /// the user said yes on the sheet

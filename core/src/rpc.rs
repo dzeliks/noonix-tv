@@ -400,7 +400,7 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
                 let list: Vec<String> = serde_json::from_value(args.get(k).cloned().unwrap_or(json!([])))?;
                 let list: Vec<String> = list.into_iter().map(|p| p.trim().to_owned()).filter(|p| !p.is_empty()).take(50).collect();
                 if let Some(bad) = list.iter().find(|p| ranking::pattern(p).is_none()) {
-                    bail!("this pattern doesn't work: {bad}");
+                    bail!("This pattern doesn't work: {bad}");
                 }
                 Ok(list)
             };
