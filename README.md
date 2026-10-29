@@ -25,7 +25,7 @@
   </tr>
   <tr>
     <td><img src="docs/screenshots/library.jpg" alt="The videos on this computer"></td>
-    <td><img src="docs/screenshots/settings.jpg" alt="Your library and sources"></td>
+    <td><img src="docs/screenshots/details.jpg" alt="A title's page"></td>
   </tr>
 </table>
 
@@ -61,6 +61,13 @@
   glyphs, mouse and keyboard. Every button can be remapped.
 - **For the whole household**: multiple profiles, each with its own Trakt account and
   history, in English and Serbian.
+
+## Extensions
+
+An extension is one small `.noonix` file that sets up Stremio addons, torrents and release
+patterns in one step, to share a setup or move it to another device. The
+[extension guide](docs/extensions.md) has the format, a worked example, how to make any addon rank
+well, and how to write your own.
 
 ## Download
 
@@ -117,8 +124,9 @@ Free software under the [GNU GPL v3.0 or later](LICENSE). Builds link GPL builds
 FFmpeg. Every bundled library is listed with its license in the app's `THIRD-PARTY.txt`.
 
 The screenshots show the Blender open movies Sintel, Tears of Steel, Elephants Dream, Big Buck
-Bunny and Caminandes, © Blender Foundation | [blender.org](https://www.blender.org), under
-[CC BY](https://creativecommons.org/licenses/by/3.0/).
+Bunny, Caminandes, Cosmos Laundromat, Sprite Fright, Charge and Wing It!, © Blender Foundation |
+[blender.org](https://www.blender.org), under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/)
+or [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 <img src="qml/assets/credits/tmdb.svg" height="18" alt="TMDB">
 
