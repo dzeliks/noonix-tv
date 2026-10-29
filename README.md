@@ -21,6 +21,10 @@
 <table>
   <tr>
     <td><img src="docs/screenshots/player.jpg" alt="The player"></td>
+    <td><img src="docs/screenshots/match.jpg" alt="Fixing a source or subtitles while watching"></td>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/library.jpg" alt="The videos on this computer"></td>
     <td><img src="docs/screenshots/settings.jpg" alt="Your library and sources"></td>
   </tr>
 </table>
@@ -46,7 +50,7 @@
 - **A setup for everyone**: a guided first run that works with just the remote and sensible
   defaults for beginners, with every folder, language and addon open to fine-tuning for advanced
   users.
-- **A real player**: mpv with HDR10 and HLG, refresh rate matching per video, intro and credits
+- **A real player**: mpv with HDR support, refresh rate matching per video, intro and credits
   skipping, and a next-episode prompt at the end.
 - **Fixes in one step**: report a source as out of sync, wrong subtitles or a picture problem and
   Noonix TV finds a better one, resuming at the same spot. The choice carries over to the next
@@ -63,8 +67,7 @@
 Get the latest build from [Releases](https://github.com/dzeliks/noonix-tv/releases/latest).
 
 **Linux**: `Noonix-TV-<version>-x86_64.AppImage` runs on Ubuntu 22.04, Debian 12, Fedora 36 and
-newer; `-aarch64.AppImage` (ARM) on Ubuntu 24.04, Debian 13, Fedora 40 and newer. Both are
-self-contained.
+newer. It is self-contained.
 
 ```sh
 chmod +x Noonix-TV-*.AppImage
@@ -76,8 +79,8 @@ installs per user without admin rights and is self-contained.
 
 Both update themselves from Settings › About.
 
-**macOS** (preview): `noonix-tv-<version>-macos-arm64.zip` for Apple Silicon,
-`-macos-x86_64.zip` for Intel; macOS 26 or newer. Not notarised yet, so the first launch says
+**macOS** (preview): `noonix-tv-<version>-macos-universal.zip`, one app for Apple silicon and
+Intel, on macOS 26 or newer. Not notarised yet, so the first launch says
 Apple could not verify it: click Done, then System Settings › Privacy & Security › Open Anyway.
 Or once in Terminal: `xattr -dr com.apple.quarantine "/Applications/Noonix TV.app"`.
 
