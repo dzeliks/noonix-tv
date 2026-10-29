@@ -26,6 +26,8 @@ cmake --build "$work/cmake"
 DESTDIR="$appdir" cmake --install "$work/cmake"
 strip --strip-unneeded "$appdir/usr/bin/noonix-tv" "$appdir/usr/bin/noonix-tv-cli"
 
+# AppRun --version reads it
+mkdir -p "$appdir/usr/share/noonix-tv"
 printf '%s\n' "$version" > "$appdir/usr/share/noonix-tv/version"
 
 echo "== qt + libraries"
