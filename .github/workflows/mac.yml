@@ -7,7 +7,7 @@ name: mac
 on:
   workflow_dispatch:
   push:
-    branches: [ci-windows]
+    branches: [main]
     paths: ['mac/**', 'core/**', '.github/workflows/mac.yml']
   workflow_call:
     inputs:
