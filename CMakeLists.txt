@@ -116,11 +116,9 @@ if(NOONIX_DEFAULT_MUTE)
 endif()
 
 if(WIN32)
-    # one folder: the exe, its dlls (tools/windows/deploy.py), services/ next to it
+    # one folder: the exe and its dlls (tools/windows/deploy.py)
     install(TARGETS noonix-tv RUNTIME DESTINATION .)
     install(PROGRAMS $<TARGET_FILE:noonix-tv-cli> DESTINATION .)
-    install(FILES services/loopback.mjs services/versions.env DESTINATION services)
-    install(FILES services/windows/fcntl.py DESTINATION services/compat)
     install(FILES LICENSE fonts/Inter-OFL.txt DESTINATION .)
     return()
 endif()
