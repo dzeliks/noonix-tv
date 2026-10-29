@@ -46,7 +46,7 @@ struct LibraryPage: View {
             GlassEffectContainer(spacing: 24 * u) {
                 HStack(spacing: 24 * u) {
                     ForEach(Array(GridModel.librarySections.enumerated()), id: \.offset) { i, s in
-                        GlassButton(text: s == "history" ? L("History") : s == "files" ? L("On This PC") : L("Watchlist"), primary: m.section == s,
+                        GlassButton(text: s == "history" ? L("History") : s == "files" ? L("On This Mac") : L("Watchlist"), primary: m.section == s,
                                     focused: active && m.head && m.headIndex == i, u: u)
                             .onContinuousHover { phase in
                                 if case .active = phase, Input.pointerLive { app.navFocused = false; m.head = true; m.headIndex = i }

@@ -95,7 +95,7 @@ final class SourcesFlow {
         }
         for a in addons where (a["extension"] as? String ?? "").isEmpty {
             let id = (a["id"] as? NSNumber)?.intValue ?? 0
-            out.append(Line(label: a["name"] as? String ?? "",
+            out.append(Line(label: UILang.addonName(a["name"] as? String ?? ""),
                             detail: (a["address"] as? String ?? "") + (a["formatting"] as? String == "unsupported" ? "  ·  " + L("Unsupported formatting") : "")
                                 + (a["lastError"] as? String != nil ? "  ·  " + L("Didn't answer last time") : ""),
                             value: a["enabled"] as? Bool == true ? "›" : L("Off"), act: "addon:\(id)"))
@@ -437,7 +437,7 @@ struct ExtensionSheetView: View {
                 if model.mode == "preview" {
                     Text(model.isAddon ? L("Add this addon?") : L("Add this extension?")).font(Theme.text(26 * u, .medium)).foregroundStyle(Theme.fg3)
                 }
-                Text(model.info["name"] as? String ?? "").font(Theme.display(60 * u, .bold)).foregroundStyle(Theme.fg).lineLimit(1)
+                Text(UILang.addonName(model.info["name"] as? String ?? "")).font(Theme.display(60 * u, .bold)).foregroundStyle(Theme.fg).lineLimit(1)
                 VStack(alignment: .leading, spacing: 14 * u) {
                     ForEach(Array(lines.enumerated()), id: \.offset) { i, l in
                         Text(l).font(Theme.text(29 * u))

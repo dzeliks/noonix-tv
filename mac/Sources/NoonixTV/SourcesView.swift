@@ -328,7 +328,7 @@ private struct AddonChip: View {
 
     var body: some View {
         HStack(spacing: 10 * u) {
-            Text(addon.name + (addon.state == "loading" ? "" : "  " + (addon.state == "error" ? L("no answer") : String(addon.count))))
+            Text(UILang.addonName(addon.name) + (addon.state == "loading" ? "" : "  " + (addon.state == "error" ? L("no answer") : String(addon.count))))
                 .font(Theme.text(20 * u, .medium))
                 .foregroundStyle(focused ? Theme.focusFg : on ? Theme.fg : Theme.fg2)
             if addon.state == "loading" { Spinner(size: 20 * u, color: focused ? Theme.focusFg : Theme.fg2) }

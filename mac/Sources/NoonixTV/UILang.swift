@@ -44,8 +44,17 @@ final class UILang: @unchecked Sendable {
     }
 
     func core(_ s: String) -> String {
+        let s = Self.device[s] ?? s
         guard code == "sr" else { return s }
         return srCore[s] ?? sr[s] ?? s
+    }
+
+    /// the core names this computer a pc: here it's a mac
+    static let device = ["On This PC": "On This Mac", "This PC": "This Mac"]
+
+    /// an addon on this computer (the core adds "(this PC)" to its name)
+    static func addonName(_ s: String) -> String {
+        s.hasSuffix(" (this PC)") ? String(s.dropLast(10)) + " (" + L("this Mac") + ")" : s
     }
 
     func plural(_ s: String, _ n: Int) -> String {
@@ -73,6 +82,8 @@ final class UILang: @unchecked Sendable {
         "How fast this internet connection and this Mac are. The next step picks a picture quality from it.":
             "Koliko su brzi internet i ovaj Mac. Prema tome sledeći korak bira kvalitet slike.",
         "This Mac": "Ovaj Mac",
+        "this Mac": "ovaj Mac",
+        "On This Mac": "Na ovom Mac-u",
         "Last time: %1 Mbit/s down, this Mac scored %2": "Prošli put: %1 Mbit/s, Mac je dobio ocenu %2",
         "May be too much for this Mac": "Možda je previše za ovaj Mac",
         "Starts Noonix TV when you sign in to this Mac": "Pokreće Noonix TV kad se prijaviš na Mac",

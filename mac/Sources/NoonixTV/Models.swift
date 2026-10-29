@@ -203,7 +203,7 @@ struct Source: Decodable, Identifiable {
             return (b >= 10_000_000_000 ? String(format: "%.0f", g) : String(format: "%.1f", g)) + " GB"
         }
         let audio = audio.prefix(2).joined(separator: " ")
-        return [codec, audio.isEmpty ? nil : audio, channels, gb, group, local == true ? Lc("This PC") : addon].compactMap { $0 }.joined(separator: "  ·  ")
+        return [codec, audio.isEmpty ? nil : audio, channels, gb, group, local == true ? Lc("This PC") : UILang.addonName(addon)].compactMap { $0 }.joined(separator: "  ·  ")
     }
 
     var label: String {
