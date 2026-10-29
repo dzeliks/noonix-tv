@@ -19,7 +19,7 @@ docker build -q -t "$image" "$root/tools/appimage" > /dev/null
 # as you, not root: the work dir stays yours
 run() {
     docker run --rm --user "$(id -u):$(id -g)" -e HOME=/build/home -w /build -v "$root:/src:ro" -v "$work:/build" \
-        -e NOONIX_TMDB_API_KEY -e NOONIX_TMDB_READ_TOKEN -e NOONIX_TRAKT_CLIENT_ID -e NOONIX_TRAKT_CLIENT_SECRET \
+        -e NOONIX_TMDB_API_KEY -e NOONIX_TMDB_READ_TOKEN -e NOONIX_TRAKT_CLIENT_ID -e NOONIX_TRAKT_CLIENT_SECRET -e NOONIX_UPDATE_REPO -e NOONIX_RELEASE \
         "$image" bash -euo pipefail -c "$1"
 }
 mkdir -p "$work/home"
