@@ -1,12 +1,16 @@
 import SwiftUI
 
-/// picking a library folder with a remote or a controller (qml FolderPicker): the places to start
-/// from (home, its video folder, the drives), then folder by folder. ok opens a folder, back goes up
+/// picking a library folder, or a noonix file (files), with a remote or a controller (qml FolderPicker):
+/// the places to start from (home, its video or downloads folder, the drives), then folder by folder.
+/// ok opens a folder or picks the file, back goes up
 @MainActor @Observable
 final class FolderPickerModel {
     typealias Line = SettingsModel.Line
-    /// library.browse: path, name, label, parent, folders, videos
+    /// library.browse: path, name, label, parent, folders, videos, files
     var view: [String: Any] = [:]
+    /// file extensions to list and pick, none = a folder
+    var files: [String] = []
+    var caption = L("Add a folder")
     var index = 0
     var busy = false
     @ObservationIgnored var picked: (String) -> Void = { _ in }
@@ -19,6 +23,7 @@ final class FolderPickerModel {
         switch f["place"] as? String {
         case "home": return L("Home folder")
         case "videos": return f["name"] as? String == "Movies" ? L("Movies folder") : L("Videos folder")
+        case "downloads": return L("Downloads folder")
         default: return f["name"] as? String ?? ""
         }
     }
@@ -26,11 +31,17 @@ final class FolderPickerModel {
     var lines: [Line] {
         var out: [Line] = []
         if !path.isEmpty {
-            let n = (view["videos"] as? NSNumber)?.intValue ?? 0
-            out.append(Line(label: L("Use this folder"), detail: n > 0 ? Ln("%n video(s) right here, and what's in the folders inside", n) : L("With what's in the folders inside"),
-                            value: L("Add"), act: "use"))
+            if files.isEmpty {
+                let n = (view["videos"] as? NSNumber)?.intValue ?? 0
+                out.append(Line(label: L("Use this folder"), detail: n > 0 ? Ln("%n video(s) right here, and what's in the folders inside", n) : L("With what's in the folders inside"),
+                                value: L("Add"), act: "use"))
+            }
             let parent = view["parent"] as? String ?? ""
-            out.append(Line(label: L("Up a folder"), detail: parent.isEmpty ? L("Back to where your videos may be") : parent, value: "‹", act: "up"))
+            out.append(Line(label: L("Up a folder"), detail: !parent.isEmpty ? parent : files.isEmpty ? L("Back to where your videos may be") : L("Back to where it may be"),
+                            value: "‹", act: "up"))
+        }
+        for f in view["files"] as? [[String: Any]] ?? [] {
+            out.append(Line(label: f["name"] as? String ?? "", value: L("Open"), act: "file:" + (f["path"] as? String ?? "")))
         }
         for f in folders {
             let place = f["place"] as? String ?? ""
@@ -44,7 +55,7 @@ final class FolderPickerModel {
     func go(_ path: String, app: AppModel) {
         busy = true
         Task {
-            let d = try? await Core.shared.raw("library.browse", ["path": path])
+            let d = try? await Core.shared.raw("library.browse", ["path": path, "files": files])
             busy = false
             guard let d, let v = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any], v["error"] == nil else {
                 app.toast(L("Couldn't open that folder"))
@@ -60,6 +71,9 @@ final class FolderPickerModel {
         if l.act == "use" {
             app.folderPicker = nil
             picked(path)
+        } else if l.act.hasPrefix("file:") {
+            app.folderPicker = nil
+            picked(String(l.act.dropFirst(5)))
         } else if l.act == "up" {
             up(app: app)
         } else if l.act.hasPrefix("open:") {
@@ -97,9 +111,9 @@ struct FolderPickerView: View {
                 .ignoresSafeArea()
                 .onTapGesture { app.folderPicker = nil }
             VStack(alignment: .leading, spacing: 30 * u) {
-                Text(L("Add a folder")).font(Theme.text(26 * u, .medium)).foregroundStyle(Theme.fg3)
+                Text(model.caption).font(Theme.text(26 * u, .medium)).foregroundStyle(Theme.fg3)
                 VStack(alignment: .leading, spacing: 6 * u) {
-                    Text(model.path.isEmpty ? L("Where are your videos?") : model.view["name"] as? String ?? "")
+                    Text(!model.path.isEmpty ? model.view["name"] as? String ?? "" : model.files.isEmpty ? L("Where are your videos?") : L("Where is it?"))
                         .font(Theme.display(60 * u, .bold)).foregroundStyle(Theme.fg).lineLimit(1)
                     if !model.path.isEmpty {
                         Text(model.view["label"] as? String ?? "").font(Theme.text(28 * u)).foregroundStyle(Theme.fg2)
@@ -117,7 +131,7 @@ struct FolderPickerView: View {
                                     .id(i)
                             }
                             if lines.isEmpty && !model.busy {
-                                Text(L("No folders here")).font(Theme.text(28 * u)).foregroundStyle(Theme.fg3)
+                                Text(model.files.isEmpty ? L("No folders here") : L("No folders or files here")).font(Theme.text(28 * u)).foregroundStyle(Theme.fg3)
                                     .frame(maxWidth: .infinity, minHeight: 120 * u)
                             }
                         }
@@ -130,7 +144,7 @@ struct FolderPickerView: View {
                 }
                 .padding(16 * u)
                 .panelGlass(40 * u, u: u)
-                Text(L("OK opens a folder, Back goes up")).font(Theme.text(24 * u)).foregroundStyle(Theme.fg3)
+                Text(model.files.isEmpty ? L("OK opens a folder, Back goes up") : L("OK opens a folder or the file, Back goes up")).font(Theme.text(24 * u)).foregroundStyle(Theme.fg3)
             }
             .frame(width: 1240 * u, alignment: .leading)
             .scaleEffect(shown ? 1 : 0.96)

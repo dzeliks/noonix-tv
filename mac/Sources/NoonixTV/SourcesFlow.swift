@@ -1,6 +1,5 @@
 import AppKit
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// the library and the user's own sources (qml SourcesFlow), for setup's "your videos" step and
 /// settings › sources and accounts: the lines, what ok on them does, and the sheets and pickers
@@ -17,9 +16,6 @@ final class SourcesFlow {
     /// the folder whose remove waits for the second press
     var removing = ""
     @ObservationIgnored private var removeReset: Task<Void, Never>?
-    /// the system's folder / file picker while it's up (back cancels it)
-    @ObservationIgnored var panel: NSOpenPanel?
-    var picking = false
     /// after an install: the key to ask for once torrents are answered
     @ObservationIgnored private var keyAfter: String?
     /// the page reloads its own data (setup / settings)
@@ -248,37 +244,20 @@ final class SourcesFlow {
         p.go("", app: app)
     }
 
-    // ---- the system's file picker for an extension file
+    // ---- an extension file: the same picker, listing the files (the system's panel wants a mouse)
     private func pickFile(app: AppModel) {
-        let p = NSOpenPanel()
-        p.canChooseDirectories = false
-        p.canChooseFiles = true
-        p.allowsMultipleSelection = false
-        p.message = L("A Noonix TV extension")
-        p.allowedContentTypes = [UTType(filenameExtension: "noonix"), .json].compactMap { $0 }
-        p.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
-        open(p) { [weak self] url in
-            guard let self else { return }
-            let (d, err) = await answer("extensions.preview", ["path": url.path])
-            if let d = d as? [String: Any] { sheet(d, "preview", app: app) } else { app.toast(err ?? L("Couldn't read that file")) }
-        }
-    }
-
-    private func open(_ p: NSOpenPanel, _ then: @escaping (URL) async -> Void) {
-        panel = p
-        picking = true
-        p.begin { [weak self] resp in
-            Task { @MainActor in
-                self?.panel = nil
-                self?.picking = false
-                if resp == .OK, let url = p.url { await then(url) }
+        let p = FolderPickerModel()
+        p.files = ["noonix", "json"]
+        p.caption = L("Open an extension file")
+        p.picked = { [weak self, weak app] path in
+            guard let self, let app else { return }
+            Task {
+                let (d, err) = await self.answer("extensions.preview", ["path": path])
+                if let d = d as? [String: Any] { self.sheet(d, "preview", app: app) } else { app.toast(err ?? L("Couldn't read that file")) }
             }
         }
-    }
-
-    /// back while the picker is up
-    func cancelPick() {
-        panel?.cancel(nil)
+        app.folderPicker = p
+        p.go("", app: app)
     }
 }
 
@@ -483,23 +462,5 @@ struct ExtensionSheetView: View {
             .scaleEffect(shown ? 1 : 0.96)
         }
         .onAppear { withAnimation(.timingCurve(0.33, 1, 0.68, 1, duration: 0.22)) { shown = true } }
-    }
-}
-
-/// while the system's picker is up: say where to look, back cancels it
-struct PickingView: View {
-    @Environment(AppModel.self) private var app
-
-    var body: some View {
-        let u = app.u
-        ZStack(alignment: .top) {
-            Rectangle().fill(.ultraThinMaterial).overlay { Color.black.opacity(0.6) }.ignoresSafeArea()
-            VStack(spacing: 20 * u) {
-                Text(L("Pick it in the window that opened")).font(Theme.display(48 * u, .bold)).foregroundStyle(Theme.fg)
-                Text(L("Back cancels it")).font(Theme.text(28 * u)).foregroundStyle(Theme.fg3)
-            }
-            .multilineTextAlignment(.center)
-            .padding(.top, 150 * u)
-        }
     }
 }

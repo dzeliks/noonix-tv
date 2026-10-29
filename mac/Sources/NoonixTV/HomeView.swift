@@ -42,6 +42,14 @@ struct RailsPage: View {
                     .geometryGroup()
                     .offset(y: y)
             }
+            // the rows before the page has them: placeholders where they'll be
+            if !rails.known {
+                ForEach(Array(Rails.placeholders.enumerated()), id: \.offset) { i, row in
+                    MediaRowView(model: row, active: false, u: u, width: size.width, point: { _ in }, activate: { _ in })
+                        .offset(y: rowsTop + Rails.placeholders.prefix(i).map { MediaRowView.height($0.row.style, u: u) + gap }.reduce(0, +))
+                        .allowsHitTesting(false)
+                }
+            }
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
         .clipped()

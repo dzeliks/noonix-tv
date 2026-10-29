@@ -67,6 +67,14 @@ FocusScope {
         font { family: Theme.display; pixelSize: 31 * row.u; weight: Font.DemiBold }
         Behavior on color { ColorAnimation { duration: 180 } }
     }
+    // a placeholder row (no title yet) has a placeholder title
+    Rectangle {
+        visible: row.title === ""
+        x: Theme.margin
+        anchors.verticalCenter: header.verticalCenter
+        width: 260 * row.u; height: 24 * row.u; radius: height / 2
+        color: Theme.skeleton
+    }
     // the options are one key away: say so on the focused row
     KeyHint {
         anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: header.verticalCenter }
@@ -138,17 +146,8 @@ FocusScope {
         Behavior on opacity { NumberAnimation { duration: 140 } }
         Repeater {
             model: Math.ceil((row.width - Theme.margin) / (row.cardW + list.spacing))
-            Column {
-                spacing: 16 * row.u
-                Rectangle {
-                    width: row.cardW
-                    height: row.style === "poster" ? row.cardW * 1.5 : row.cardW * 9 / 16
-                    radius: 18 * row.u
-                    color: Theme.skeleton
-                }
-                Rectangle { visible: row.style !== "poster"; width: row.cardW * 0.6; height: 20 * row.u; radius: height / 2; color: Theme.skeleton }
-                Rectangle { visible: row.style !== "poster"; width: row.cardW * 0.4; height: 16 * row.u; radius: height / 2; color: Theme.skeleton }
-            }
+            // required: the delegate's context would otherwise shadow the ids here (row)
+            Skeleton { required property int index; style: row.style; cardW: row.cardW }
         }
     }
 

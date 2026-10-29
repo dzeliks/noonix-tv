@@ -8,6 +8,7 @@ FocusScope {
     property var results: []
     property var popular: []
     property var trending: []
+    property bool popularKnown: false
     property bool busy: false
     property string zone: "keys"             // keys | suggestions | grid
     property int suggestion: 0
@@ -41,6 +42,7 @@ FocusScope {
                     if (i < a.length) mix.push(a[i])
                 }
                 search.popular = mix
+                search.popularKnown = true
             })
         })
         Api.call("home.row", { id: "trending-tv" }, function (ok, d) { if (ok) search.trending = d })
@@ -114,6 +116,21 @@ FocusScope {
         Keys.onReturnPressed: if (search.shown.length) search.open(search.shown[currentIndex])
     }
 
+    // popular or the results on their way: placeholder posters where they'll be
+    Grid {
+        x: grid.x + search.gridGap / 2
+        y: grid.y + 10 * search.u
+        columns: grid.cols
+        columnSpacing: search.gridGap
+        rowSpacing: search.gridGap
+        visible: opacity > 0
+        opacity: search.shown.length === 0 && (search.typing ? search.busy : !search.popularKnown) ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 140 } }
+        Repeater {
+            model: grid.cols * 2
+            Skeleton { cardW: search.posterW }
+        }
+    }
     // nothing found: say so where the results would be
     Column {
         visible: search.typing && !search.busy && search.results.length === 0

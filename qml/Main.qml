@@ -297,7 +297,7 @@ Window {
             profile: win.profile
             visible: !win.detailStack.length
             // the page behind changes, focus stays in the bar until down
-            onChosen: function (p) { win.page = p; nav.forceActiveFocus() }
+            onChosen: function (p) { Desktop.mark("page " + p); win.page = p; nav.forceActiveFocus() }
             onProfileRequested: profilePicker.open()
             onEntered: win.focusPage()
             Keys.onDownPressed: win.focusPage()

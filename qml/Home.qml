@@ -7,6 +7,7 @@ FocusScope {
     property int profileId: 0
     property int generation: 0
     property var specs: []
+    property bool known: false        // home.rows answered
     property var cache: ({})          // row id -> items, survives delegate reuse
     property int version: 0           // bumped when cache changes
     property var menuItem: null
@@ -17,7 +18,7 @@ FocusScope {
     signal upFromTop()
 
     function load() {
-        Api.call("home.rows", { page: page }, function (ok, d) { if (ok) { home.specs = d; home.updateShown() } })
+        Api.call("home.rows", { page: page }, function (ok, d) { home.known = true; if (ok) { home.specs = d; home.updateShown() } })
     }
     // personal rows step aside while they're empty (a new profile starts on the catalog rows)
     readonly property var personal: ["upnext", "continue", "continue-movie", "recent", "library", "library-movie", "library-show"]
@@ -188,6 +189,16 @@ FocusScope {
             }
             onActivated: function (item) { home.open(item) }
             onMenu: function (item, index, at) { home.menu(item, modelData.id, at) }
+        }
+    }
+    // the rows before the page has them: placeholders where they'll be
+    Column {
+        anchors { left: rows.left; right: rows.right; top: rows.top }
+        spacing: rows.spacing
+        visible: !home.known
+        Repeater {
+            model: ["landscape", "poster"]
+            MediaRow { required property string modelData; width: parent.width; style: modelData; loading: true }
         }
     }
 }

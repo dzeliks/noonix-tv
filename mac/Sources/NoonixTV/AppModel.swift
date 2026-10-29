@@ -61,11 +61,15 @@ final class RowModel: Identifiable {
 final class Rails {
     let page: Page
     var rows: [RowModel] = []
+    /// home.rows answered (placeholder rows until then)
+    var known = false
     var current = 0
     @ObservationIgnored private var focusedId: String?
     private static let personal: Set = ["upnext", "continue", "continue-movie", "recent", "library", "library-movie", "library-show"]
 
     init(_ page: Page) { self.page = page }
+    static let placeholders = [RowModel(Row(id: "placeholder-0", title: "", style: "landscape")),
+                               RowModel(Row(id: "placeholder-1", title: "", style: "poster"))]
 
     /// personal rows step aside while they're empty
     var shown: [RowModel] { rows.filter { !Rails.personal.contains($0.id) || !$0.loaded || !$0.items.isEmpty } }
@@ -75,6 +79,7 @@ final class Rails {
         guard rows.isEmpty else { return }
         let specs = (try? await Core.shared.call("home.rows", ["page": page.rawValue], as: [Row].self)) ?? []
         rows = specs.map(RowModel.init)
+        known = true
         focusedId = rows.first?.id
         for r in rows { Task { await r.load(); self.keepFocus() } }
     }
@@ -125,6 +130,8 @@ final class AppModel {
     var extSheet: ExtensionSheetModel?
     /// picking a library folder with the remote (FolderPicker)
     var folderPicker: FolderPickerModel?
+    /// a profile going to or coming from a .noonix file
+    var profileSheet: ProfileSheetModel?
     /// the library and the user's own sources, shared by setup and settings
     let flow = SourcesFlow()
     /// the launch splash until it has played (off with NOONIX_SPLASH=0)
@@ -243,6 +250,7 @@ final class AppModel {
         if setup != nil || picker != nil { splash?.play() }
         await rails[.home]?.load()
         splash?.play()
+        warm()
     }
 
     /// what the screen shows, for the source ranking: edr headroom means hdr, and gpu-next
@@ -293,6 +301,7 @@ final class AppModel {
                     await self.loadProfiles()
                     self.rails = [.home: Rails(.home), .movies: Rails(.movies), .shows: Rails(.shows)]
                     self.choose(self.page)
+                    self.warm()
                 } else {
                     await self.loadProfiles()
                     self.toast(L("Added %1", p.name))
@@ -421,6 +430,7 @@ final class AppModel {
         library.items = []
         choose(page)
         navFocused = true
+        warm()
     }
 
     func openTrakt(_ p: Profile) {
@@ -455,7 +465,67 @@ final class AppModel {
     }
 
     // ---- pages
+    // ---- profiles as files (another computer)
+    func exportProfile(_ id: Int) {
+        Task {
+            guard let d = try? await Core.shared.raw("profiles.exportSummary", ["id": id]),
+                  let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { toast(L("Couldn't read that profile")); return }
+            profileSheet = ProfileSheetModel(mode: "export", info: o, profile: id)
+        }
+    }
+
+    func importProfile() {
+        let p = FolderPickerModel()
+        p.files = ["noonix"]
+        p.caption = L("Import a profile")
+        p.picked = { [weak self] path in
+            guard let self else { return }
+            Task {
+                do {
+                    let d = try await Core.shared.raw("profiles.importPreview", ["path": path])
+                    guard let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { throw CancellationError() }
+                    let m = ProfileSheetModel(mode: "import", info: o)
+                    m.imported = { [weak self] in
+                        guard let self else { return }
+                        Task { await self.loadProfiles(); await self.settings.load(app: self) }
+                    }
+                    self.profileSheet = m
+                } catch let e as CoreError {
+                    self.toast(Lc(e.message))
+                } catch {
+                    self.toast(L("Couldn't read that file"))
+                }
+            }
+        }
+        folderPicker = p
+        p.go("", app: self)
+    }
+
+    /// pages built once (RootView keeps them): shown, or warmed while home sits idle
+    var built: Set<Page> = [.home]
+
+    /// the other pages load and build one by one after home, so a first visit has them (qml warmed)
+    func warm() {
+        warming?.cancel()
+        warming = Task {
+            for p in [Page.movies, .shows, .library, .search] {
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { return }
+                // not while a video plays or before a profile is picked
+                while playing || picker != nil || setup != nil { try? await Task.sleep(for: .seconds(2)); if Task.isCancelled { return } }
+                switch p {
+                case .movies, .shows: await rails[p]?.load()
+                case .library: await library.openLibrary()
+                default: await search.popular()
+                }
+                built.insert(p)
+            }
+        }
+    }
+    @ObservationIgnored private var warming: Task<Void, Never>?
+
     func choose(_ p: Page) {
+        built.insert(p)
         page = p
         navIndex = Page.allCases.firstIndex(of: p) ?? 1
         switch p {
@@ -541,14 +611,10 @@ final class AppModel {
         if let s = splash { s.skip(); return true }
         // the cards over everything first: a key, a profile, the trakt code
         if entry.isOpen { return entry.key(k) }
-        // the system's picker is up: back cancels it, the rest is its own
-        if flow.picking {
-            if k == .back { flow.cancelPick() }
-            return true
-        }
         if let h = help { h.key(k, app: self); return true }
         if let f = folderPicker { f.key(k, app: self); return true }
         if let e = extSheet { e.key(k, app: self); return true }
+        if let p = profileSheet { p.key(k, app: self); return true }
         if let p = profileEdit { return p.key(k) }
         if trakt != nil {
             if k == .back { closeTrakt(false) }
@@ -711,6 +777,8 @@ final class SearchModel {
     var zone = "keys"
     var suggestion = 0
     var trending: [Item] = []
+    /// popular answered (placeholder posters until then)
+    var popularKnown = false
     let grid = GridModel()
     let kb = KeyboardModel()
     @ObservationIgnored private var popularItems: [Item] = []
@@ -761,6 +829,7 @@ final class SearchModel {
                 if i < movies.count { mix.append(movies[i]) }
             }
             popularItems = mix
+            popularKnown = true
         }
         if trending.isEmpty { trending = (try? await Core.shared.call("home.row", ["id": "trending-tv"], as: [Item].self)) ?? [] }
         if !typing { grid.items = popularItems }

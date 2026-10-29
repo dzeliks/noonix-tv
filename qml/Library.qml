@@ -132,21 +132,40 @@ FocusScope {
             library.menu(library.items[currentIndex], "library", Qt.rect(p.x, p.y, w * 1.1, h * 1.1))
         }
     }
+    // loading with nothing to show yet: placeholder cards where the grid will be
+    Item {
+        id: placeholders
+        anchors.fill: grid
+        clip: true
+        visible: opacity > 0
+        opacity: library.busy && library.items.length === 0 ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 140 } }
+        readonly property int cols: Math.max(1, Math.floor(width / grid.cellWidth))
+        Repeater {
+            model: placeholders.cols * Math.ceil(placeholders.height / grid.cellHeight)
+            Skeleton {
+                required property int index
+                x: (index % placeholders.cols) * grid.cellWidth + 20 * library.u
+                y: Math.floor(index / placeholders.cols) * grid.cellHeight + 20 * library.u
+                style: library.history ? "landscape" : "poster"
+                cardW: (library.history ? 400 : 214) * library.u
+            }
+        }
+    }
     Column {
-        visible: library.items.length === 0
+        visible: library.items.length === 0 && !library.busy
         anchors { horizontalCenter: parent.horizontalCenter; top: grid.top; topMargin: 100 * library.u }
         spacing: 28 * library.u
-        Spinner { anchors.horizontalCenter: parent.horizontalCenter; visible: library.busy }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: library.busy ? qsTr("Loading Library…") : library.failed ? qsTr("Couldn't load Library")
+            text: library.failed ? qsTr("Couldn't load Library")
                 : library.history ? qsTr("Your watched movies and episodes will appear here")
                 : library.files ? qsTr("No videos from this PC yet") : qsTr("Save something for later")
             color: Theme.fg2
             font { family: Theme.display; pixelSize: 32 * library.u; weight: Font.Medium }
         }
         Text {
-            visible: !library.busy && !library.failed && !library.history
+            visible: !library.failed && !library.history
             anchors.horizontalCenter: parent.horizontalCenter
             text: library.files ? qsTr("Add the folders your movies and shows are in: Settings › Sources") : qsTr("Open a title's options and choose Add to Library")
             color: Theme.fg3

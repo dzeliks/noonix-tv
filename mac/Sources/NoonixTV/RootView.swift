@@ -21,20 +21,30 @@ struct RootView: View {
         .preferredColorScheme(.dark)
     }
 
+    @ViewBuilder private func page(_ p: Page) -> some View {
+        switch p {
+        case .home, .movies, .shows:
+            if let r = app.rails[p] { RailsPage(rails: r).id(ObjectIdentifier(r)) }
+        case .library: LibraryPage()
+        case .search: SearchPage()
+        case .settings: SettingsPage()
+        }
+    }
+
     @ViewBuilder private var content: some View {
         ZStack(alignment: .topLeading) {
             // the app itself; under setup it's a blurred window in the middle (qml Setup frame)
             ZStack(alignment: .topLeading) {
-                Group {
-                    switch app.page {
-                    case .home, .movies, .shows:
-                        if let r = app.rails[app.page] { RailsPage(rails: r).id(app.page) }
-                    case .library: LibraryPage()
-                    case .search: SearchPage()
-                    case .settings: SettingsPage()
+                // a page stays built once shown or warmed, a switch only shows another one
+                // (settings is made each time: it starts over on its first section)
+                ZStack(alignment: .topLeading) {
+                    ForEach(Page.allCases.filter { $0 == app.page || ($0 != .settings && app.built.contains($0)) }) { p in
+                        page(p)
+                            .opacity(p == app.page ? 1 : 0)
+                            .allowsHitTesting(p == app.page)
+                            .zIndex(p == app.page ? 1 : 0)
                     }
                 }
-                .transition(.opacity)
 
                 if app.detailStack.isEmpty {
                     TopNav().transition(.opacity)
@@ -94,11 +104,11 @@ struct RootView: View {
             if let f = app.folderPicker {
                 FolderPickerView(model: f).transition(.opacity).zIndex(8.8)
             }
+            if let p = app.profileSheet {
+                ProfileSheetView(model: p).transition(.opacity).zIndex(8.8)
+            }
             if let h = app.help {
                 SourcesHelpView(model: h).transition(.opacity).zIndex(9)
-            }
-            if app.flow.picking {
-                PickingView().transition(.opacity).zIndex(9.5)
             }
             // the key card slides up into place and drops away, the page dims behind it
             if app.entry.isOpen {
@@ -126,7 +136,7 @@ struct RootView: View {
         .animation(.easeOut(duration: 0.18), value: app.help == nil)
         .animation(.easeOut(duration: 0.18), value: app.extSheet == nil)
         .animation(.easeOut(duration: 0.18), value: app.folderPicker == nil)
-        .animation(.easeOut(duration: 0.18), value: app.flow.picking)
+        .animation(.easeOut(duration: 0.18), value: app.profileSheet == nil)
         .animation(.timingCurve(0.33, 1, 0.68, 1, duration: 0.18), value: app.exitChoice == nil)
     }
 }
@@ -262,6 +272,8 @@ struct Avatar: View {
     let size: CGFloat
     /// a picture from the avatars folder instead of the letter
     var image: String?
+    /// or one in memory (a profile file's)
+    var picture: NSImage?
 
     private var base: Color {
         switch colour {
@@ -279,7 +291,7 @@ struct Avatar: View {
                                  startPoint: .top, endPoint: .bottom))
             .frame(width: size, height: size)
             .overlay {
-                if let image, !image.isEmpty, let img = NSImage(contentsOfFile: image) {
+                if let img = picture ?? image.flatMap({ $0.isEmpty ? nil : NSImage(contentsOfFile: $0) }) {
                     Image(nsImage: img).resizable().scaledToFill().clipShape(.circle)
                 } else {
                     Text(letter).font(Theme.rounded(size * 0.45, .bold)).foregroundStyle(.white)

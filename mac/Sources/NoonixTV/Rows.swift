@@ -209,10 +209,15 @@ struct MediaRowView: View {
         let spacing = (style == "poster" ? 34 : 44) * u
         VStack(alignment: .leading, spacing: 40 * u) {
             HStack {
-                Text(Lc(model.row.title))
-                    .font(Theme.display(31 * u, .semibold))
-                    .foregroundStyle(active ? Theme.fg : Theme.fg2)
-                    .animation(.easeInOut(duration: 0.18), value: active)
+                // a placeholder row (no title yet) has a placeholder title
+                if model.row.title.isEmpty {
+                    Capsule().fill(Theme.skeleton).frame(width: 260 * u, height: 24 * u)
+                } else {
+                    Text(Lc(model.row.title))
+                        .font(Theme.display(31 * u, .semibold))
+                        .foregroundStyle(active ? Theme.fg : Theme.fg2)
+                        .animation(.easeInOut(duration: 0.18), value: active)
+                }
                 Spacer()
                 // the options are one key away: say so on the focused row
                 KeyHint(key: "MENU", label: L("Options"), u: u * 0.82, labelColor: Theme.fg3)
@@ -225,14 +230,7 @@ struct MediaRowView: View {
                 if !model.loaded {
                     HStack(alignment: .top, spacing: spacing) {
                         ForEach(0..<Int(((width - Theme.margin(u)) / (cardW + spacing)).rounded(.up)), id: \.self) { _ in
-                            VStack(alignment: .leading, spacing: 16 * u) {
-                                RoundedRectangle(cornerRadius: 18 * u).fill(Theme.skeleton)
-                                    .frame(width: cardW, height: style == "poster" ? cardW * 1.5 : cardW * 9 / 16)
-                                if style != "poster" {
-                                    Capsule().fill(Theme.skeleton).frame(width: cardW * 0.6, height: 20 * u)
-                                    Capsule().fill(Theme.skeleton).frame(width: cardW * 0.4, height: 16 * u)
-                                }
-                            }
+                            SkeletonCard(style: style, cardW: cardW, u: u)
                         }
                     }
                     .padding(.leading, Theme.margin(u))
@@ -252,5 +250,46 @@ struct MediaRowView: View {
             .animation(.easeOut(duration: 0.14), value: model.loaded)
         }
         .frame(width: width, alignment: .leading)
+    }
+}
+
+/// a card's placeholder while its row or grid loads (qml Skeleton)
+struct SkeletonCard: View {
+    let style: String
+    let cardW: CGFloat
+    let u: CGFloat
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16 * u) {
+            RoundedRectangle(cornerRadius: 18 * u).fill(Theme.skeleton)
+                .frame(width: cardW, height: style == "poster" ? cardW * 1.5 : cardW * 9 / 16)
+            if style != "poster" {
+                Capsule().fill(Theme.skeleton).frame(width: cardW * 0.6, height: 20 * u)
+                Capsule().fill(Theme.skeleton).frame(width: cardW * 0.4, height: 16 * u)
+            }
+        }
+    }
+}
+
+/// placeholder cards in a grid's cells (library, search) while it loads, laid out like PosterGrid
+struct SkeletonGrid: View {
+    let style: String
+    let cols: Int
+    let cellW: CGFloat
+    let cellH: CGFloat
+    let height: CGFloat
+    let cardW: CGFloat
+    let u: CGFloat
+
+    var body: some View {
+        let lines = max(1, Int((height / cellH).rounded(.up)))
+        ZStack(alignment: .topLeading) {
+            ForEach(0..<cols * lines, id: \.self) { i in
+                SkeletonCard(style: style, cardW: cardW, u: u)
+                    .offset(x: CGFloat(i % cols) * cellW + 20 * u, y: CGFloat(i / cols) * cellH + 20 * u)
+            }
+        }
+        .frame(width: CGFloat(cols) * cellW, height: height, alignment: .topLeading)
+        .clipped()
     }
 }

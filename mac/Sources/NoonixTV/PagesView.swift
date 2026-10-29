@@ -62,13 +62,18 @@ struct LibraryPage: View {
                     .offset(y: 260 * u + 25 * u)
             }
 
-            if m.items.isEmpty {
+            if m.items.isEmpty && m.loading {
+                // loading with nothing to show yet: placeholder cards where the grid will be
+                SkeletonGrid(style: history ? "landscape" : "poster", cols: cols, cellW: cellW, cellH: cellH,
+                             height: H - 380 * u - 40 * u, cardW: (history ? 400 : 214) * u, u: u)
+                    .offset(x: margin - 20 * u, y: 380 * u)
+                    .transition(.opacity)
+            } else if m.items.isEmpty {
                 VStack(spacing: 28 * u) {
-                    if m.loading { Spinner(size: 56 * u) }
-                    Text(m.loading ? L("Loading Library…") : history ? L("Your watched movies and episodes will appear here")
+                    Text(history ? L("Your watched movies and episodes will appear here")
                          : files ? L("No videos from this Mac yet") : L("Save something for later"))
                         .font(Theme.display(32 * u, .medium)).foregroundStyle(Theme.fg2)
-                    if !m.loading && !history {
+                    if !history {
                         Text(files ? L("Add the folders your movies and shows are in: Settings › Sources") : L("Open a title's options and choose Add to Library"))
                             .font(Theme.text(24 * u)).foregroundStyle(Theme.fg3)
                     }
@@ -213,6 +218,12 @@ struct SearchPage: View {
                        height: bottomY - (topY + titleH + 8 * u), active: active && s.zone == "grid", posterW: posterW)
                 // the grid's 20 of lift room, where qml's cells hold their cards 10 down and centred
                 .offset(x: margin - 20 * u, y: topY + titleH + 8 * u)
+            // popular or the results on their way: placeholder posters where they'll be
+            if s.grid.items.isEmpty && (s.typing ? s.busy : !s.popularKnown) {
+                SkeletonGrid(style: "poster", cols: 4, cellW: cellW, cellH: cellH, height: bottomY - (topY + titleH + 8 * u), cardW: posterW, u: u)
+                    .offset(x: margin - 20 * u, y: topY + titleH + 8 * u)
+                    .transition(.opacity)
+            }
             // nothing found: say so where the results would be
             if s.typing && !s.busy && s.grid.items.isEmpty {
                 VStack(spacing: 22 * u) {

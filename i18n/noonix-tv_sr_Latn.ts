@@ -389,10 +389,6 @@
             <translation>Nedavno gledano</translation>
         </message>
         <message>
-            <source>Loading Library…</source>
-            <translation>Učitavam biblioteku…</translation>
-        </message>
-        <message>
             <source>Couldn't load Library</source>
             <translation>Biblioteka nije učitana</translation>
         </message>
