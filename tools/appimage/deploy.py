@@ -31,9 +31,10 @@ PICKED = {
 }
 # kde's screencast items: a kwin grant to a fixed exe path, never from an appimage
 HOST_QML = ('org.kde.',)
-# glibc and the gpu driver stack always come from the host
+# glibc and the gpu driver stack always come from the host. so does brotli: the host's freetype
+# (excludelist) loads the host's libbrotlidec, which breaks next to an older bundled libbrotlicommon
 ALWAYS_HOST = re.compile(r'^(ld-linux.*|libc|libm|libdl|libpthread|librt|libresolv|libutil|'
-                         r'libGL|libGLX|libEGL|libGLdispatch|libOpenGL|libgbm|libdrm)\.so')
+                         r'libGL|libGLX|libEGL|libGLdispatch|libOpenGL|libgbm|libdrm|libbrotli[a-z]*)\.so')
 
 
 def is_elf(path):
