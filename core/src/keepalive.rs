@@ -32,7 +32,8 @@ pub fn status() -> Value {
 /// while the app is open: a run when the last one is older than 20 h, and a timer whose
 /// appimage moved gets the new path
 pub async fn in_app() {
-    if timer::installed() {
+    // a copy on its own db (a dev or test run) leaves the installed one's timer alone
+    if timer::installed() && std::env::var_os("NOONIX_DB").is_none() {
         if cli_command().is_ok_and(|c| !timer::command().contains(&c)) {
             match tokio::task::spawn_blocking(install).await {
                 Ok(Ok(_)) => tracing::info!("keepalive timer points at this copy now"),

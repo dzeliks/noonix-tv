@@ -92,6 +92,10 @@ pub fn set_login(on: bool) -> Result<Value> {
 
 /// at start: entries we wrote follow the appimage when it moved
 pub fn refresh() {
+    // not from a dev or test run on its own db
+    if std::env::var_os("NOONIX_DB").is_some() {
+        return;
+    }
     let Ok(want) = exec() else { return };
     for path in [menu_file(), login_file()] {
         if ours(&path) && fs::read_to_string(&path).is_ok_and(|t| !t.contains(&format!("Exec={want}\n"))) {
