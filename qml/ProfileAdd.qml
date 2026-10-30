@@ -70,6 +70,7 @@ FocusScope {
         height: col.height + 2 * 48 * pa.u
         radius: 56 * pa.u
         kind: "panel"
+        dim: 0.62
         backdrop: pa.backdrop
         frostTex: pa.frost
     }

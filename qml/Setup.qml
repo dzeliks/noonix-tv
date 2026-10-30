@@ -355,6 +355,8 @@ FocusScope {
     }
     Keys.onEscapePressed: back()
 
+    // what the glass refracts while setup is up (Main's backdrop): the zoomed, blurred app behind it
+    readonly property alias backdropItem: frame
     // the app as a blurred window in the middle (reveal 0) -> the whole screen, sharp (reveal 1)
     Rectangle { anchors.fill: parent; color: Theme.bg; opacity: 1 - frame.reveal }
     Item {
@@ -366,6 +368,8 @@ FocusScope {
             anchors.fill: parent
             sourceItem: browse
             live: setup.visible
+            // the app's own glass refracts this copy (Main's backdrop) while setup is up
+            recursive: true
             hideSource: false
             textureSize: Qt.size(width / 2, height / 2)
             visible: false

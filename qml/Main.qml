@@ -130,7 +130,9 @@ Window {
     }
     ShaderEffectSource {
         id: bdTex
-        sourceItem: win.videoUp ? vtone : scene
+        sourceItem: win.videoUp ? vtone : setupView.visible ? setupView.backdropItem : scene
+        // setup's backdrop is a copy of the app, whose own glass refracts this
+        recursive: setupView.visible
         hideSource: false
         live: win.backdropLive
         mipmap: true

@@ -264,7 +264,7 @@ struct ProfileEditView: View {
         }
         .frame(width: inner)
         .padding(48 * u)
-        .panelGlass(56 * u, u: u)
+        .panelGlass(56 * u, u: u, lift: -0.22)
         // in the middle of the app, over whatever asked for it
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
