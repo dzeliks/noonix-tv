@@ -135,12 +135,13 @@ FocusScope {
         model: settings.sections
         spacing: 8 * settings.u
         keyNavigationEnabled: true
-        // the page follows once the focus rests: running down the menu doesn't rebuild it per step
-        onCurrentIndexChanged: sectionLater.restart()
+        // the page follows once the focus rests: running down the menu doesn't rebuild it per step.
+        // under the mouse it waits for the click
+        onCurrentIndexChanged: if (!Input.pointing) sectionLater.restart()
         Timer { id: sectionLater; interval: 140; onTriggered: if (settings.section !== menu.currentIndex) swap.restart() }
         Keys.onUpPressed: function (e) { if (currentIndex === 0) settings.upFromTop(); else decrementCurrentIndex() }
         Keys.onRightPressed: page.forceActiveFocus()
-        Keys.onReturnPressed: page.forceActiveFocus()
+        Keys.onReturnPressed: if (settings.section !== currentIndex) swap.restart(); else page.forceActiveFocus()
         delegate: Toggle {
             required property var modelData
             required property int index

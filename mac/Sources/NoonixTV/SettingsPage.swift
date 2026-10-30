@@ -24,7 +24,7 @@ final class SettingsModel {
 
     /// the section the menu is on, and the one the page shows: the page follows once the menu
     /// rests, out and in (running down the menu doesn't rebuild it per step)
-    var section = 0 { didSet { if section != oldValue { langSnap = nil; swapLater() } } }
+    var section = 0 { didSet { if section != oldValue, !Input.pointing { swapLater() } } }   // under the mouse: on the click
     /// the languages' order as the section opened (the chosen ones first): a line doesn't jump away
     /// from the focus while it's ticked
     @ObservationIgnored private var langSnap: [String: [String]]?
@@ -103,7 +103,7 @@ final class SettingsModel {
 
     /// the page on the menu's section at once (going into it, a fresh visit)
     func showNow() {
-        if shown != section { shown = section; index = 0 }
+        if shown != section { shown = section; index = 0; langSnap = nil }
         pageOpacity = 1
     }
 
