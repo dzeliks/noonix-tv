@@ -1,6 +1,6 @@
 # Maintainer: dzeliks <127214601+dzeliks@users.noreply.github.com>
 pkgname=noonix-tv
-pkgver=0.2.1
+pkgver=0.2.2
 pkgrel=1
 pkgdesc='Movies and shows on the TV, made for a remote or a controller'
 arch=(x86_64 aarch64)

@@ -1,6 +1,6 @@
 pkgbase = noonix-tv
 	pkgdesc = Movies and shows on the TV, made for a remote or a controller
-	pkgver = 0.2.1
+	pkgver = 0.2.2
 	pkgrel = 1
 	url = https://github.com/dzeliks/noonix-tv
 	arch = x86_64
@@ -22,7 +22,7 @@ pkgbase = noonix-tv
 	depends = hicolor-icon-theme
 	optdepends = kwin: blurred desktop behind the app on plasma
 	options = !lto
-	source = git+https://github.com/dzeliks/noonix-tv.git#tag=v0.2.1
+	source = git+https://github.com/dzeliks/noonix-tv.git#tag=v0.2.2
 	sha256sums = SKIP
 
 pkgname = noonix-tv
