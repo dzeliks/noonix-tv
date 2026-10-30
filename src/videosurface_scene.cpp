@@ -9,8 +9,10 @@
 
 #include <cmath>
 
+#ifdef Q_OS_WIN
 #include <windows.h>
 #include <dxgi1_6.h>
+#endif
 
 Q_LOGGING_CATEGORY(lcVideo, "noonix-tv.video")
 
@@ -21,6 +23,7 @@ VideoSurface::VideoSurface(QObject *parent)
 
 VideoSurface::~VideoSurface() = default;
 
+#ifdef Q_OS_WIN
 namespace {
 
 // is windows hdr on for this screen's output (dxgi: the output's colour space is pq / bt.2020)
@@ -62,6 +65,7 @@ LRESULT CALLBACK videoWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 }
 
 } // namespace
+#endif
 
 bool VideoSurface::nativeWanted(QScreen *screen)
 {
@@ -70,9 +74,14 @@ bool VideoSurface::nativeWanted(QScreen *screen)
         return true;
     if (want == QLatin1String("scene"))
         return false;
+#ifdef Q_OS_WIN
     const bool on = hdrOn(screen);
     qCInfo(lcVideo) << "windows hdr on" << (screen ? screen->name() : QString()) << on;
     return on;
+#else
+    Q_UNUSED(screen)
+    return false;
+#endif
 }
 
 QJsonObject VideoSurface::displayCaps()
@@ -86,6 +95,7 @@ void VideoSurface::attach(QQuickWindow *window)
 {
     m_window = window;
     applyDescription();
+#ifdef Q_OS_WIN
     if (m_nativeMode) {
         static const wchar_t *cls = L"NoonixTvVideo";
         WNDCLASSW wc{};
@@ -108,20 +118,24 @@ void VideoSurface::attach(QQuickWindow *window)
         // nothing on the qt side has to come up first
         QMetaObject::invokeMethod(this, &VideoSurface::renderReady, Qt::QueuedConnection);
     }
+#endif
     m_active = true;
     emit activeChanged();
 }
 
 void VideoSurface::detach()
 {
+#ifdef Q_OS_WIN
     if (m_nativeWnd)
         DestroyWindow(static_cast<HWND>(m_nativeWnd));
+#endif
     m_nativeWnd = nullptr;
     m_window = nullptr;
 }
 
 void VideoSurface::showNative(bool on)
 {
+#ifdef Q_OS_WIN
     if (!m_nativeWnd)
         return;
     if (!on) {
@@ -130,10 +144,14 @@ void VideoSurface::showNative(bool on)
     }
     restackNative();
     ShowWindow(static_cast<HWND>(m_nativeWnd), SW_SHOWNOACTIVATE);
+#else
+    Q_UNUSED(on)
+#endif
 }
 
 void VideoSurface::restackNative()
 {
+#ifdef Q_OS_WIN
     if (!m_nativeWnd || !m_window)
         return;
     // the app's own rectangle (physical pixels), the video window just below it
@@ -141,6 +159,7 @@ void VideoSurface::restackNative()
     RECT r;
     GetWindowRect(top, &r);
     SetWindowPos(static_cast<HWND>(m_nativeWnd), top, r.left, r.top, r.right - r.left, r.bottom - r.top, SWP_NOACTIVATE);
+#endif
 }
 
 void VideoSurface::setView(QQuickItem *view)

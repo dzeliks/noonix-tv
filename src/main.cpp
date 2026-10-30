@@ -3,7 +3,7 @@
 #include "remote.h"
 #include "videoglass.h"
 #include "videosurface.h"
-#ifdef Q_OS_WIN
+#ifdef NOONIX_SCENE_VIDEO
 #include "videoview.h"
 #endif
 #include "noonix_core/src/bridge.cxxqt.h"
@@ -13,6 +13,7 @@
 #include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQmlFileSelector>
 #include <QtQml/qqml.h>
 #include <QQuickWindow>
 #include <QScreen>
@@ -25,12 +26,18 @@
 #include <atomic>
 #include <cstdio>
 #include <thread>
-#ifdef Q_OS_LINUX
+#ifdef Q_OS_ANDROID
+#include <QJniEnvironment>
+#elif defined(Q_OS_LINUX)
 #include <csignal>
 #include <ctime>
 #include <execinfo.h>
 #include <pthread.h>
 #include <unistd.h>
+#endif
+
+#ifdef Q_OS_ANDROID
+extern "C" int av_jni_set_java_vm(void *vm, void *log_ctx);   // libavcodec/jni.h
 #endif
 
 namespace {
@@ -47,7 +54,7 @@ QScreen *pickScreen()
 } // namespace
 
 // dev: NOONIX_STALL=1 prints the gui thread's stack when it stops answering for 15 ms
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
 namespace {
 pthread_t guiThread;
 std::atomic<qint64> guiBeat{0};
@@ -110,10 +117,14 @@ int main(int argc, char *argv[])
     app.setApplicationName(QStringLiteral("noonix-tv"));
     app.setApplicationDisplayName(QStringLiteral("Noonix TV"));
 
-#ifdef Q_OS_WIN
+#ifdef NOONIX_SCENE_VIDEO
     // mpv renders with opengl inside the scene (VideoView), so qt quick draws with it too. with
     // windows hdr on, mpv gets its own window under ours and ours turns see-through over it
     QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
+#ifdef Q_OS_ANDROID
+    // ffmpeg's mediacodec decoders find java through it
+    av_jni_set_java_vm(QJniEnvironment::javaVM(), nullptr);
+#endif
     const bool nativeVideo = VideoSurface::nativeWanted(pickScreen());
     if (nativeVideo) {
         QSurfaceFormat fmt = QSurfaceFormat::defaultFormat();
@@ -142,10 +153,14 @@ int main(int argc, char *argv[])
     Input input(&remote);
 
     qmlRegisterType<VideoGlass>("Noonix.Video", 1, 0, "VideoGlass");
-#ifdef Q_OS_WIN
+#ifdef NOONIX_SCENE_VIDEO
     qmlRegisterType<VideoView>("Noonix.Video", 1, 0, "VideoView");
 #endif
     QQmlApplicationEngine engine;
+#ifdef NOONIX_SCENE_VIDEO
+    // +scene/: the qml for video inside the scene
+    (new QQmlFileSelector(&engine, &engine))->setExtraSelectors({QStringLiteral("scene")});
+#endif
     desktop.setEngine(&engine);
     engine.rootContext()->setContextProperty(QStringLiteral("Player"), &player);
     engine.rootContext()->setContextProperty(QStringLiteral("Video"), &video);
@@ -209,7 +224,7 @@ int main(int argc, char *argv[])
         }
     });
 
-#ifdef Q_OS_LINUX
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
     if (qEnvironmentVariableIsSet("NOONIX_STALL"))
         watchStalls();
 #endif

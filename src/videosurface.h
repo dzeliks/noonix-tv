@@ -3,7 +3,7 @@
 // separate egl thread, with its own colour description (pq for hdr10, gamma 2.2 for sdr).
 // windows: VideoView draws it inside qt quick's opengl scene, in sdr (hdr is tone mapped). with
 // windows hdr on for the screen, mpv draws in its own d3d11 window right under the app instead
-// (native: real hdr10), and the app is see-through while video is up
+// (native: real hdr10), and the app is see-through while video is up. android: in the scene too
 #include <QImage>
 #include <QJsonObject>
 #include <QObject>
@@ -16,6 +16,11 @@
 #include <condition_variable>
 #include <mutex>
 #include <thread>
+
+// mpv drawn inside qt quick's opengl scene (VideoView) instead of a wayland subsurface
+#if defined(Q_OS_WIN) || defined(Q_OS_ANDROID)
+#define NOONIX_SCENE_VIDEO
+#endif
 
 class QQuickItem;
 class QQuickWindow;
@@ -65,7 +70,7 @@ public:
     // a small copy of the video for the glass, only while something glass sits over it
     void setGlass(bool on);
     void setFps(double fps);
-#ifdef Q_OS_WIN
+#ifdef NOONIX_SCENE_VIDEO
     // the item that draws the video (one at a time)
     void setView(QQuickItem *view);
 #endif
@@ -77,7 +82,7 @@ signals:
     void renderReady();   // loadfile before this plays without video
     void glassFrame(const QImage &frame);
 
-#ifndef Q_OS_WIN
+#ifndef NOONIX_SCENE_VIDEO
 protected:
     bool eventFilter(QObject *o, QEvent *e) override;
 #endif
@@ -96,7 +101,7 @@ private:
     std::atomic<int> m_grabEvery{1};
 
     bool m_nativeMode = false;
-#ifdef Q_OS_WIN
+#ifdef NOONIX_SCENE_VIDEO
     friend class VideoRenderer;
     QPointer<QQuickItem> m_view;
     void *m_nativeWnd = nullptr;   // HWND

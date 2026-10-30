@@ -15,7 +15,7 @@ pub struct Paths {
     pub state: PathBuf,
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
 fn xdg(var: &str, fallback: &str) -> PathBuf {
     match std::env::var_os(var) {
         Some(v) if !v.is_empty() => PathBuf::from(v),
@@ -28,7 +28,7 @@ pub fn home() -> PathBuf {
     std::env::var_os(var).map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"))
 }
 
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
 fn paths() -> Paths {
     Paths {
         config: xdg("XDG_CONFIG_HOME", ".config").join("noonix-tv"),
@@ -47,6 +47,13 @@ fn paths() -> Paths {
     }
     let support = lib.join("Application Support/Noonix TV");
     Paths { config: support.join("config"), data: support.clone(), cache: lib.join("Caches/Noonix TV"), state: lib.join("Logs/Noonix TV") }
+}
+
+// the app's private files folder (qt points HOME at it). NOONIX_HOME moves it all
+#[cfg(target_os = "android")]
+fn paths() -> Paths {
+    let base = std::env::var_os("NOONIX_HOME").map(PathBuf::from).unwrap_or_else(home);
+    Paths { config: base.join("config"), data: base.join("data"), cache: base.join("cache"), state: base.join("state") }
 }
 
 // everything per user and local (caches get big: never roaming).
