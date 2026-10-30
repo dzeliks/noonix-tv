@@ -200,7 +200,7 @@ struct SearchPage: View {
         let gap = 40 * u
         let posterW = (columnX - 64 * u - margin - 3 * gap) / 4
         let cellW = posterW + gap, cellH = posterW * 1.5 + gap
-        let titleH = 19 * u * 1.3
+        let titleH = 31 * u * 1.3
         let active = !app.navFocused && app.detailStack.isEmpty
         // the keyboard on the terminal's 2160 grid, at the bottom of the column
         let ku = u / 2
@@ -212,7 +212,7 @@ struct SearchPage: View {
         let sugs = s.suggestions
         ZStack(alignment: .topLeading) {
             Wallpaper()
-            SearchSection(text: s.busy ? L("SEARCHING…") : s.typing ? (s.grid.items.isEmpty ? L("NO RESULTS") : L("TOP RESULTS")) : L("POPULAR"), u: u)
+            SearchSection(text: s.busy ? L("Searching…") : s.typing ? (s.grid.items.isEmpty ? L("No results") : L("Top results")) : L("Popular"), u: u)
                 .offset(x: margin, y: topY)
             PosterGrid(model: s.grid, style: "poster", cols: 4, cellW: cellW, cellH: cellH,
                        height: bottomY - (topY + titleH + 8 * u), active: active && s.zone == "grid", posterW: posterW)
@@ -252,7 +252,7 @@ struct SearchPage: View {
             .offset(x: columnX, y: fieldY)
 
             if !sugs.isEmpty {
-                SearchSection(text: L("SUGGESTIONS"), u: u).offset(x: columnX, y: sugY)
+                SearchSection(text: L("Suggestions"), u: u).offset(x: columnX, y: sugY)
                 ForEach(Array(sugs.enumerated()), id: \.offset) { i, t in
                     SuggestionChip(text: t, focused: active && s.zone == "suggestions" && s.suggestion == i, u: u)
                         .frame(width: columnW, height: chipH)
@@ -283,8 +283,8 @@ private struct SearchSection: View {
     let u: CGFloat
 
     var body: some View {
-        Text(text).font(Theme.display(19 * u, .semibold)).tracking(1.1 * u).foregroundStyle(Color.white.opacity(0.5))
-            .frame(height: 19 * u * 1.3)
+        Text(text).font(Theme.display(31 * u, .semibold)).foregroundStyle(Theme.fg2)
+            .frame(height: 31 * u * 1.3)
     }
 }
 

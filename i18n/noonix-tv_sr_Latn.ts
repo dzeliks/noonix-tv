@@ -1004,20 +1004,20 @@
     <context>
         <name>Search</name>
         <message>
-            <source>SEARCHING…</source>
-            <translation>TRAŽIM…</translation>
+            <source>Searching…</source>
+            <translation>Tražim…</translation>
         </message>
         <message>
-            <source>TOP RESULTS</source>
-            <translation>NAJBOLJI REZULTATI</translation>
+            <source>Top results</source>
+            <translation>Najbolji rezultati</translation>
         </message>
         <message>
-            <source>NO RESULTS</source>
-            <translation>NEMA REZULTATA</translation>
+            <source>No results</source>
+            <translation>Nema rezultata</translation>
         </message>
         <message>
-            <source>POPULAR</source>
-            <translation>POPULARNO</translation>
+            <source>Popular</source>
+            <translation>Popularno</translation>
         </message>
         <message>
             <source>No results for “%1”</source>
@@ -1032,8 +1032,8 @@
             <translation>Filmovi i serije</translation>
         </message>
         <message>
-            <source>SUGGESTIONS</source>
-            <translation>PREDLOZI</translation>
+            <source>Suggestions</source>
+            <translation>Predlozi</translation>
         </message>
         <message>
             <source>search</source>

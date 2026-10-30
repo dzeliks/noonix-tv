@@ -71,9 +71,10 @@ FocusScope {
         }
     }
 
+    // like a home row's title
     component Section: Text {
-        font { family: Theme.display; pixelSize: 19 * search.u; weight: Font.DemiBold; letterSpacing: 1.1 * search.u }
-        color: Qt.rgba(1, 1, 1, 0.5)
+        font { family: Theme.display; pixelSize: 31 * search.u; weight: Font.DemiBold }
+        color: Theme.fg2
     }
 
     // ---- left: results
@@ -81,7 +82,7 @@ FocusScope {
         id: gridTitle
         x: Theme.margin
         y: search.topY
-        text: search.busy ? qsTr("SEARCHING…") : search.typing ? (search.results.length ? qsTr("TOP RESULTS") : qsTr("NO RESULTS")) : qsTr("POPULAR")
+        text: search.busy ? qsTr("Searching…") : search.typing ? (search.results.length ? qsTr("Top results") : qsTr("No results")) : qsTr("Popular")
     }
     GridView {
         id: grid
@@ -205,7 +206,7 @@ FocusScope {
         height: kb.y - 22 * search.u - y
         focus: search.zone === "suggestions"
         readonly property real chipH: Math.min(62 * search.u, (height - sugTitle.height - 12 * search.u - 5 * 8 * search.u) / 6)
-        Section { id: sugTitle; text: qsTr("SUGGESTIONS"); visible: search.suggestions.length > 0 }
+        Section { id: sugTitle; text: qsTr("Suggestions"); visible: search.suggestions.length > 0 }
         Repeater {
             model: search.suggestions
             KeyCap {
