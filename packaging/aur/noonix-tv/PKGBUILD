@@ -1,0 +1,33 @@
+# Maintainer: dzeliks <127214601+dzeliks@users.noreply.github.com>
+pkgname=noonix-tv
+pkgver=0.2.1
+pkgrel=1
+pkgdesc='Movies and shows on the TV, made for a remote or a controller'
+arch=(x86_64 aarch64)
+url='https://github.com/dzeliks/noonix-tv'
+license=(GPL-3.0-or-later)
+depends=(qt6-base qt6-declarative mpv sdl3 wayland libglvnd hicolor-icon-theme)
+makedepends=(git cmake ninja cargo qt6-shadertools qt6-tools wayland-protocols)
+optdepends=('kwin: blurred desktop behind the app on plasma')
+options=(!lto)
+source=("git+$url.git#tag=v$pkgver")
+sha256sums=('SKIP')
+
+prepare() {
+    cd $pkgname/core
+    export RUSTUP_TOOLCHAIN=stable
+    cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+    # no app keys are built in: setup asks for a tmdb key
+    export RUSTUP_TOOLCHAIN=stable
+    cmake -S $pkgname -B build -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr
+    cmake --build build
+}
+
+package() {
+    DESTDIR="$pkgdir" cmake --install build
+}
