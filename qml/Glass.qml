@@ -17,13 +17,13 @@ ShaderEffect {
     property real rimWidth: 1.6
     property real sat: kind === "chip" ? 0.55 : kind === "panel" ? 1.3 : 1.45
     property real soft: kind === "panel" ? 1.0 : kind === "chip" ? 0.6 : 0.0
-    property variant frostTex: win.frostTex
+    property variant frostTex: win.glassFrost(g)
     property color washColor: "transparent"
     property real washAmount: 0
     readonly property vector4d wash: Qt.vector4d(washColor.r, washColor.g, washColor.b, washAmount)
 
     // from Main.qml
-    property variant backdrop: win.backdropTex
+    property variant backdrop: win.glassTex(g)
     property real backdropOn: win.backdropOn ? 1 : 0
     readonly property real texelX: 1 / Math.max(1, win.width)
     readonly property real texelY: 1 / Math.max(1, win.height)

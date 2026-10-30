@@ -39,8 +39,8 @@ Item {
             visible: b.glass
             kind: "chip"
             tint: b.primary ? 0.2 : 0.12
-            backdrop: b.source ? b.source.tex : win.backdropTex
-            frostTex: b.source ? b.source.frost : win.frostTex
+            backdrop: b.source ? b.source.tex : win.glassTex(b)
+            frostTex: b.source ? b.source.frost : win.glassFrost(b)
             backdropOn: b.source || win.backdropOn ? 1 : 0
             radius: height / 2
             opacity: b.focused ? 0 : 1

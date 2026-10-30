@@ -21,8 +21,8 @@ FocusScope {
     signal done(var profile)
     signal cancel()
     // what the card's glass shows through (the picker when it's open over it)
-    property variant backdrop: win.backdropTex
-    property variant frost: win.frostTex
+    property variant backdrop: win.glassTex(pa)
+    property variant frost: win.glassFrost(pa)
     visible: false
     function loadFiles(then) {
         Api.call("profiles.avatars", {}, function (ok, d) {

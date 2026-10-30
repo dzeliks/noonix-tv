@@ -130,9 +130,7 @@ Window {
     }
     ShaderEffectSource {
         id: bdTex
-        sourceItem: win.videoUp ? vtone : setupView.visible ? setupView.backdropItem : scene
-        // setup's backdrop is a copy of the app, whose own glass refracts this
-        recursive: setupView.visible
+        sourceItem: win.videoUp ? vtone : scene
         hideSource: false
         live: win.backdropLive
         mipmap: true
@@ -159,6 +157,15 @@ Window {
         fragmentShader: "qrc:/shaders/blur.frag.qsb"
     }
     ShaderEffectSource { id: frostV; sourceItem: blurV; hideSource: true; live: win.backdropLive; smooth: true; visible: false }
+    // while setup is up, the glass over it refracts its zoomed copy of the app; the app's own glass
+    // (the bar) still refracts the app, or it would show a piece of the zoomed copy
+    GlassSource { id: setupGlass; sourceItem: setupView.backdropItem; live: setupView.visible }
+    function inBrowse(it) {
+        for (var p = it; p; p = p.parent) if (p === browse) return true
+        return false
+    }
+    function glassTex(it) { return setupView.visible && !inBrowse(it) ? setupGlass.tex : bdTex }
+    function glassFrost(it) { return setupView.visible && !inBrowse(it) ? setupGlass.frost : frostV }
 
     // ---- browse
     FocusScope {
@@ -943,8 +950,8 @@ Window {
     ProfileAdd {
         id: profileAdd
         anchors.fill: parent
-        backdrop: win.pickerGlass ? pickerTex : win.backdropTex
-        frost: win.pickerGlass ? pickerFrost : win.frostTex
+        backdrop: win.pickerGlass ? pickerTex : win.glassTex(profileAdd)
+        frost: win.pickerGlass ? pickerFrost : win.glassFrost(profileAdd)
         onCancel: { visible = false; win.profileReturn.forceActiveFocus() }
         onDone: function (p) {
             visible = false
