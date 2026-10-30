@@ -84,7 +84,7 @@ preview.
 | `version` | no | Shown in the preview and in Settings. |
 | `description` | no | One or two sentences for the preview. |
 | `author` | no | Who made it. |
-| `addons` | no | Up to 20 Stremio addon addresses (see below). |
+| `addons` | no | Up to 20 Stremio addon addresses, or addresses with their settings (see below). |
 | `torrents` | no | `true` if these addons answer with torrents. The user is then asked whether to allow torrents. |
 | `patterns` | no | `preferred` and `excluded` release patterns, at most 50 in all (see below). |
 | `keys` | no | Your own debrid keys for these addresses, like `{"torbox": "…"}`, to set up your own devices in one step. Only for files you keep to yourself (see below). |
@@ -105,6 +105,24 @@ preview.
   isn't kept in the extension. Anyone with such a file can use the key, so never share it.
 - If the user changes or removes the key later, the addons that use it follow. An address whose key
   is gone is taken out until the key is back.
+
+### Addons that keep their settings in the address
+
+Many configurable addons put their settings in the address as base64-encoded JSON. Write those
+settings as JSON instead, and put `{config}` where the encoded part goes:
+
+```json
+"addons": [
+  {
+    "url": "https://addon.example.com/{config}/manifest.json",
+    "config": { "service": "torbox", "apiKey": "{torbox}", "maxResults": 10 }
+  }
+]
+```
+
+Noonix TV fills in the keys, encodes the settings as standard base64 and puts them in the address.
+The encoding never contains `/` or `+`, so it's always safe in the path. Key placeholders work
+inside the settings like anywhere else, so the same file works with or without a key.
 
 ## Release patterns
 

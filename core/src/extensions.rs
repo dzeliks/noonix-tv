@@ -37,8 +37,9 @@ pub struct Manifest {
     pub description: String,
     #[serde(default)]
     pub author: String,
-    /// stremio addon addresses; {torbox}, {realdebrid}, {alldebrid} stand for the user's key
-    #[serde(default)]
+    /// stremio addon addresses; {torbox}, {realdebrid}, {alldebrid} stand for the user's key. an
+    /// entry may also be {url, config}: the config goes into the url's {config} as base64 json
+    #[serde(default, deserialize_with = "addresses")]
     pub addons: Vec<String>,
     /// its sources answer with torrents
     #[serde(default)]
@@ -54,6 +55,103 @@ pub struct Manifest {
 /// the debrid ids an address asks for
 fn placeholders(template: &str) -> Vec<&'static str> {
     config::DEBRIDS.iter().filter(|d| template.contains(&format!("{{{}}}", d.0))).map(|d| d.0).collect()
+}
+
+/// where an address carries its settings (addons that keep them in the path, base64 json):
+/// written {base64:<json>} in the stored template
+const ENCODED: &str = "{base64:";
+
+/// an addon entry: an address, or an address with its settings
+fn addresses<'de, D: serde::Deserializer<'de>>(d: D) -> std::result::Result<Vec<String>, D::Error> {
+    use serde::de::Error;
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Entry {
+        Url(String),
+        Config { url: String, config: Value },
+    }
+    Vec::<Entry>::deserialize(d)?
+        .into_iter()
+        .map(|e| match e {
+            Entry::Url(u) => Ok(u),
+            Entry::Config { url, config } => {
+                if url.matches("{config}").count() != 1 || !config.is_object() {
+                    return Err(D::Error::custom("an addon with settings needs one {config} in its address"));
+                }
+                Ok(url.replace("{config}", &format!("{ENCODED}{config}}}")))
+            }
+        })
+        .collect()
+}
+
+/// the settings with the keys filled in, as base64 the path can hold: plain base64 (what these
+/// addons decode) without / or +. json can spell the same thing many ways (a space after , : { [,
+/// a string's character as \u00xx), so the spelling is picked group by group until all are clean
+fn encode(config: &Value, key: &impl Fn(&str) -> Option<String>) -> Option<String> {
+    use base64::Engine;
+    fn fill(v: &Value, key: &impl Fn(&str) -> Option<String>) -> Option<Value> {
+        Some(match v {
+            Value::String(s) => {
+                let mut s = s.clone();
+                for id in placeholders(&s) {
+                    s = s.replace(&format!("{{{id}}}"), &key(id)?);
+                }
+                Value::String(s)
+            }
+            Value::Array(a) => Value::Array(a.iter().map(|x| fill(x, key)).collect::<Option<_>>()?),
+            Value::Object(o) => Value::Object(o.iter().map(|(k, x)| Some((k.clone(), fill(x, key)?))).collect::<Option<_>>()?),
+            other => other.clone(),
+        })
+    }
+    let text = fill(config, key)?.to_string();
+    // each piece of the text with the spellings it may take
+    let mut pieces: Vec<Vec<Vec<u8>>> = Vec::new();
+    let (mut chars, mut quoted) = (text.chars().peekable(), false);
+    while let Some(c) = chars.next() {
+        let raw = c.to_string().into_bytes();
+        pieces.push(match c {
+            '"' => {
+                quoted = !quoted;
+                vec![raw]
+            }
+            '\\' if quoted => {
+                // an escape stays as it is: \" \\ \n \uxxxx
+                let mut e = vec![b'\\'];
+                let n = if chars.peek() == Some(&'u') { 5 } else { 1 };
+                e.extend(chars.by_ref().take(n).collect::<String>().into_bytes());
+                vec![e]
+            }
+            c if quoted && (c as u32) < 0x10000 => vec![raw, format!("\\u{:04x}", c as u32).into_bytes()],
+            ',' | ':' | '{' | '[' if !quoted => vec![raw.clone(), [raw, b" ".to_vec()].concat()],
+            _ => vec![raw],
+        });
+    }
+    fn clean(b: &[u8]) -> bool {
+        !base64::engine::general_purpose::STANDARD.encode(b).contains(['/', '+'])
+    }
+    // depth first over the pieces; a group of 3 bytes is final once complete
+    fn walk(pieces: &[Vec<Vec<u8>>], i: usize, out: &mut Vec<u8>, budget: &mut u32) -> bool {
+        if i == pieces.len() {
+            return clean(&out[out.len() - out.len() % 3..]);
+        }
+        for alt in &pieces[i] {
+            if *budget == 0 {
+                return false;
+            }
+            *budget -= 1;
+            let start = out.len();
+            out.extend_from_slice(alt);
+            let done = start - start % 3;
+            let whole = out.len() - out.len() % 3;
+            if (done..whole).step_by(3).all(|g| clean(&out[g..g + 3])) && walk(pieces, i + 1, out, budget) {
+                return true;
+            }
+            out.truncate(start);
+        }
+        false
+    }
+    let mut out = Vec::with_capacity(text.len() * 2);
+    walk(&pieces, 0, &mut out, &mut 200_000).then(|| base64::engine::general_purpose::STANDARD.encode(&out))
 }
 
 impl Manifest {
@@ -73,16 +171,31 @@ impl Manifest {
 
 /// an address with the keys filled in; None while one of them is missing
 pub fn render(template: &str, key: impl Fn(&str) -> Option<String>) -> Option<String> {
-    let mut url = template.to_owned();
-    for id in placeholders(template) {
+    // the settings part first: its keys go in as they are, then the whole part is encoded
+    let (mut url, mut tail) = (String::new(), template);
+    if let Some(i) = template.find(ENCODED) {
+        let rest = &template[i + ENCODED.len()..];
+        let mut it = serde_json::Deserializer::from_str(rest).into_iter::<Value>();
+        let config = it.next()?.ok()?;
+        let after = rest[it.byte_offset()..].strip_prefix('}')?;
+        url.push_str(&template[..i]);
+        tail = after;
+        url.push_str(&encode(&config, &key)?);
+    }
+    url.push_str(tail);
+    for id in placeholders(&url) {
         url = url.replace(&format!("{{{id}}}"), &urlencoding::encode(&key(id)?));
     }
     Some(url)
 }
 
+/// the address with stand-ins for the keys: for checks and the hosts the preview names
+fn probe(template: &str) -> Option<String> {
+    render(&template.replace("stremio://", "https://"), |_| Some("x".into()))
+}
+
 pub fn host(template: &str) -> String {
-    let probe = config::DEBRIDS.iter().fold(template.replace("stremio://", "https://"), |u, d| u.replace(&format!("{{{}}}", d.0), "x"));
-    url::Url::parse(&probe).ok().and_then(|u| u.host_str().map(str::to_owned)).unwrap_or_else(|| "?".into())
+    probe(template).and_then(|p| url::Url::parse(&p).ok()).and_then(|u| u.host_str().map(str::to_owned)).unwrap_or_else(|| "?".into())
 }
 
 pub fn parse(text: &str) -> Result<Manifest> {
@@ -101,10 +214,8 @@ pub fn parse(text: &str) -> Result<Manifest> {
         bail!("The extension is too big");
     }
     for a in &m.addons {
-        let probe = config::DEBRIDS.iter().fold(a.replace("stremio://", "https://"), |u, d| u.replace(&format!("{{{}}}", d.0), "x"));
-        if probe.contains('{') || probe.contains('}') {
-            bail!("An address in the extension asks for something Noonix TV doesn't have");
-        }
+        let probe = probe(a).filter(|p| !p.contains(['{', '}']));
+        let Some(probe) = probe else { bail!("An address in the extension asks for something Noonix TV doesn't have") };
         stremio::check_url(&probe)?;
     }
     let needs = m.needs();
@@ -508,5 +619,45 @@ mod tests {
         assert_eq!(parse(&keyed("\"torbox\": \"abc\"")).unwrap().keys["torbox"], "abc");
         assert!(parse(&keyed("\"alldebrid\": \"abc\"")).is_err());
         assert!(parse(&keyed("\"torbox\": \" \"")).is_err());
+    }
+
+    #[test]
+    fn settings_go_into_the_address() {
+        use base64::Engine;
+        let text = r#"{ "noonix": 1, "id": "example.settings", "name": "Settings",
+            "addons": [{ "url": "https://addon.example.com/{config}/manifest.json",
+                         "config": { "services": [{ "service": "torbox", "key": "{torbox}" }], "torrents": true } }] }"#;
+        let m = parse(text).unwrap();
+        assert_eq!(m.needs(), vec!["torbox"]);
+        assert_eq!(host(&m.addons[0]), "addon.example.com");
+        assert_eq!(render(&m.addons[0], |_| None), None);
+        // stored and read back as the same template
+        let again: Manifest = serde_json::from_str(&serde_json::to_string(&m).unwrap()).unwrap();
+        assert_eq!(again.addons, m.addons);
+        for key in ["a\"b/c", "abc", "k+e/y?=="] {
+            let url = render(&m.addons[0], |_| Some(key.into())).unwrap();
+            let part = url.strip_prefix("https://addon.example.com/").unwrap().strip_suffix("/manifest.json").unwrap();
+            assert!(!part.contains(['/', '+']), "{part}");
+            let v: Value = serde_json::from_slice(&base64::engine::general_purpose::STANDARD.decode(part).unwrap()).unwrap();
+            assert_eq!(v["services"][0]["key"], key);
+            assert_eq!(v["torrents"], true);
+        }
+        // any key fits: uuid-like ones in longer settings
+        let long = text.replace("\"torrents\": true", "\"torrents\": true, \"languages\": { \"exclude\": [], \"preferred\": [\"en\", \"sr\"] }, \"maxSize\": 0, \"cachedOnly\": false, \"resultFormat\": [\"all\"]");
+        let m = parse(&long).unwrap();
+        let mut seed = 7u64;
+        for _ in 0..500 {
+            let key: String = (0..36).map(|i| {
+                seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                if [8, 13, 18, 23].contains(&i) { '-' } else { b"0123456789abcdef"[(seed >> 60) as usize] as char }
+            }).collect();
+            let url = render(&m.addons[0], |_| Some(key.clone())).unwrap();
+            let part = url.strip_prefix("https://addon.example.com/").unwrap().strip_suffix("/manifest.json").unwrap();
+            assert!(!part.contains(['/', '+']));
+            let v: Value = serde_json::from_slice(&base64::engine::general_purpose::STANDARD.decode(part).unwrap()).unwrap();
+            assert_eq!(v["services"][0]["key"], key.as_str());
+        }
+        assert!(parse(&text.replace("/{config}/", "/")).is_err());
+        assert!(parse(&text.replace("\"config\": {", "\"config\": [{").replace("true } }]", "true }] }]")).is_err());
     }
 }

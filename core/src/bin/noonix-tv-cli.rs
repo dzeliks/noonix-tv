@@ -1,5 +1,6 @@
 // dev tool: noonix-tv-cli <method> [json] [<method> [json]]...   e.g. noonix-tv-cli home.row '{"id":"trending-tv"}'
-// several calls share one process (a library scan or extension sync started by one finishes)
+// several calls share one process (a library scan or extension sync started by one finishes);
+// "@last" in a call's json is the previous answer's token (extensions.preview, then .install)
 use noonix_core::{app, rpc};
 
 fn main() {
@@ -25,10 +26,15 @@ fn main() {
         i += 1;
     }
     let mut failed = false;
+    let mut last = String::new();
     for (method, json) in calls {
         let t = std::time::Instant::now();
+        let json: serde_json::Value = serde_json::from_str(&json.to_string().replace("\"@last\"", &serde_json::to_string(&last).unwrap())).unwrap();
         match app::RUNTIME.block_on(rpc::dispatch(&method, json)) {
-            Ok(v) => println!("{}", serde_json::to_string_pretty(&v).unwrap()),
+            Ok(v) => {
+                last = v.get("token").and_then(|t| t.as_str()).unwrap_or("").to_owned();
+                println!("{}", serde_json::to_string_pretty(&v).unwrap())
+            }
             Err(e) => {
                 eprintln!("error: {e:#}");
                 failed = true;
