@@ -533,9 +533,9 @@ mod tests {
         let c = open_memory().unwrap();
         let pid = add_profile(&c, "Ana", "green", "own").unwrap();
         let mut p = Progress {
-            key: episode_key(2734, 1, 10),
+            key: episode_key(85552, 1, 10),
             kind: "episode".into(),
-            tmdb: 2734,
+            tmdb: 85552,
             season: Some(1),
             episode: Some(10),
             position: 600.0,
@@ -550,7 +550,7 @@ mod tests {
         let got = get_progress(&c, pid, &p.key).unwrap().unwrap();
         assert_eq!(got.position, 700.0);
         assert_eq!(in_progress(&c, pid, 10).unwrap().len(), 1);
-        assert_eq!(recent_shows(&c, pid, 5).unwrap()[0].0, 2734);
+        assert_eq!(recent_shows(&c, pid, 5).unwrap()[0].0, 85552);
         cache_put(&c, "k", "v", 60).unwrap();
         assert_eq!(cache_get(&c, "k").unwrap().as_deref(), Some("v"));
     }

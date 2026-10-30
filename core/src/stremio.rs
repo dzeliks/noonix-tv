@@ -655,12 +655,12 @@ mod tests {
     #[test]
     fn a_hash_is_no_group() {
         let v = json!({
-            "name": "[TORRENT🧲] Comet unknown",
+            "name": "[P2P] Example unknown",
             "description": "📄 Sintel [H264 - Eng - Multisubs]\n💾 463 MB",
             "infoHash": "a41915eaabbf8d37ff5f96c0db70a289d1b0c3d2",
-            "behaviorHints": { "bingeGroup": "comet|a41915eaabbf8d37ff5f96c0db70a289d1b0c3d2" }
+            "behaviorHints": { "bingeGroup": "example|a41915eaabbf8d37ff5f96c0db70a289d1b0c3d2" }
         });
-        assert_eq!(normalize("Comet", &v).unwrap().group, None);
+        assert_eq!(normalize("Example", &v).unwrap().group, None);
         let v = json!({ "name": "x", "url": "https://example.invalid/x", "behaviorHints": { "bingeGroup": "addon|1080p|GRP" } });
         assert_eq!(normalize("Addon", &v).unwrap().group.as_deref(), Some("GRP"));
     }
