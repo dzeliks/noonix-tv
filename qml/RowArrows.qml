@@ -14,7 +14,8 @@ Item {
     readonly property int page: Math.max(1, Math.floor((view.width - Theme.margin - cardW) / step) + 1)
     readonly property real startX: view.originX - view.leftMargin
     readonly property real endX: Math.max(startX, view.originX + view.contentWidth + view.rightMargin - view.width)
-    readonly property bool shown: hover.hovered && Input.pointing === true && view.count > 0
+    // the arrows sit over the list and take its hover: they keep themselves up
+    readonly property bool shown: (hover.hovered || back.hovered || fwd.hovered) && Input.pointing === true && view.count > 0
     x: view.x; y: view.y
     width: view.width; height: view.height
 
@@ -39,6 +40,7 @@ Item {
     }
 
     RoundButton {
+        id: back
         icon: "chevronleft"
         x: (Theme.margin - width) / 2
         y: ra.artH / 2 - height / 2
@@ -48,6 +50,7 @@ Item {
         onClicked: ra.go(-1)
     }
     RoundButton {
+        id: fwd
         icon: "chevronright"
         x: ra.width - Theme.margin / 2 - width / 2
         y: ra.artH / 2 - height / 2

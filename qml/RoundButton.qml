@@ -6,6 +6,7 @@ Item {
     property string icon: "chevronleft"
     property real size: 64                // across, on the 1920 grid
     signal clicked()
+    readonly property bool hovered: pt.containsMouse
     readonly property real u: Theme.u
     width: size * u; height: width
     scale: pt.containsMouse ? 1.08 : 1
@@ -21,5 +22,5 @@ Item {
         color: pt.containsMouse ? Theme.focusFg : Theme.fg
     }
     // a pointer like a card's: the row around it takes the focus, a click is the button's
-    Pointer { id: pt; okKey: false; tapPolicy: TapHandler.WithinBounds; onTapped: rb.clicked() }
+    Pointer { id: pt; okKey: false; onTapped: rb.clicked() }
 }

@@ -8,7 +8,6 @@ import QtQuick
 MouseArea {
     id: pt
     property bool okKey: true            // a click sends ok; false: just tapped()
-    property alias tapPolicy: tap.gesturePolicy   // WithinBounds: a button over cards keeps its clicks
     signal pointed()
     signal tapped()
     anchors.fill: parent
