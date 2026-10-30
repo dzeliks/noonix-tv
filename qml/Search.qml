@@ -248,15 +248,21 @@ FocusScope {
         width: search.columnW
         height: kb.height
         focus: search.zone === "keys"
-        onActiveFocusChanged: if (activeFocus) search.zone = "keys"
+        // letters came from a real keyboard: its enter goes to the results (a remote's ok presses the focused key)
+        property bool typed: false
+        onActiveFocusChanged: if (activeFocus) search.zone = "keys"; else typed = false
         Keys.onPressed: function (e) {
             var map = {}
             map[Qt.Key_Up] = "UP"; map[Qt.Key_Down] = "DOWN"; map[Qt.Key_Left] = "LEFT"; map[Qt.Key_Right] = "RIGHT"
-            map[Qt.Key_Return] = "OK"; map[Qt.Key_Enter] = "OK"
             if (map[e.key]) { kb.key(map[e.key]); e.accepted = true; return }
+            if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
+                if (typed && e.nativeScanCode !== 0) { if (search.shown.length) { search.zone = "grid"; grid.forceActiveFocus() } }
+                else kb.key("OK")
+                e.accepted = true; return
+            }
             if (e.key === Qt.Key_Backspace) { search.query = search.query.slice(0, -1); e.accepted = true; return }
             // a real keyboard works too
-            if (e.text && e.text.length === 1 && e.text >= " " && !(e.modifiers & Qt.ControlModifier)) { search.query += e.text; e.accepted = true }
+            if (e.text && e.text.length === 1 && e.text >= " " && !(e.modifiers & Qt.ControlModifier)) { search.query += e.text; typed = true; e.accepted = true }
         }
     }
     Keyboard {

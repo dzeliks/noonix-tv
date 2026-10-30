@@ -1,6 +1,7 @@
 use crate::config::{self, keys};
 use crate::http::{self, Req};
 use anyhow::{anyhow, Result};
+use once_cell::sync::Lazy;
 use serde_json::{json, Map, Value};
 
 const API: &str = "https://api.themoviedb.org/3";
@@ -125,13 +126,20 @@ pub fn item(kind: &str, v: &Value) -> Value {
     })
 }
 
+/// a list's entry worth a card: it has a poster, and tests and screenshots can keep titles out
+/// (NOONIX_HIDE=<tmdb id>,<tmdb id>)
+fn listed(r: &Value) -> bool {
+    static HIDE: Lazy<Vec<i64>> = Lazy::new(|| std::env::var("NOONIX_HIDE").unwrap_or_default().split(',').filter_map(|x| x.trim().parse().ok()).collect());
+    r.get("poster_path").is_some_and(|p| !p.is_null()) && !r.get("id").and_then(Value::as_i64).is_some_and(|id| HIDE.contains(&id))
+}
+
 fn results(kind: &str, v: &Value) -> Value {
     Value::Array(
         v.get("results")
             .and_then(Value::as_array)
             .map(|a| {
                 a.iter()
-                    .filter(|r| r.get("poster_path").is_some_and(|p| !p.is_null()))
+                    .filter(|r| listed(r))
                     .map(|r| item(kind, r))
                     .collect()
             })
@@ -198,8 +206,8 @@ pub async fn search(query: &str) -> Result<Value> {
     let mut out = Vec::new();
     for r in v.get("results").and_then(Value::as_array).into_iter().flatten() {
         match r.get("media_type").and_then(Value::as_str) {
-            Some("movie") if r.get("poster_path").is_some_and(|p| !p.is_null()) => out.push(item("movie", r)),
-            Some("tv") if r.get("poster_path").is_some_and(|p| !p.is_null()) => out.push(item("show", r)),
+            Some("movie") if listed(r) => out.push(item("movie", r)),
+            Some("tv") if listed(r) => out.push(item("show", r)),
             _ => {}
         }
     }
