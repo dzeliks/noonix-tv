@@ -43,7 +43,7 @@ FocusScope {
     }
 
     Rectangle { anchors.fill: parent; color: "black"; opacity: 0.4 }
-    MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onClicked: function (m) { if (m.button === Qt.RightButton) tc.finish(false) } }
+    MouseArea { anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.AllButtons; onClicked: function (m) { if (m.button === Qt.RightButton) tc.finish(false) } }
 
     Item {
         anchors.centerIn: parent
