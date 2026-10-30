@@ -407,8 +407,10 @@ struct SourceRow: View {
                         .font(Theme.text(19 * u, .semibold))
                         .foregroundStyle(focused ? Color(red: 0xB4 / 255, green: 0x53 / 255, blue: 0x09 / 255) : Color(red: 1, green: 0xB3 / 255, blue: 0x40 / 255))
                 }
-                if let n = s.seeders, s.url == nil {
-                    Text(L("%1 sharing", "\(n)")).font(Theme.text(20 * u, .semibold)).foregroundStyle(focused ? Theme.focusFg : Theme.fg2)
+                // a torrent: how many people share it, when the addon says
+                if s.url == nil {
+                    Text(s.seeders.map { L("%1 sharing", "\($0)") } ?? L("Torrent"))
+                        .font(Theme.text(20 * u, .semibold)).foregroundStyle(focused ? Theme.focusFg : Theme.fg2)
                 }
                 if let svc = s.service {
                     Text(svc).font(Theme.text(20 * u, .bold)).foregroundStyle(focused ? Theme.focusFg : Theme.fg2)

@@ -116,7 +116,9 @@ final class SetupModel {
             out.append(Line(label: "English", checkable: true, checked: UILang.shared.code == "en", act: "uilang:en"))
             out.append(Line(label: "Srpski", checkable: true, checked: UILang.shared.code == "sr", act: "uilang:sr"))
         case "profiles":
-            for p in profiles { out.append(Line(label: p["name"] as? String ?? "", detail: traktName(p["trakt"] as? String))) }
+            for (i, p) in profiles.enumerated() {
+                out.append(Line(label: p["name"] as? String ?? "", detail: traktName(p["trakt"] as? String), value: "›", act: "edit:\(i)"))
+            }
             out.append(Line(label: L("Add Profile"), value: "+", act: "add"))
         case "videos":
             out = app.flow.lines + app.flow.debridLines + app.flow.torrentLines
@@ -264,6 +266,10 @@ final class SetupModel {
             setApp("refresh_match", appS["refresh_match"] as? Bool != true)
         } else if a == "add" {
             app.addProfile { [weak self] in Task { await self?.refresh() } }
+        } else if a.hasPrefix("edit:"), let i = Int(a.dropFirst(5)), let p = profiles[safe: i], let id = (p["id"] as? NSNumber)?.intValue {
+            let profile = Profile(id: id, name: p["name"] as? String ?? "", color: p["color"] as? String ?? "green",
+                                  trakt: p["trakt"] as? String ?? "", avatar: p["avatar"] as? String)
+            app.editProfile(profile) { [weak self] in Task { await self?.refresh() } }
         } else if a.hasPrefix("trakt:") {
             let parts = a.split(separator: ":").map(String.init)
             let id = Int(parts[1]) ?? 0
@@ -415,7 +421,18 @@ final class SetupModel {
         if k == .back { back(app: app); return true }
         if onButtons {
             switch k {
-            case .up: if !ls.isEmpty { onButtons = false; if ls[safe: index]?.header != false { index = firstLine(app: app) } }
+            case .up:
+                // the line just above the buttons, or where the focus was in the list
+                if !ls.isEmpty {
+                    onButtons = false
+                    if keepIndex < 0 {
+                        var i = ls.count - 1
+                        while i > 0, ls[i].header { i -= 1 }
+                        index = i; keepIndex = i
+                    } else if ls[safe: index]?.header != false {
+                        index = firstLine(app: app)
+                    }
+                }
             case .left: button = 0
             case .right: if step > 0 { button = 1 }
             case .ok: if button == 0 { next(app: app) } else { back(app: app) }

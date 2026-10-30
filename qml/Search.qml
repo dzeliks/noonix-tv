@@ -47,7 +47,13 @@ FocusScope {
         })
         Api.call("home.row", { id: "trending-tv" }, function (ok, d) { if (ok) search.trending = d })
     }
-    onActiveFocusChanged: if (activeFocus) keys.forceActiveFocus()
+    // back from a title or the bar: where the focus was (the results, a suggestion or the keys)
+    onActiveFocusChanged: {
+        if (!activeFocus) return
+        if (zone === "grid" && shown.length) grid.forceActiveFocus()
+        else if (zone === "suggestions" && suggestions.length) sugBox.forceActiveFocus()
+        else keys.forceActiveFocus()
+    }
 
     onQueryChanged: debounce.restart()
     Timer {

@@ -536,6 +536,7 @@ T = {
     "I Agree": "Slažem se",
     "May not play smoothly here": "Ovde možda neće ići glatko",
     "Few people sharing": "Malo ljudi deli",
+    "Torrent": "Torent",
     "Torrents?": "Torenti?",
     "Nothing here yet: add a video folder or a source in Settings › Sources": "Ovde još nema ničega: dodaj folder sa snimcima ili izvor u Podešavanja › Izvori",
     "%1 hidden (cam, 3D, too big, your hidden patterns)": "%1 skriveno (cam, 3D, preveliko, tvoje skrivene reči)",

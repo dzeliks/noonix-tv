@@ -163,7 +163,8 @@ FocusScope {
             width: parent.width
             height: visible ? 64 * sheet.u : 0
             Text {
-                anchors { left: parent.left; verticalCenter: parent.verticalCenter }
+                anchors { left: parent.left; right: advanced.left; rightMargin: 24 * sheet.u; verticalCenter: parent.verticalCenter }
+                elide: Text.ElideRight
                 text: qsTr("Unsupported formatting") + (sheet.unsupported.length ? "  ·  " + sheet.unsupported.map(function (a) { return a.name }).join(", ") : "")
                 color: Theme.cached
                 font { family: Theme.text; pixelSize: 23 * sheet.u; weight: Font.DemiBold }
@@ -302,11 +303,11 @@ FocusScope {
                         color: rowItem.foc ? "#B45309" : "#FFB340"
                         font { family: Theme.text; pixelSize: 19 * sheet.u; weight: Font.DemiBold }
                     }
-                    // a torrent: how many people share it
+                    // a torrent: how many people share it, when the addon says
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        visible: !rowItem.s.url && rowItem.s.seeders !== null && rowItem.s.seeders !== undefined
-                        text: visible ? qsTr("%1 sharing").arg(rowItem.s.seeders) : ""
+                        visible: !rowItem.s.url && !rowItem.s.local
+                        text: !visible ? "" : rowItem.s.seeders !== null && rowItem.s.seeders !== undefined ? qsTr("%1 sharing").arg(rowItem.s.seeders) : qsTr("Torrent")
                         color: rowItem.foc ? Theme.focusFg : Theme.fg2
                         font { family: Theme.text; pixelSize: 20 * sheet.u; weight: Font.DemiBold }
                     }

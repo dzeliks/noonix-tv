@@ -208,8 +208,9 @@ pub fn normalize(addon: &str, s: &Value) -> Option<Stream> {
             st.seeders = parse_seeders(&text);
         }
         if st.group.is_none() {
+            // a group is a short name: not a resolution, a source, or an info hash some addons put there
             st.group = st.binge_group.as_deref().and_then(|b| b.rsplit('|').next()).filter(|g| {
-                !g.contains('.') && !RES.is_match(g) && !matches!(g.to_lowercase().as_str(), "web-dl" | "webrip" | "bluray" | "remux")
+                !g.contains('.') && g.len() <= 24 && !RES.is_match(g) && !matches!(g.to_lowercase().as_str(), "web-dl" | "webrip" | "bluray" | "remux")
             }).map(str::to_owned);
         }
     }
@@ -650,6 +651,19 @@ pub fn video_id(imdb: &str, season: Option<i64>, episode: Option<i64>) -> String
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_hash_is_no_group() {
+        let v = json!({
+            "name": "[TORRENT🧲] Comet unknown",
+            "description": "📄 Sintel [H264 - Eng - Multisubs]\n💾 463 MB",
+            "infoHash": "a41915eaabbf8d37ff5f96c0db70a289d1b0c3d2",
+            "behaviorHints": { "bingeGroup": "comet|a41915eaabbf8d37ff5f96c0db70a289d1b0c3d2" }
+        });
+        assert_eq!(normalize("Comet", &v).unwrap().group, None);
+        let v = json!({ "name": "x", "url": "https://example.invalid/x", "behaviorHints": { "bingeGroup": "addon|1080p|GRP" } });
+        assert_eq!(normalize("Addon", &v).unwrap().group.as_deref(), Some("GRP"));
+    }
 
     #[test]
     fn parses_aiostreams_fancy_stream() {

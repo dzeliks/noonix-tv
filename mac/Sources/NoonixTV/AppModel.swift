@@ -312,13 +312,13 @@ final class AppModel {
         profileEdit = m
     }
 
-    func editProfile(_ p: Profile) {
+    func editProfile(_ p: Profile, then: (() -> Void)? = nil) {
         let m = ProfileEditModel()
         m.openEdit(p)
         m.cancel = { [weak self] in self?.profileEdit = nil }
         m.done = { [weak self] _, _ in
             self?.profileEdit = nil
-            Task { await self?.loadProfiles() }
+            Task { await self?.loadProfiles(); then?() }
         }
         profileEdit = m
     }

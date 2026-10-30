@@ -2100,6 +2100,10 @@
             <translation>%1 deli</translation>
         </message>
         <message>
+            <source>Torrent</source>
+            <translation>Torent</translation>
+        </message>
+        <message>
             <source>Looking for more sources</source>
             <translation>Tražim još izvora</translation>
         </message>

@@ -66,6 +66,17 @@ FocusScope {
         for (var i = 0; i < lines.length; ++i) if (!lines[i].header) return i
         return 0
     }
+    // up from the buttons: the line just above them, or where the focus was in the list
+    function enterList() {
+        if (!lines.length) return
+        if (keepIndex < 0) {
+            var i = lines.length - 1
+            while (i > 0 && lines[i].header) i--
+            list.currentIndex = i
+            keepIndex = i
+        }
+        list.forceActiveFocus()
+    }
     function refresh() {
         Api.call("setup.state", {}, function (ok, d) { if (ok) setup.info = d })
         flow.load()
@@ -111,7 +122,7 @@ FocusScope {
             out.push({ label: "English", checkable: true, checked: Desktop.language === "en", act: "uilang:en" })
             out.push({ label: "Srpski", checkable: true, checked: Desktop.language === "sr", act: "uilang:sr" })
         } else if (name === "profiles") {
-            (s.profiles || []).forEach(function (p) { out.push({ label: p.name, detail: setup.modeName(p.trakt), checkable: false }) })
+            (s.profiles || []).forEach(function (p, i) { out.push({ label: p.name, detail: setup.modeName(p.trakt), checkable: false, value: "›", act: "edit:" + i }) })
             out.push({ label: qsTr("Add Profile"), checkable: false, value: "+", act: "add" })
         } else if (name === "videos") {
             out = out.concat(flow.lines, flow.debridLines, flow.torrentLines)
@@ -195,6 +206,9 @@ FocusScope {
             if (a === "uilang:sr" && !(info && info.balkanOn)) balkan(true)
         } else if (a === "add") {
             add.open((info.profiles || []).map(function (p) { return p.color }))
+        } else if (a.indexOf("edit:") === 0) {
+            var ep = (info.profiles || [])[Number(a.slice(5))]
+            if (ep) add.openEdit(ep)
         } else if (a.indexOf("trakt:") === 0) {
             var parts = a.split(":"), id = Number(parts[1]), mode = parts[2]
             // signed in -> out; out -> sign in with a code
@@ -548,14 +562,14 @@ FocusScope {
                     : setup.name === "trakt" && !((setup.info && setup.info.profiles) || []).some(function (p) { return p.trakt === "own" }) ? qsTr("Skip for Now") : qsTr("Continue")
                 onClicked: setup.next()
                 KeyNavigation.right: backBtn.visible ? backBtn : null
-                Keys.onUpPressed: if (setup.lines.length) list.forceActiveFocus()
+                Keys.onUpPressed: setup.enterList()
             }
             GlassButton {
                 id: backBtn
                 visible: setup.step > 0
                 text: qsTr("Back")
                 onClicked: setup.back()
-                Keys.onUpPressed: if (setup.lines.length) list.forceActiveFocus()
+                Keys.onUpPressed: setup.enterList()
             }
         }
     }
