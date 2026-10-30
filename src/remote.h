@@ -40,8 +40,9 @@ public slots:
     Q_SCRIPTABLE void Key(const QString &button);
     Q_SCRIPTABLE void InputKind(const QString &kind);
     Q_SCRIPTABLE void Raise();
-    // test runs only (NOONIX_TEST=1): the mouse moves to x, y in the window
+    // test runs only (NOONIX_TEST=1): the mouse moves to x, y in the window, a left click there
     Q_SCRIPTABLE void Pointer(double x, double y);
+    Q_SCRIPTABLE void Click(double x, double y);
     // the overlay: its launch card has dissolved over our splash, the splash can play
     Q_SCRIPTABLE void Revealed() { emit revealed(); }
 

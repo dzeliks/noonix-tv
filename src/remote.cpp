@@ -4,6 +4,7 @@
 #ifdef Q_OS_LINUX
 #include <ctime>
 #include <unistd.h>
+#include <qpa/qwindowsysteminterface.h>
 #elif defined(Q_OS_WIN)
 #include <windows.h>
 #endif
@@ -168,7 +169,25 @@ void Remote::Pointer(double x, double y)
     if (!m_window || qgetenv("NOONIX_TEST") != "1")
         return;
     const QPointF at(x, y);
+#ifdef Q_OS_LINUX
+    QWindowSystemInterface::handleMouseEvent(m_window, at, m_window->mapToGlobal(at), Qt::NoButton, Qt::NoButton, QEvent::MouseMove);
+#else
     QCoreApplication::postEvent(m_window, new QMouseEvent(QEvent::MouseMove, at, m_window->mapToGlobal(at), Qt::NoButton, Qt::NoButton, Qt::NoModifier));
+#endif
+}
+
+void Remote::Click(double x, double y)
+{
+    if (!m_window || qgetenv("NOONIX_TEST") != "1")
+        return;
+#ifdef Q_OS_LINUX
+    // through qt's own input path, like a real mouse (press positions and grabs as they'd be)
+    const QPointF at(x, y);
+    QWindowSystemInterface::handleMouseEvent(m_window, at, m_window->mapToGlobal(at), Qt::LeftButton, Qt::LeftButton, QEvent::MouseButtonPress);
+    QWindowSystemInterface::handleMouseEvent(m_window, at, m_window->mapToGlobal(at), Qt::NoButton, Qt::LeftButton, QEvent::MouseButtonRelease);
+#else
+    Q_UNUSED(x) Q_UNUSED(y)
+#endif
 }
 
 void Remote::InputKind(const QString &kind)
