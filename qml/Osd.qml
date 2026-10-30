@@ -30,7 +30,9 @@ FocusScope {
         var t = (Player.audioTracks || []).filter(function (x) { return x.selected })[0]
         if (!t) return qsTr("Audio")
         var ch = t.channels === 6 ? "5.1" : t.channels === 8 ? "7.1" : t.channels === 2 ? qsTr("Stereo") : ""
-        return Theme.langName(t.lang) + (ch ? "  ·  " + ch : "")
+        // a track without a language says what it is, not "unknown"
+        var known = t.lang && t.lang !== "und"
+        return (known ? Theme.langName(t.lang) : qsTr("Audio")) + (ch ? "  ·  " + ch : "")
     }
     // the segment we're in (intro / recap / outro), from chapters, introdb or the guess
     readonly property var segment: {

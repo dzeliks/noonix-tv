@@ -761,7 +761,9 @@ struct OsdView: View {
         let audioLabel: String = {
             guard let t = p.tracks.first(where: { $0.type == "audio" && $0.selected }) else { return L("Audio") }
             let ch = t.channels == 6 ? "5.1" : t.channels == 8 ? "7.1" : t.channels == 2 ? L("Stereo") : ""
-            return Lang.name(t.lang) + (ch.isEmpty ? "" : "  ·  " + ch)
+            // a track without a language says what it is, not "unknown"
+            let known = !(t.lang ?? "").isEmpty && t.lang != "und"
+            return (known ? Lang.name(t.lang) : L("Audio")) + (ch.isEmpty ? "" : "  ·  " + ch)
         }()
         return ZStack {
             GlassEffectContainer(spacing: 18 * u) {
