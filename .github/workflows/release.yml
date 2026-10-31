@@ -212,12 +212,22 @@ jobs:
         run: |
           gh release download "$TAG" --pattern '*.AppImage.sha256' --dir sums
           { cat sums/*.sha256; printf '%s\n' "${{ needs.windows.outputs.sum }}"; } > SHA256SUMS
+          # a rebuild keeps the sums of the files it didn't make (the portable zip)
+          if gh release download "$TAG" --pattern SHA256SUMS --dir old 2> /dev/null; then
+            awk 'NR == FNR { have[$2] = 1; next } !($2 in have)' SHA256SUMS old/SHA256SUMS > kept
+            cat kept >> SHA256SUMS
+          fi
           gh release upload "$TAG" SHA256SUMS --clobber
           for f in sums/*.sha256; do gh release delete-asset "$TAG" "$(basename "$f")" --yes; done
           if [ "$GITHUB_REF_TYPE" != tag ]; then
             # a test build stays a draft; older test drafts go
             gh release list --limit 100 --json tagName,isDraft -q '.[] | select(.isDraft) | .tagName' \
               | grep '^ci-' | grep -vx "$TAG" | xargs -r -n1 gh release delete --yes
+            exit 0
+          fi
+          # a rebuild of a published release keeps its written notes
+          if [ "$(gh release view "$TAG" --json body -q .body)" != building ]; then
+            gh release edit "$TAG" --draft=false
             exit 0
           fi
           prev="$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)"
