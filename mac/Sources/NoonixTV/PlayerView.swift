@@ -669,10 +669,11 @@ struct PlayerView: View {
         }
         // the end: the next episode card takes the focus, otherwise back to where we were
         .onChange(of: player.state) {
-            if player.state == .playing { osd?.show(5); app.scheduleTip() }
+            if player.state == .playing { osd?.show(5); app.scheduleTip(); player.setSubtitleLift(true) }
             guard player.state == .ended else { return }
             if player.next != nil { osd?.show(); osd?.zone = .skip } else { app.stopPlayback() }
         }
+        .onChange(of: (osd?.shown ?? true) || player.state == .ended, initial: true) { _, up in player.setSubtitleLift(up) }
         .onHover { inside in NSCursor.setHiddenUntilMouseMoves(inside && !(osd?.shown ?? true)) }
     }
 }

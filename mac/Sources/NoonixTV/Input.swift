@@ -250,8 +250,24 @@ enum MediaKeys {
 }
 
 /// dev: NOONIX_KEYS=<fifo> takes a key name a line (up, ok, back, menu, play, ff, rw, pageup,
-/// pagedown, next, stop) or text:<abc> / erase / submit, so tests can drive the app over ssh
+/// pagedown, next, stop) or text:<abc> / erase / submit, so tests can drive the app over ssh.
+/// shot:<png path> draws the window into a file (no screen recording permission over ssh; the
+/// system's glass and the video don't show in it)
 enum DevKeys {
+    @MainActor static func shot(_ path: String) {
+        guard let w = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil }) else { return }
+        // the app's own window as the screen shows it (the sdk hides the call, the system still has it)
+        typealias Grab = @convention(c) (CGRect, UInt32, UInt32, UInt32) -> Unmanaged<CGImage>?
+        if let sym = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage"),
+           let img = unsafeBitCast(sym, to: Grab.self)(.null, 1 << 3, UInt32(w.windowNumber), 1 << 0 | 1 << 3)?.takeRetainedValue() {
+            try? NSBitmapImageRep(cgImage: img).representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+            return
+        }
+        guard let v = w.contentView, let rep = v.bitmapImageRepForCachingDisplay(in: v.bounds) else { return }
+        v.cacheDisplay(in: v.bounds, to: rep)
+        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+    }
+
     static func install(_ send: @escaping @MainActor (Key) -> Bool, typed: @escaping @MainActor (Typed) -> Bool) {
         guard let path = ProcessInfo.processInfo.environment["NOONIX_KEYS"] else { return }
         let names: [String: Key] = ["up": .up, "down": .down, "left": .left, "right": .right, "ok": .ok, "back": .back,
@@ -270,6 +286,7 @@ enum DevKeys {
                             else if line.hasPrefix("text:") { _ = typed(.text(String(line.dropFirst(5)))) }
                             else if line == "erase" { _ = typed(.erase) }
                             else if line == "submit" { _ = typed(.submit) }
+                            else if line.hasPrefix("shot:") { shot(String(line.dropFirst(5))) }
                         }
                     }
                 }

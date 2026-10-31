@@ -195,6 +195,8 @@ final class MPVPlayer {
         }
     }
     func setPaused(_ on: Bool) { set("pause", on ? "yes" : "no") }
+    /// subtitles above the osd while it's up (qml Osd chromeShown)
+    func setSubtitleLift(_ on: Bool) { set("sub-pos", on ? "77" : "100") }
     /// a quick look while scrubbing: the nearest keyframe
     func seekPreview(_ s: Double) { command(["seek", String(s), "absolute+keyframes"]) }
     func seek(by s: Double) { command(["seek", String(s), "relative"]) }
