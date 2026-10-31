@@ -4,21 +4,23 @@ _name=noonix-tv
 pkgver=0.2.2
 pkgrel=1
 pkgdesc='Movies and shows on the TV, made for a remote or a controller (release build)'
-arch=(x86_64)
+arch=(x86_64 aarch64)
 url='https://github.com/dzeliks/noonix-tv'
 license=(GPL-3.0-or-later)
 depends=(glibc libglvnd fontconfig hicolor-icon-theme)
 provides=($_name)
 conflicts=($_name)
 options=(!strip !debug)
-source=("$url/releases/download/v$pkgver/Noonix-TV-$pkgver-x86_64.AppImage")
-noextract=("Noonix-TV-$pkgver-x86_64.AppImage")
-sha256sums=('a94c81670638b11392bd7ff7fccf6f3b2f3f8e323e9f3f854c79f79802e9eba1')
+source_x86_64=("$url/releases/download/v$pkgver/Noonix-TV-$pkgver-x86_64.AppImage")
+source_aarch64=("$url/releases/download/v$pkgver/Noonix-TV-$pkgver-aarch64.AppImage")
+noextract=("Noonix-TV-$pkgver-$CARCH.AppImage")
+sha256sums_x86_64=('a94c81670638b11392bd7ff7fccf6f3b2f3f8e323e9f3f854c79f79802e9eba1')
+sha256sums_aarch64=('SKIP')
 
 prepare() {
-    chmod +x Noonix-TV-$pkgver-x86_64.AppImage
+    chmod +x Noonix-TV-$pkgver-$CARCH.AppImage
     rm -rf squashfs-root
-    ./Noonix-TV-$pkgver-x86_64.AppImage --appimage-extract >/dev/null
+    ./Noonix-TV-$pkgver-$CARCH.AppImage --appimage-extract >/dev/null
 }
 
 package() {
