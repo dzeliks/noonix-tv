@@ -125,7 +125,9 @@ FocusScope {
         if (!back) return
         var to = back.zone === "more" ? more : back.zone === "episodes" ? episodes : back.zone === "seasons" ? seasonsRow : actions
         if (!to.visible) return
+        snap = true
         to.forceActiveFocus()
+        snap = false
         Qt.callLater(function () {
             body.forceLayout()
             snap = true
@@ -305,6 +307,8 @@ FocusScope {
                 width: page.width - 2 * Theme.margin
                 height: 90 * page.u
                 focus: true
+                // back up on the buttons: the page's top (title and all) in view again
+                onActiveFocusChanged: if (activeFocus && !Input.pointing) scroller.contentY = 0
                 Row {
                     spacing: 26 * page.u
                     anchors.verticalCenter: parent.verticalCenter
