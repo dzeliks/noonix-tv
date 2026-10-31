@@ -178,8 +178,8 @@ jobs:
         run: |
           curl -fsSL "https://github.com/cli/cli/releases/download/v$GH_VERSION/gh_${GH_VERSION}_linux_amd64.tar.gz" \
             | tar -xz -C /usr/local --strip-components=1
-          gh release upload "${{ needs.draft.outputs.tag }}" build/win/dist/*-setup.exe --clobber
-          echo "sum=$(cd build/win/dist && sha256sum *-setup.exe)" >> "$GITHUB_OUTPUT"
+          gh release upload "${{ needs.draft.outputs.tag }}" build/win/dist/*-setup.exe build/win/dist/*-windows-x64.zip --clobber
+          { echo 'sum<<SUMS'; (cd build/win/dist && sha256sum *-setup.exe *-windows-x64.zip); echo SUMS; } >> "$GITHUB_OUTPUT"
 
   windows-smoke:
     needs: [draft, windows]
@@ -212,7 +212,7 @@ jobs:
         run: |
           gh release download "$TAG" --pattern '*.AppImage.sha256' --dir sums
           { cat sums/*.sha256; printf '%s\n' "${{ needs.windows.outputs.sum }}"; } > SHA256SUMS
-          # a rebuild keeps the sums of the files it didn't make (the portable zip)
+          # a rebuild keeps the sums of the files it didn't make
           if gh release download "$TAG" --pattern SHA256SUMS --dir old 2> /dev/null; then
             awk 'NR == FNR { have[$2] = 1; next } !($2 in have)' SHA256SUMS old/SHA256SUMS > kept
             cat kept >> SHA256SUMS
