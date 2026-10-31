@@ -16,6 +16,11 @@
 
 Q_DECLARE_LOGGING_CATEGORY(lcVideo)
 
+// opengl es 3 has it too; qt's es headers stop at es 2
+#ifndef GL_RGB10_A2
+#define GL_RGB10_A2 0x8059
+#endif
+
 namespace {
 
 void *getProc(const char *name)

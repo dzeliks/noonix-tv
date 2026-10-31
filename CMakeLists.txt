@@ -9,7 +9,11 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE RelWithDebInfo)
 endif()
 
-if(WIN32)
+if(ANDROID)
+    # android (tools/android/build.sh): video in qt quick's opengl es scene, no d-bus, no sdl (the
+    # system hands pads and remotes over as keys)
+    find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Network Qml Quick OpenGL ShaderTools LinguistTools)
+elseif(WIN32)
     # windows (tools/windows/build.sh cross-builds it): video drawn in qt quick's opengl scene
     find_package(Qt6 6.8 REQUIRED COMPONENTS Core Gui Network Qml Quick OpenGL DBus ShaderTools LinguistTools)
 else()
@@ -35,7 +39,9 @@ endif()
 cxx_qt_import_crate(MANIFEST_PATH core/Cargo.toml CRATES noonix_core LOCKED
     QT_MODULES Qt::Core Qt::Gui Qt::Qml ${QMAKE_ARG})
 cxx_qt_import_qml_module(noonix_core_qml URI "Noonix.Core" SOURCE_CRATE noonix_core)
-find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3-shared)
+if(NOT ANDROID)
+    find_package(SDL3 REQUIRED CONFIG COMPONENTS SDL3-shared)
+endif()
 
 set(SOURCES
     src/main.cpp
@@ -46,7 +52,21 @@ set(SOURCES
     src/remote.cpp src/remote.h
     src/input.cpp src/input.h)
 
-if(WIN32)
+if(ANDROID)
+    # libmpv-android's prebuilt libmpv + ffmpeg (tools/android/libmpv.sh): include/ and lib/*.so
+    set(NOONIX_MPV_DIR "" CACHE PATH "libmpv for android")
+    add_library(noonix_mpv SHARED IMPORTED)
+    set_target_properties(noonix_mpv PROPERTIES
+        IMPORTED_LOCATION ${NOONIX_MPV_DIR}/lib/libmpv.so
+        INTERFACE_INCLUDE_DIRECTORIES ${NOONIX_MPV_DIR}/include)
+    file(GLOB NOONIX_MPV_LIBS ${NOONIX_MPV_DIR}/lib/*.so)
+    # its newer c++ runtime goes into the apk in place of the ndk's (tools/android/build.sh)
+    list(FILTER NOONIX_MPV_LIBS EXCLUDE REGEX "libc\\+\\+_shared")
+    list(APPEND SOURCES src/videosurface_scene.cpp src/videoview.cpp src/videoview.h)
+    # libavcodec: ffmpeg's mediacodec decoders get the java vm from main()
+    find_library(AVCODEC avcodec PATHS ${NOONIX_MPV_DIR}/lib NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
+    set(PLATFORM_LIBS Qt6::OpenGL noonix_mpv ${AVCODEC})
+elseif(WIN32)
     # shinchiro's libmpv: NOONIX_MPV_DIR holds include/, libmpv.dll.a and libmpv-2.dll
     set(NOONIX_MPV_DIR "" CACHE PATH "libmpv for windows")
     add_library(noonix_mpv SHARED IMPORTED)
@@ -59,7 +79,7 @@ if(WIN32)
     string(REGEX REPLACE "^version = \"([0-9.]+).*" "\\1" NOONIX_VERSION "${NOONIX_VERSION}")
     string(REPLACE "." "," NOONIX_VERSION_RC "${NOONIX_VERSION},0")
     configure_file(dist/windows/noonix-tv.rc.in noonix-tv.rc @ONLY)
-    list(APPEND SOURCES src/videosurface_win.cpp src/videoview.cpp src/videoview.h ${CMAKE_CURRENT_BINARY_DIR}/noonix-tv.rc)
+    list(APPEND SOURCES src/videosurface_scene.cpp src/videoview.cpp src/videoview.h ${CMAKE_CURRENT_BINARY_DIR}/noonix-tv.rc)
     # iphlpapi: the torrent client lists the network adapters
     set(PLATFORM_LIBS Qt6::OpenGL noonix_mpv iphlpapi)
 else()
@@ -85,20 +105,41 @@ target_include_directories(noonix-tv PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
 if(WIN32)
     set_target_properties(noonix-tv PROPERTIES WIN32_EXECUTABLE ON)
 endif()
+if(ANDROID)
+    file(STRINGS core/Cargo.toml NOONIX_VERSION REGEX "^version = " LIMIT_COUNT 1)
+    string(REGEX REPLACE "^version = \"([0-9.]+).*" "\\1" NOONIX_VERSION "${NOONIX_VERSION}")
+    # 0.2.3 -> 2003: a newer version always has a higher code
+    string(REPLACE "." ";" NOONIX_V "${NOONIX_VERSION}")
+    list(GET NOONIX_V 0 V_MAJOR)
+    list(GET NOONIX_V 1 V_MINOR)
+    list(GET NOONIX_V 2 V_PATCH)
+    math(EXPR NOONIX_VERSION_CODE "${V_MAJOR} * 1000000 + ${V_MINOR} * 1000 + ${V_PATCH}")
+    set_target_properties(noonix-tv PROPERTIES
+        QT_ANDROID_PACKAGE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/android
+        QT_ANDROID_MIN_SDK_VERSION 28
+        QT_ANDROID_TARGET_SDK_VERSION 36
+        QT_ANDROID_VERSION_NAME ${NOONIX_VERSION}
+        QT_ANDROID_VERSION_CODE ${NOONIX_VERSION_CODE}
+        QT_ANDROID_EXTRA_LIBS "${NOONIX_MPV_LIBS}")
+else()
+    target_compile_definitions(noonix-tv PRIVATE NOONIX_DBUS NOONIX_SDL)
+endif()
 
 file(GLOB_RECURSE QML_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS qml/*.qml qml/*.js qml/qmldir qml/assets/*.svg)
-# +windows/ holds the windows versions of a few files (qml file selectors)
-if(NOT WIN32)
-    list(FILTER QML_FILES EXCLUDE REGEX "^qml/\\+windows/")
+# +scene/ holds the versions of a few files for video inside the scene (windows, android)
+if(NOT WIN32 AND NOT ANDROID)
+    list(FILTER QML_FILES EXCLUDE REGEX "^qml/\\+scene/")
 endif()
 qt_add_resources(noonix-tv "qml" PREFIX "/" FILES ${QML_FILES})
 qt_add_resources(noonix-tv "icon" PREFIX "/" BASE dist FILES dist/noonix-tv.svg dist/noonix-tv-dark.svg)
 # inter (ofl) for pcs without sf pro
 qt_add_resources(noonix-tv "fonts" PREFIX "/" FILES fonts/InterVariable.ttf)
 
+# glsl 300 es too for android: es 1.00 has no textureLod without an extension most gpus lack
 qt_add_shaders(noonix-tv "shaders"
     PREFIX "/"
     BATCHABLE
+    GLSL "100es,300es,120,150"
     FILES qml/shaders/glass.vert qml/shaders/glass.frag qml/shaders/blur.frag qml/shaders/art.frag qml/shaders/vidtone.frag qml/shaders/scrim.frag qml/shaders/splash.frag
     OUTPUTS shaders/glass.vert.qsb shaders/glass.frag.qsb shaders/blur.frag.qsb shaders/art.frag.qsb shaders/vidtone.frag.qsb shaders/scrim.frag.qsb shaders/splash.frag.qsb)
 
@@ -107,12 +148,20 @@ qt_add_shaders(noonix-tv "shaders"
 qt_add_translations(noonix-tv TS_FILES i18n/noonix-tv_sr_Latn.ts RESOURCE_PREFIX "/i18n" IMMEDIATE_CALL)
 
 target_link_libraries(noonix-tv PRIVATE
-    noonix_core_qml Qt6::Gui Qt6::Network Qt6::Quick Qt6::DBus SDL3::SDL3 ${PLATFORM_LIBS})
+    noonix_core_qml Qt6::Gui Qt6::Network Qt6::Quick ${PLATFORM_LIBS})
+if(NOT ANDROID)
+    target_link_libraries(noonix-tv PRIVATE Qt6::DBus SDL3::SDL3)
+endif()
 
 # dev builds play muted unless NOONIX_MUTE=0 (house rule: tests are muted)
 option(NOONIX_DEFAULT_MUTE "start mpv muted" OFF)
 if(NOONIX_DEFAULT_MUTE)
     target_compile_definitions(noonix-tv PRIVATE NOONIX_DEFAULT_MUTE)
+endif()
+
+if(ANDROID)
+    # the apk: androiddeployqt (tools/android/build.sh)
+    return()
 endif()
 
 if(WIN32)

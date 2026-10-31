@@ -40,6 +40,10 @@ public:
     Q_INVOKABLE void capture(const QString &what);
     // a pad button that the remote daemon forwarded (PAD:<button>): pressed through the bindings
     void padKey(const QString &button);
+#ifdef Q_OS_ANDROID
+    // a pad button from the activity (android/src/.../NoonixActivity.java)
+    void androidPad(const QString &name, bool down, const QString &kind);
+#endif
 
 signals:
     // back held for a moment: leave the app

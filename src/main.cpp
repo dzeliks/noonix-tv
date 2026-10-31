@@ -13,7 +13,6 @@
 #include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
-#include <QQmlFileSelector>
 #include <QtQml/qqml.h>
 #include <QQuickWindow>
 #include <QScreen>
@@ -159,7 +158,7 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
 #ifdef NOONIX_SCENE_VIDEO
     // +scene/: the qml for video inside the scene
-    (new QQmlFileSelector(&engine, &engine))->setExtraSelectors({QStringLiteral("scene")});
+    engine.setExtraFileSelectors({QStringLiteral("scene")});
 #endif
     desktop.setEngine(&engine);
     engine.rootContext()->setContextProperty(QStringLiteral("Player"), &player);

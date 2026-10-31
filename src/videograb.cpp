@@ -1,6 +1,10 @@
 #include "videograb.h"
 
+#ifdef __ANDROID__
+#include <GLES3/gl3.h>
+#else
 #include <GL/glcorearb.h>
+#endif
 
 #include <cstring>
 

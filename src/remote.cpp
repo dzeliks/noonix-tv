@@ -1,9 +1,16 @@
 #include "remote.h"
 
+// qt says linux on android too: this is the desktop's (wayland, kwin, the session bus)
+#if defined(Q_OS_LINUX) && !defined(Q_OS_ANDROID)
+#define NOONIX_DESKTOP_LINUX
+#endif
+
 #include <chrono>
 #ifdef Q_OS_LINUX
 #include <ctime>
 #include <unistd.h>
+#endif
+#ifdef NOONIX_DESKTOP_LINUX
 #include <qpa/qwindowsysteminterface.h>
 #elif defined(Q_OS_WIN)
 #include <windows.h>
@@ -13,9 +20,11 @@
 #include <QFile>
 #include <QCoreApplication>
 #include <QDateTime>
+#ifdef NOONIX_DBUS
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusReply>
+#endif
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QGuiApplication>
@@ -50,7 +59,7 @@ bool Remote::eventFilter(QObject *obj, QEvent *ev)
 void Remote::activate()
 {
     m_window->requestActivate();
-#ifdef Q_OS_LINUX
+#ifdef NOONIX_DESKTOP_LINUX
     // wayland only lets the compositor move focus: a one-line kwin script does it on plasma
     static const QString script = [] {
         const QString path = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation)
@@ -77,15 +86,19 @@ void Remote::activate()
 
 bool Remote::registerService()
 {
+#ifndef NOONIX_DBUS
+    return false;
+#else
     auto bus = QDBusConnection::sessionBus();
     if (!bus.registerService(QStringLiteral("local.NoonixTV")))
         return false;
     return bus.registerObject(QStringLiteral("/local/NoonixTV"), this, QDBusConnection::ExportScriptableSlots);
+#endif
 }
 
 QString Remote::wallpaperId()
 {
-#ifdef Q_OS_LINUX
+#ifdef NOONIX_DESKTOP_LINUX
     QDBusMessage m = QDBusMessage::createMethodCall(QStringLiteral("local.TvRemote"), QStringLiteral("/"),
                                                     QStringLiteral("local.TvRemote"), QStringLiteral("State"));
     QDBusReply<QString> r = QDBusConnection::sessionBus().call(m, QDBus::Block, 1500);
@@ -101,19 +114,23 @@ QString Remote::wallpaperId()
 void Remote::setCovered(bool covered)
 {
     m_covered = covered;
+#ifdef NOONIX_DBUS
     QDBusMessage m = QDBusMessage::createMethodCall(QStringLiteral("local.TvScreensaver"), QStringLiteral("/local/TvScreensaver"),
                                                     QStringLiteral("local.TvScreensaver"), QStringLiteral("SetCovered"));
     m.setArguments({covered});
     QDBusConnection::sessionBus().asyncCall(m);
+#endif
 }
 
 void Remote::setGlass(bool on)
 {
     m_glass = on;
+#ifdef NOONIX_DBUS
     QDBusMessage m = QDBusMessage::createMethodCall(QStringLiteral("local.TvScreensaver"), QStringLiteral("/local/TvScreensaver"),
                                                     QStringLiteral("local.TvScreensaver"), QStringLiteral("SetGlass"));
     m.setArguments({QStringLiteral("noonix-tv"), on});
     QDBusConnection::sessionBus().asyncCall(m);
+#endif
 }
 
 void Remote::release()
@@ -169,7 +186,7 @@ void Remote::Pointer(double x, double y)
     if (!m_window || qgetenv("NOONIX_TEST") != "1")
         return;
     const QPointF at(x, y);
-#ifdef Q_OS_LINUX
+#ifdef NOONIX_DESKTOP_LINUX
     QWindowSystemInterface::handleMouseEvent(m_window, at, m_window->mapToGlobal(at), Qt::NoButton, Qt::NoButton, QEvent::MouseMove);
 #else
     QCoreApplication::postEvent(m_window, new QMouseEvent(QEvent::MouseMove, at, m_window->mapToGlobal(at), Qt::NoButton, Qt::NoButton, Qt::NoModifier));
@@ -180,7 +197,7 @@ void Remote::Click(double x, double y)
 {
     if (!m_window || qgetenv("NOONIX_TEST") != "1")
         return;
-#ifdef Q_OS_LINUX
+#ifdef NOONIX_DESKTOP_LINUX
     // through qt's own input path, like a real mouse (press positions and grabs as they'd be)
     const QPointF at(x, y);
     QWindowSystemInterface::handleMouseEvent(m_window, at, m_window->mapToGlobal(at), Qt::LeftButton, Qt::LeftButton, QEvent::MouseButtonPress);

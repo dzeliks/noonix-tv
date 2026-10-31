@@ -1,23 +1,34 @@
 #include "input.h"
 #include "remote.h"
 
+#ifdef NOONIX_DBUS
 #include <QDBusConnection>
 #include <QDBusConnectionInterface>
 #include <QDBusServiceWatcher>
+#endif
 #include <QKeyEvent>
 #include <QKeySequence>
 #include <QMouseEvent>
 #include <QQuickItem>
 #include <QQuickWindow>
+#ifdef Q_OS_ANDROID
+#include <QJniEnvironment>
+#include <QJniObject>
+#endif
 
+#ifdef NOONIX_SDL
 #include <SDL3/SDL.h>
+#endif
 
 namespace {
 constexpr int holdMs = 650;
 constexpr int repeatDelayMs = 380;
 constexpr int repeatMs = 110;
+#ifdef NOONIX_DBUS
 const QString tvRemote = QStringLiteral("local.TvRemote");
+#endif
 
+#ifdef NOONIX_SDL
 // positional names: the same physical button on every pad, whatever its label
 QString buttonName(int b)
 {
@@ -60,12 +71,14 @@ QString kindOf(SDL_GamepadType t)
     }
 }
 
+#endif
+
 // the keys that already mean an action without any binding (never turned into it again: a real
 // enter submits the key entry, a posted ok presses the key under the focus)
 bool isNative(const QString &action, int key)
 {
     static const QHash<QString, QList<int>> native = {
-        {QStringLiteral("OK"), {Qt::Key_Return, Qt::Key_Enter}},
+        {QStringLiteral("OK"), {Qt::Key_Return}},
         {QStringLiteral("BACK"), {Qt::Key_Escape, Qt::Key_Back}},
         {QStringLiteral("MENU"), {Qt::Key_Menu}},
         {QStringLiteral("PLAYPAUSE"), {Qt::Key_MediaTogglePlayPause, Qt::Key_MediaPlay, Qt::Key_MediaPause}},
@@ -87,6 +100,34 @@ bool isArrow(const QString &b)
 }
 }
 
+#ifdef Q_OS_ANDROID
+namespace {
+QPointer<Input> padTarget;
+
+void padFromJava(JNIEnv *, jclass, jstring name, jboolean down, jstring kind)
+{
+    const QString n = QJniObject(name).toString();
+    const QString k = QJniObject(kind).toString();
+    QMetaObject::invokeMethod(padTarget, [n, k, down] {
+        if (padTarget)
+            padTarget->androidPad(n, down, k);
+    }, Qt::QueuedConnection);
+}
+}
+
+void Input::androidPad(const QString &name, bool down, const QString &kind)
+{
+    setPadKind(kind);
+    if (m_remote->inputKind() != QLatin1String("pad"))
+        m_remote->InputKind(QStringLiteral("pad"));
+    const int source = int(qHash(name) % 64);
+    if (down)
+        padButton(name, source, true);
+    else
+        release(source);
+}
+#endif
+
 Input::Input(Remote *remote, QObject *parent)
     : QObject(parent)
     , m_remote(remote)
@@ -105,6 +146,7 @@ Input::Input(Remote *remote, QObject *parent)
     m_hold.setInterval(holdMs);
     connect(&m_hold, &QTimer::timeout, this, &Input::holdBack);
 
+#ifdef NOONIX_DBUS
     // the remote daemon reads the pads itself and sends them over d-bus: never both
     auto *watch = new QDBusServiceWatcher(tvRemote, QDBusConnection::sessionBus(),
                                           QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this);
@@ -118,6 +160,15 @@ Input::Input(Remote *remote, QObject *parent)
     QDBusConnectionInterface *bus = QDBusConnection::sessionBus().interface();
     if (qEnvironmentVariableIsSet("NOONIX_PADS") || !bus || !bus->isServiceRegistered(tvRemote))
         startPads();
+#else
+    startPads();
+#endif
+#ifdef Q_OS_ANDROID
+    padTarget = this;
+    const JNINativeMethod methods[] = {
+        {"padButton", "(Ljava/lang/String;ZLjava/lang/String;)V", reinterpret_cast<void *>(padFromJava)}};
+    QJniEnvironment().registerNativeMethods("io/github/dzeliks/noonixtv/NoonixActivity", methods, 1);
+#endif
 }
 
 Input::~Input()
@@ -148,7 +199,7 @@ QVariantMap Input::defaults() const
     };
     // youtube's keys where the keyboard has no remote keys
     QVariantMap keys{
-        {QStringLiteral("OK"), QStringList{QStringLiteral("Return")}},
+        {QStringLiteral("OK"), QStringList{QStringLiteral("Return"), QStringLiteral("Enter")}},
         {QStringLiteral("BACK"), QStringList{QStringLiteral("Esc"), QStringLiteral("Backspace")}},
         {QStringLiteral("MENU"), QStringList{QStringLiteral("M")}},
         {QStringLiteral("PLAYPAUSE"), QStringList{QStringLiteral("Space"), QStringLiteral("K")}},
@@ -249,6 +300,29 @@ bool Input::eventFilter(QObject *obj, QEvent *ev)
     if (ev->type() == QEvent::KeyPress)
         setPointing(false);
     auto *k = static_cast<QKeyEvent *>(ev);
+    // dev: NOONIX_KEYLOG=1 prints what the platform hands over
+    static const bool keyLog = qEnvironmentVariableIsSet("NOONIX_KEYLOG");
+    if (keyLog && ev->type() == QEvent::KeyPress)
+        qInfo("key 0x%x native %u/%u spontaneous %d", k->key(), k->nativeScanCode(), k->nativeVirtualKey(), int(ev->spontaneous()));
+#ifdef Q_OS_ANDROID
+    // the system's back is ours (posted as escape); left unaccepted, qt would send the app to the
+    // background
+    if (k->key() == Qt::Key_Back && ev->spontaneous()) {
+        if (ev->type() == QEvent::KeyPress) {
+            setPointing(false);
+            m_keyBack = QString::number(k->key());
+            if (!k->isAutoRepeat()) {
+                m_remote->Key(QStringLiteral("BACK"));
+                m_escDown.start();
+                m_escFired = false;
+            } else if (!m_escFired && m_escDown.isValid() && m_escDown.elapsed() >= holdMs) {
+                m_escFired = true;
+                emit holdBack();
+            }
+        }
+        return true;
+    }
+#endif
     // remote and pad keys arrive posted; only a real keyboard is bound here
     if (ev->spontaneous() && ev->type() == QEvent::KeyPress) {
         const bool modifierOnly = k->key() == Qt::Key_Shift || k->key() == Qt::Key_Control || k->key() == Qt::Key_Alt || k->key() == Qt::Key_Meta;
@@ -257,8 +331,14 @@ bool Input::eventFilter(QObject *obj, QEvent *ev)
             emit captured(QStringLiteral("key"), k->key() == Qt::Key_Escape ? QString() : QKeySequence(k->key()).toString(QKeySequence::PortableText));
             return true;
         }
-        if (m_remote->inputKind() != QLatin1String("keyboard"))
-            m_remote->InputKind(QStringLiteral("keyboard"));
+#ifdef Q_OS_ANDROID
+        // a tv remote's keys come this way too (the d-pad, back, menu, media): no text
+        const QString kind = k->text().trimmed().isEmpty() ? QStringLiteral("remote") : QStringLiteral("keyboard");
+#else
+        const QString kind = QStringLiteral("keyboard");
+#endif
+        if (m_remote->inputKind() != kind)
+            m_remote->InputKind(kind);
         // a text field takes the keys as typed (enter, escape and the arrows still work there)
         bool typing = false;
         if (auto *qw = qobject_cast<QQuickWindow *>(m_window.data()))
@@ -303,6 +383,7 @@ void Input::startPads()
 {
     if (m_padsOn)
         return;
+#ifdef NOONIX_SDL
     // evdev only: sdl's hidapi drivers repaint the dualsense lightbar
     SDL_SetHint(SDL_HINT_JOYSTICK_HIDAPI, "0");
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -314,6 +395,7 @@ void Input::startPads()
     }
     m_padsOn = true;
     m_poll.start();
+#endif
 }
 
 void Input::stopPads()
@@ -326,7 +408,9 @@ void Input::stopPads()
     m_hold.stop();
     m_stick.clear();
     m_trigger.clear();
+#ifdef NOONIX_SDL
     SDL_QuitSubSystem(SDL_INIT_GAMEPAD);
+#endif
     m_padsOn = false;
 }
 
@@ -375,6 +459,7 @@ void Input::padButton(const QString &name, int source, bool down)
 
 void Input::poll()
 {
+#ifdef NOONIX_SDL
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
         switch (e.type) {
@@ -439,4 +524,5 @@ void Input::poll()
             break;
         }
     }
+#endif
 }
