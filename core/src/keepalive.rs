@@ -32,8 +32,7 @@ pub fn status() -> Value {
 /// while the app is open: a run when the last one is older than 20 h, and a timer whose
 /// appimage moved gets the new path
 pub async fn in_app() {
-    // a copy on its own db (a dev or test run) leaves the installed one's timer alone
-    if timer::installed() && std::env::var_os("NOONIX_DB").is_none() {
+    if timer::installed() && !own_db() {
         if cli_command().is_ok_and(|c| !timer::command().contains(&c)) {
             match tokio::task::spawn_blocking(install).await {
                 Ok(Ok(_)) => tracing::info!("keepalive timer points at this copy now"),
@@ -106,14 +105,25 @@ pub async fn run() -> Result<Value> {
     Ok(json!({ "done": done }))
 }
 
+/// a copy on its own db (a dev or test run) leaves the installed one's timer alone
+fn own_db() -> bool {
+    std::env::var_os("NOONIX_DB").is_some()
+}
+
 /// daily run of `keepalive.run`
 pub fn install() -> Result<Value> {
-    timer::install(&cli_command()?)?;
+    if own_db() {
+        tracing::info!("keepalive timer: left alone (own db)");
+    } else {
+        timer::install(&cli_command()?)?;
+    }
     Ok(status())
 }
 
 pub fn remove() -> Result<Value> {
-    timer::remove()?;
+    if !own_db() {
+        timer::remove()?;
+    }
     Ok(status())
 }
 
