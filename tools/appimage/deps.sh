@@ -98,7 +98,7 @@ fetch dav1d https://code.videolan.org/videolan/dav1d.git "$DAV1D_VERSION"
 mesonbuild dav1d -Denable_tools=false -Denable_tests=false -Denable_examples=false
 
 echo "== ffmpeg $FFMPEG_VERSION"
-fetch ffmpeg https://git.ffmpeg.org/ffmpeg.git "$FFMPEG_VERSION"
+fetch ffmpeg https://github.com/FFmpeg/FFmpeg.git "$FFMPEG_VERSION"
 (
     cd "$src/ffmpeg"
     quiet ./configure --prefix="$usr" --libdir="$usr/lib" --enable-shared --disable-static --enable-pic \
@@ -151,7 +151,7 @@ cat > "$usr/share/licenses/SOURCES.txt" <<SRC
 wayland $WAYLAND_VERSION  https://gitlab.freedesktop.org/wayland/wayland/-/tree/$WAYLAND_VERSION
 libva $LIBVA_VERSION  https://github.com/intel/libva/tree/$LIBVA_VERSION
 dav1d $DAV1D_VERSION  https://code.videolan.org/videolan/dav1d/-/tree/$DAV1D_VERSION
-ffmpeg $FFMPEG_VERSION (gpl, version3)  https://git.ffmpeg.org/gitweb/ffmpeg.git/tree/refs/tags/$FFMPEG_VERSION
+ffmpeg $FFMPEG_VERSION (gpl, version3)  https://github.com/FFmpeg/FFmpeg/tree/$FFMPEG_VERSION
 libass $LIBASS_VERSION  https://github.com/libass/libass/tree/$LIBASS_VERSION
 libplacebo $LIBPLACEBO_VERSION  https://code.videolan.org/videolan/libplacebo/-/tree/$LIBPLACEBO_VERSION
 mpv $MPV_VERSION  https://github.com/mpv-player/mpv/tree/$MPV_VERSION

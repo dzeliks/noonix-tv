@@ -44,7 +44,7 @@ def crates(target):
     return lines + ['']
 
 
-FFMPEG = 'https://git.ffmpeg.org/gitweb/ffmpeg.git/tree/refs/tags/'
+FFMPEG = 'https://github.com/FFmpeg/FFmpeg/tree/'
 
 
 def windows():
