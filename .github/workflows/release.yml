@@ -1,7 +1,7 @@
 name: release
 
 # a v* tag (tools/release.sh) builds the appimages (x86_64, aarch64), the windows setup, the mac
-# apps and the android apk, checks them end to end and publishes them with SHA256SUMS (the in-app
+# apps and the android apks (arm64, armv7), checks them end to end and publishes them with SHA256SUMS (the in-app
 # updater reads it). the files travel between jobs on a draft release. workflow_dispatch builds the same things into a
 # draft "ci-<run>" release (only the newest one is kept), never published
 # the appimage's base is ubuntu 22.04 (glibc 2.35): it runs on ubuntu 22.04, debian 12 and newer.
@@ -199,11 +199,22 @@ jobs:
       tag: ${{ needs.draft.outputs.tag }}
     secrets: inherit
 
-  # the android app (tv boxes, tablets, phones in landscape): an arm64 apk. a release's apk carries
+  # the android app (tv boxes, tablets, phones in landscape): an arm64 apk, the full app, and an armv7
+  # one for 32-bit tv boxes (no hdr or new rendering planned there). a release's apks carry
   # the release key (secrets ANDROID_KEYSTORE / ANDROID_KEYSTORE_PASS, tools/android/keystore.sh);
   # without it the apk is only a run artifact, signed with a throwaway debug key
   android:
     needs: draft
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - abi: arm64-v8a
+            qt: arm64_v8a
+            rust: aarch64-linux-android
+          - abi: armeabi-v7a
+            qt: armv7
+            rust: armv7-linux-androideabi
     runs-on: ubuntu-24.04
     env:
       QT_VERSION: 6.12.0
@@ -220,21 +231,21 @@ jobs:
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ninja-build p7zip-full libegl1 libgl1 libopengl0 libxkbcommon0 libfontconfig1 libglib2.0-0t64 libdbus-1-3 libgssapi-krb5-2
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" "build-tools;36.0.0" "ndk;$NDK_VERSION" > /dev/null
-          rustup target add aarch64-linux-android
+          rustup target add ${{ matrix.rust }}
       - uses: actions/cache@v6
         id: qt-cache
         with:
           path: /opt/qt
-          key: qt-android-${{ env.QT_VERSION }}-${{ hashFiles('tools/android/qt-fetch.py') }}
+          key: qt-android-${{ matrix.qt }}-${{ env.QT_VERSION }}-${{ hashFiles('tools/android/qt-fetch.py') }}
       - name: qt for android
         if: steps.qt-cache.outputs.cache-hit != 'true'
         run: |
           python3 tools/android/qt-fetch.py host "$QT_VERSION" /opt/qt/host qtshadertools
-          python3 tools/android/qt-fetch.py android "$QT_VERSION" arm64_v8a /opt/qt/android /opt/qt/host qtimageformats qtshadertools
+          python3 tools/android/qt-fetch.py android "$QT_VERSION" ${{ matrix.qt }} /opt/qt/android /opt/qt/host qtimageformats qtshadertools
       - uses: actions/cache@v6
         with:
           path: build/android/libmpv
-          key: libmpv-android-${{ hashFiles('tools/android/libmpv.sh') }}
+          key: libmpv-android-${{ matrix.abi }}-${{ hashFiles('tools/android/libmpv.sh') }}
       - name: apk
         env:
           NOONIX_TMDB_API_KEY: ${{ secrets.NOONIX_TMDB_API_KEY }}
@@ -250,7 +261,7 @@ jobs:
             printf '%s' "$KS" | base64 -d > "$RUNNER_TEMP/release.keystore"
             export KEYSTORE="$RUNNER_TEMP/release.keystore" KEYSTORE_ALIAS=noonix
           fi
-          QT_ANDROID=/opt/qt/android QT_HOST=/opt/qt/host tools/android/build.sh build/android
+          ABI=${{ matrix.abi }} QT_ANDROID=/opt/qt/android QT_HOST=/opt/qt/host tools/android/build.sh build/android
           cd build/android && sha256sum *.apk > "$(ls *.apk).sha256"
       - name: onto the draft
         if: env.HAS_KEY == 'true'
@@ -258,7 +269,7 @@ jobs:
       - if: env.HAS_KEY != 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: noonix-tv-android-debug-signed
+          name: noonix-tv-android-${{ matrix.abi }}-debug-signed
           path: build/android/*.apk
           retention-days: 7
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # qt for android (one abi) and the host qt its tools come from, straight from qt's online repository
 #   qt-fetch.py android <version> <abi> <dest> <host dest> [module...]
-#       e.g. qt-fetch.py android 6.12.0 arm64_v8a /p/qt-android /p/qt-host qtimageformats qtshadertools
+#       e.g. qt-fetch.py android 6.12.0 arm64_v8a /p/qt-android (or armv7) /p/qt-host qtimageformats qtshadertools
 #   qt-fetch.py host <version> <dest> [module...]            this machine's host qt (mac: universal, linux: x64)
 import os
 import re
@@ -75,10 +75,17 @@ def link_host(dest, host):
         "HostPrefix": os.path.relpath(host, os.path.join(dest, "bin")),
         "HostData": os.path.relpath(dest, host),
         "HostSpec": "macx-clang" if sys.platform == "darwin" else "linux-g++",
+        # the armv7 archives say bin, windows' place for moc
+        "HostLibraryExecutables": "libexec",
     }
     for k, v in keys.items():
         text = re.sub(rf"^{k}=.*$", f"{k}={v}", text, flags=re.M) if re.search(rf"^{k}=", text, re.M) else text + f"{k}={v}\n"
     open(conf, "w").write(text)
+    # the armv7 archives are made on windows: their scripts come without the x bit
+    for name in os.listdir(os.path.join(dest, "bin")):
+        path = os.path.join(dest, "bin", name)
+        if os.path.isfile(path) and not name.endswith((".bat", ".so")):
+            os.chmod(path, 0o755)
     # its qmake and qtpaths are scripts calling the host's tools by the path qt was built at
     rel = os.path.relpath(os.path.join(host, "bin"), os.path.join(dest, "bin"))
     for name in ("qmake", "qmake6", "qtpaths", "qtpaths6"):
