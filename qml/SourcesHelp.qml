@@ -19,7 +19,7 @@ FocusScope {
     function close() { opacity = 0; closed() }
     function answer(yes) { opacity = 0; answered(yes); closed() }
 
-    Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: 0.6 }
+    Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: Theme.veil }
     MouseArea { anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.AllButtons; onClicked: if (!help.asking) help.close() }
 
     readonly property var texts: help.topic === "debrid" ? [

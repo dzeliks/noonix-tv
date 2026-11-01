@@ -47,6 +47,12 @@ FocusScope {
         })
         Api.call("home.row", { id: "trending-tv" }, function (ok, d) { if (ok) search.trending = d })
     }
+    // a real keyboard's first letter, typed while the bar still has the focus
+    function typeFromBar(t) {
+        zone = "keys"
+        keys.forceActiveFocus()
+        query += t
+    }
     // back from a title or the bar: where the focus was (the results, a suggestion or the keys)
     onActiveFocusChanged: {
         if (!activeFocus) return

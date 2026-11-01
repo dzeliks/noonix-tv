@@ -43,6 +43,9 @@ public slots:
     // test runs only (NOONIX_TEST=1): the mouse moves to x, y in the window, a left click there
     Q_SCRIPTABLE void Pointer(double x, double y);
     Q_SCRIPTABLE void Click(double x, double y);
+    Q_SCRIPTABLE void Button(double x, double y, int button);
+    Q_SCRIPTABLE void Wheel(double x, double y, int dx, int dy);
+    Q_SCRIPTABLE void Press(int key, const QString &text);
     // the overlay: its launch card has dissolved over our splash, the splash can play
     Q_SCRIPTABLE void Revealed() { emit revealed(); }
 

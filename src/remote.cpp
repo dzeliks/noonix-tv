@@ -210,6 +210,45 @@ void Remote::Click(double x, double y)
 #endif
 }
 
+// dev (NOONIX_TEST): the other mouse buttons, the wheel and a real keyboard's keys, through qt's own input path
+void Remote::Button(double x, double y, int button)
+{
+    if (!m_window || qgetenv("NOONIX_TEST") != "1")
+        return;
+#ifdef NOONIX_DESKTOP_LINUX
+    const QPointF at(x, y);
+    const auto b = Qt::MouseButton(button);
+    QWindowSystemInterface::handleMouseEvent(m_window, at, m_window->mapToGlobal(at), b, b, QEvent::MouseButtonPress);
+    QWindowSystemInterface::handleMouseEvent(m_window, at, m_window->mapToGlobal(at), Qt::NoButton, b, QEvent::MouseButtonRelease);
+#else
+    Q_UNUSED(x) Q_UNUSED(y) Q_UNUSED(button)
+#endif
+}
+
+void Remote::Wheel(double x, double y, int dx, int dy)
+{
+    if (!m_window || qgetenv("NOONIX_TEST") != "1")
+        return;
+#ifdef NOONIX_DESKTOP_LINUX
+    const QPointF at(x, y);
+    QWindowSystemInterface::handleWheelEvent(m_window, at, m_window->mapToGlobal(at), QPoint(), QPoint(dx, dy));
+#else
+    Q_UNUSED(x) Q_UNUSED(y) Q_UNUSED(dx) Q_UNUSED(dy)
+#endif
+}
+
+void Remote::Press(int key, const QString &text)
+{
+    if (!m_window || qgetenv("NOONIX_TEST") != "1")
+        return;
+#ifdef NOONIX_DESKTOP_LINUX
+    QWindowSystemInterface::handleKeyEvent(m_window, QEvent::KeyPress, key, Qt::NoModifier, text);
+    QWindowSystemInterface::handleKeyEvent(m_window, QEvent::KeyRelease, key, Qt::NoModifier, text);
+#else
+    Q_UNUSED(key) Q_UNUSED(text)
+#endif
+}
+
 void Remote::InputKind(const QString &kind)
 {
     if (kind == m_kind)

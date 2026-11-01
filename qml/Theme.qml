@@ -6,6 +6,8 @@ QtObject {
     property real u: 1
     // a phone, tablet or android tv: no desktop parts, a device rather than a pc
     readonly property bool android: Qt.platform.os === "android"
+    // how dark the frost behind a full-screen prompt or sheet is
+    readonly property real veil: 0.74
     readonly property color skeleton: Qt.rgba(1, 1, 1, 0.1)
     // sf pro where the pc has it (apple's licence: it can't ship with us), else the bundled inter
     readonly property var families: Qt.fontFamilies()

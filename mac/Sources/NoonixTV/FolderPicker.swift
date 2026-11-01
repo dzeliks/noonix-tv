@@ -107,7 +107,7 @@ struct FolderPickerView: View {
         let u = app.u
         let lines = model.lines
         ZStack {
-            Rectangle().fill(.ultraThinMaterial).overlay { Color.black.opacity(0.6) }
+            Rectangle().fill(.ultraThinMaterial).overlay { Color.black.opacity(0.74) }
                 .ignoresSafeArea()
                 .onTapGesture { app.folderPicker = nil }
             VStack(alignment: .leading, spacing: 30 * u) {

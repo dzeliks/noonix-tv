@@ -311,6 +311,16 @@ Window {
             onProfileRequested: profilePicker.open()
             onEntered: win.focusPage()
             Keys.onDownPressed: win.focusPage()
+            // on search the keyboard types: letters go in, backspace is still back
+            readonly property bool typing: activeFocus && win.page === "search"
+            Keys.onPressed: function (e) {
+                if (!typing) return
+                if (e.key === Qt.Key_Backspace) { win.back(); e.accepted = true; return }
+                if (e.text.length === 1 && e.text > " " && !(e.modifiers & Qt.ControlModifier) && searchL.item) {
+                    searchL.item.typeFromBar(e.text)
+                    e.accepted = true
+                }
+            }
         }
         // sheets a page opens (qr card, key entry): over the scene, never in it, or their
         // glass would blur their own white parts back in as a glow
@@ -785,7 +795,7 @@ Window {
             if (!noFocus) profList.forceActiveFocus()
         }
         // the page behind, frosted
-        Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: 0.5 }
+        Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: Theme.veil }
         Text {
             anchors { horizontalCenter: parent.horizontalCenter; bottom: profList.top; bottomMargin: 96 * win.u }
             text: qsTr("Who's watching?")
@@ -974,11 +984,13 @@ Window {
             acceptedButtons: Qt.RightButton | Qt.BackButton
             onTapped: Remote.Key("BACK")
         }
+        // one handler sees one orientation only: a sideways swipe or tilt needs its own
         WheelHandler {
+            id: wheelUpDown
             property real acc: 0
             property real accX: 0
             acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
-            onWheel: function (w) {
+            function step(w) {
                 // a touchpad coasting after the fingers lift would keep stepping on its own
                 if (w.phase === Qt.ScrollMomentum) return
                 var dx = w.angleDelta.x, dy = w.angleDelta.y
@@ -989,6 +1001,12 @@ Window {
                 while (accX >= 120) { accX -= 120; Remote.Key("LEFT") }
                 while (accX <= -120) { accX += 120; Remote.Key("RIGHT") }
             }
+            onWheel: function (w) { step(w) }
+        }
+        WheelHandler {
+            orientation: Qt.Horizontal
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            onWheel: function (w) { if (w.angleDelta.y === 0) wheelUpDown.step(w) }
         }
     }
 

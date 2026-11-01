@@ -90,7 +90,8 @@ void main()
 
     // lens: circular profile across the bevel; flat (no bend) beyond it
     float t = clamp(-d / max(bevel, 1.0), 0.0, 1.0);
-    float edge = (1.0 - t) * (1.0 - t);                     // 1 at the rim .. 0 inside: the slab's rounded shoulder
+    // no bevel (full-screen glass): no shoulder either, nothing lights the screen's edge
+    float edge = bevel > 0.5 ? (1.0 - t) * (1.0 - t) : 0.0; // 1 at the rim .. 0 inside: the slab's rounded shoulder
     // the scene outside is pulled in over the rounded shoulder (same frost: the
     // shapes bend, nothing gets clearer)
     vec2 bend = n * refraction * pow(edge, 1.3) * screenTexel;

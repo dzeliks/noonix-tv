@@ -13,7 +13,8 @@ ShaderEffect {
     property real tint: kind === "panel" ? 0.075 : kind === "chip" ? 0.12 : 0.80
     property real dim: kind === "panel" ? 0.40 : kind === "chip" ? 0.22 : 0.0
     property real adapt: kind === "panel" ? 0.45 : kind === "chip" ? 0.25 : 0.10
-    property real rim: kind === "clear" ? 0.22 : 0.14
+    // full-screen glass has no edge to light: the rim would be a line around the screen
+    property real rim: radius === 0 ? 0 : kind === "clear" ? 0.22 : 0.14
     property real rimWidth: 1.6
     property real sat: kind === "chip" ? 0.55 : kind === "panel" ? 1.3 : 1.45
     property real soft: kind === "panel" ? 1.0 : kind === "chip" ? 0.6 : 0.0

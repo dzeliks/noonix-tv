@@ -11,7 +11,7 @@ struct ExitPromptView: View {
     var body: some View {
         let u = app.u
         ZStack {
-            Rectangle().fill(.ultraThinMaterial).overlay { Color.black.opacity(0.55) }
+            Rectangle().fill(.ultraThinMaterial).overlay { Color.black.opacity(0.74) }
                 .ignoresSafeArea()
                 .onTapGesture { app.exitChoice = nil }
             VStack(spacing: 56 * u) {

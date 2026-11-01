@@ -103,7 +103,7 @@ FocusScope {
     }
     Timer { id: removeTimer; interval: 4000; onTriggered: sheet.confirmRemove = false }
 
-    Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: 0.6 }
+    Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: Theme.veil }
     MouseArea { anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.AllButtons; onClicked: sheet.close() }
 
     Column {

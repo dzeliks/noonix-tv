@@ -13,7 +13,7 @@ FocusScope {
     function open() { choice = 1; opacity = 1; forceActiveFocus() }
     function close() { opacity = 0 }
 
-    Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: 0.55 }
+    Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: Theme.veil }
     MouseArea { anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.AllButtons; onClicked: ep.stay() }
 
     Column {

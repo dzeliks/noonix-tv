@@ -157,7 +157,7 @@ struct ProfileSheetView: View {
         let name = info["name"] as? String ?? ""
         let opts = model.options
         ZStack {
-            Rectangle().fill(.ultraThinMaterial).overlay { Color.black.opacity(0.6) }
+            Rectangle().fill(.ultraThinMaterial).overlay { Color.black.opacity(0.74) }
                 .ignoresSafeArea()
                 .onTapGesture { app.profileSheet = nil }
             VStack(alignment: .leading, spacing: 30 * u) {

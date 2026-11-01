@@ -255,10 +255,14 @@ FocusScope {
     MouseArea {
         anchors.fill: parent
         hoverEnabled: true
-        acceptedButtons: Qt.LeftButton
+        acceptedButtons: Qt.NoButton
         cursorShape: osd.chromeShown ? Qt.ArrowCursor : Qt.BlankCursor
         onPositionChanged: if (Input.pointerLive()) osd.show()
-        onClicked: if (osd.shown) Player.togglePause(); else osd.show()
+        // a handler: mouse areas skip presses qt tags as a touchpad's
+        TapHandler {
+            acceptedButtons: Qt.LeftButton
+            onTapped: if (osd.shown) Player.togglePause(); else osd.show()
+        }
     }
 
     // ---- the controls (fade as one)

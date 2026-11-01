@@ -49,7 +49,7 @@ FocusScope {
     Keys.onPressed: function (e) { e.accepted = true }   // nothing else while it searches
 
     // the page behind, frosted
-    Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: 0.5 }
+    Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: Theme.veil }
 
     Glass {
         id: card

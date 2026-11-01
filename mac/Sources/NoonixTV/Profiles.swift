@@ -53,7 +53,7 @@ struct ProfilePicker: View {
         let editing = app.profileEdit != nil
         ZStack {
             Rectangle().fill(.ultraThinMaterial)
-            Color.black.opacity(0.5)
+            Color.black.opacity(0.74)
             // the line of profiles sits in the middle, the title above it, the switch below
             HStack(alignment: .top, spacing: 60 * u) {
                 ForEach(0...list.count, id: \.self) { i in
