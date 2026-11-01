@@ -76,4 +76,9 @@ jobs:
       - if: inputs.tag != ''
         run: |
           (cd mac/dist && zip="$(ls *.zip)" && shasum -a 256 "$zip" > "$zip.sha256")
-          gh release upload "${{ inputs.tag }}" mac/dist/*.zip mac/dist/*.zip.sha256 --clobber
+          # a network blip here would lose a finished build
+          for try in 1 2 3 4 5; do
+            gh release upload "${{ inputs.tag }}" mac/dist/*.zip mac/dist/*.zip.sha256 --clobber && break
+            [ "$try" != 5 ] || exit 1
+            sleep 30
+          done

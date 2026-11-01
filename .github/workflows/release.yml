@@ -265,7 +265,7 @@ jobs:
   # waits for every build; the mac and android ones may fail without holding the release back
   publish:
     needs: [draft, appimage, windows, windows-smoke, macos, android]
-    if: ${{ !cancelled() && needs.appimage.result == 'success' && needs.windows-smoke.result == 'success' }}
+    if: ${{ !cancelled() && needs.appimage.result == 'success' && needs.windows-smoke.result == 'success' && needs.macos.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
