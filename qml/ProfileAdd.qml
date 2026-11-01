@@ -5,12 +5,15 @@ import QtQuick
 FocusScope {
     id: pa
     readonly property real u: Theme.u
+    // real keyboards type here wherever the focus is: the input bindings leave it alone
+    readonly property bool typing: true
     property string name: ""
     property int editId: 0
     property var taken: []
     property var files: []
     property string dir: ""
     property int choice: 0
+    property int pointedLook: -1           // under the mouse: a click picks it, hovering only shows it
     readonly property var colours: ["green", "pink", "blue", "orange", "purple"]
     readonly property var choices: colours.concat(files)
     readonly property bool pictured: choice >= colours.length
@@ -62,7 +65,9 @@ FocusScope {
         })
     }
     Keys.onEscapePressed: cancel()
+    function add(t) { if (name.length < 20) name += t }
 
+    Shield {}
     Glass {
         id: card
         anchors.centerIn: parent
@@ -114,6 +119,7 @@ FocusScope {
                 required property var modelData
                 required property int index
                 readonly property bool foc: index === pa.choice && looks.activeFocus
+                readonly property bool pointed: index === pa.pointedLook
                 width: 72 * pa.u; height: looks.height
                 Avatar {
                     anchors.centerIn: parent
@@ -121,7 +127,7 @@ FocusScope {
                     colour: index < pa.colours.length ? modelData : pa.lastColour
                     image: index < pa.colours.length ? "" : modelData
                     letter: ""
-                    scale: parent.foc ? 1.14 : 1
+                    scale: parent.foc || parent.pointed ? 1.14 : 1
                     Behavior on scale { NumberAnimation { duration: 140 } }
                 }
                 Rectangle {
@@ -130,15 +136,27 @@ FocusScope {
                     color: "transparent"
                     border.width: 4 * pa.u
                     border.color: "white"
-                    opacity: index === pa.choice ? (parent.foc ? 1 : 0.45) : 0
+                    opacity: index === pa.choice ? (parent.foc ? 1 : 0.45) : parent.pointed ? 0.3 : 0
                 }
-                Pointer { okKey: false; onPointed: { pa.choice = index; looks.forceActiveFocus() } onTapped: keys.forceActiveFocus() }
+                Pointer {
+                    okKey: false
+                    takesFocus: false
+                    onContainsMouseChanged: pa.pointedLook = containsMouse ? index : pa.pointedLook === index ? -1 : pa.pointedLook
+                    onTapped: { pa.choice = index; keys.forceActiveFocus() }
+                }
             }
             Keys.onLeftPressed: pa.choice = Math.max(0, pa.choice - 1)
             Keys.onRightPressed: pa.choice = Math.min(pa.choices.length - 1, pa.choice + 1)
             Keys.onDownPressed: keys.forceActiveFocus()
             Keys.onReturnPressed: keys.forceActiveFocus()
             Keys.onEnterPressed: keys.forceActiveFocus()
+            // letters on the way: back to the name
+            Keys.onPressed: function (e) {
+                if (e.key === Qt.Key_Backspace) { pa.name = pa.name.slice(0, -1); e.accepted = true; return }
+                if (e.text && e.text.length === 1 && e.text >= " " && !(e.modifiers & Qt.ControlModifier)) {
+                    pa.add(e.text); keys.typed = true; keys.forceActiveFocus(); e.accepted = true
+                }
+            }
         }
         Rectangle {
             width: parent.width
@@ -151,14 +169,13 @@ FocusScope {
                 anchors { left: parent.left; right: parent.right; margins: 28 * pa.u; verticalCenter: parent.verticalCenter }
                 text: pa.name
                 placeholder: qsTr("Name")
-                active: keys.activeFocus
+                active: pa.visible
                 size: 28 * pa.u
             }
+            Pointer { okKey: false; takesFocus: false; cursorShape: Qt.IBeamCursor; onTapped: keys.forceActiveFocus() }
         }
         FocusScope {
             id: keys
-            // real keyboards type here: the input bindings leave it alone
-            readonly property bool typing: true
             // letters came from a real keyboard: its enter is done (a remote's ok presses the focused key)
             property bool typed: false
             width: parent.width
@@ -174,7 +191,7 @@ FocusScope {
                     e.accepted = true; return
                 }
                 if (e.key === Qt.Key_Backspace) { pa.name = pa.name.slice(0, -1); e.accepted = true; return }
-                if (e.text && e.text.length === 1 && e.text >= " " && !(e.modifiers & Qt.ControlModifier)) { pa.name += e.text; typed = true; e.accepted = true }
+                if (e.text && e.text.length === 1 && e.text >= " " && !(e.modifiers & Qt.ControlModifier)) { pa.add(e.text); typed = true; e.accepted = true }
             }
             Keyboard {
                 id: kb
@@ -184,7 +201,7 @@ FocusScope {
                 active: keys.activeFocus
                 onPointed: keys.forceActiveFocus()
                 onLeave: function (dir) { if (dir === "up") looks.forceActiveFocus() }
-                onTyped: function (t) { if (pa.name.length < 20) pa.name += t }
+                onTyped: function (t) { pa.add(t) }
                 onSpecial: function (n) {
                     if (n === "backspace") pa.name = pa.name.slice(0, -1)
                     else if (n === "clear") pa.name = ""

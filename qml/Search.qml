@@ -13,8 +13,10 @@ FocusScope {
     property string zone: "keys"             // keys | suggestions | grid
     property int suggestion: 0
     readonly property real u: Theme.u
-    readonly property bool typing: query.trim().length > 1
-    readonly property var shown: typing ? results : popular
+    // real keyboards type here wherever the focus is: the input bindings leave it alone
+    readonly property bool typing: true
+    readonly property bool searching: query.trim().length > 1
+    readonly property var shown: searching ? results : popular
     // terminal metrics on the 1080 grid
     readonly property real columnW: 575 * u
     readonly property real columnX: width - Theme.margin - columnW
@@ -23,7 +25,7 @@ FocusScope {
     readonly property real gridGap: 40 * u
     readonly property real posterW: (columnX - 64 * u - Theme.margin - 3 * gridGap) / 4
     readonly property var suggestions: {
-        var src = typing ? results : trending, out = []
+        var src = searching ? results : trending, out = []
         for (var i = 0; i < src.length && out.length < 6; ++i) {
             var t = src[i].title
             if (t && out.indexOf(t) < 0 && t.toLowerCase() !== query.trim().toLowerCase()) out.push(t)
@@ -31,7 +33,9 @@ FocusScope {
         return out
     }
     signal open(var item)
+    signal menu(var item, string rowId, rect at)
     signal upFromTop()
+    property var menuItem: null
 
     Component.onCompleted: {
         Api.call("home.row", { id: "popular-movie" }, function (ok, m) {
@@ -53,6 +57,14 @@ FocusScope {
         keys.forceActiveFocus()
         query += t
     }
+    // a key anywhere on the page: letters and backspace go to the query, and the keys take over
+    function typeKey(e) {
+        if (e.key === Qt.Key_Backspace) { query = query.slice(0, -1); e.accepted = true; return }
+        if (e.text && e.text.length === 1 && e.text >= " " && !(e.modifiers & Qt.ControlModifier)) {
+            typeFromBar(e.text)
+            e.accepted = true
+        }
+    }
     // back from a title or the bar: where the focus was (the results, a suggestion or the keys)
     onActiveFocusChanged: {
         if (!activeFocus) return
@@ -61,14 +73,19 @@ FocusScope {
         else keys.forceActiveFocus()
     }
 
-    onQueryChanged: debounce.restart()
+    // busy from the first letter on: the wait isn't "no results"
+    onQueryChanged: {
+        var q = query.trim()
+        if (q.length < 2) { results = []; busy = false; debounce.stop(); return }
+        busy = true
+        debounce.restart()
+    }
     Timer {
         id: debounce
         interval: 320
         onTriggered: {
             var q = search.query.trim()
-            if (q.length < 2) { search.results = []; search.busy = false; return }
-            search.busy = true
+            if (q.length < 2) return
             Api.call("tmdb.search", { query: q }, function (ok, d) {
                 if (q !== search.query.trim()) return
                 search.busy = false
@@ -88,7 +105,15 @@ FocusScope {
         id: gridTitle
         x: Theme.margin
         y: search.topY
-        text: search.busy ? qsTr("Searching…") : search.typing ? (search.results.length ? qsTr("Top results") : qsTr("No results")) : qsTr("Popular")
+        text: search.busy ? qsTr("Searching…") : search.searching ? (search.results.length ? qsTr("Top results") : qsTr("No results")) : qsTr("Popular")
+    }
+    // new results on the way over the old ones
+    Spinner {
+        anchors { left: gridTitle.right; leftMargin: 18 * search.u; verticalCenter: gridTitle.verticalCenter }
+        width: 30 * search.u; height: width
+        color: Theme.fg2
+        visible: search.busy && search.results.length > 0
+        running: visible && search.visible
     }
     GridView {
         id: grid
@@ -108,6 +133,7 @@ FocusScope {
         highlightMoveDuration: 320
         cacheBuffer: 600 * search.u
         focus: search.zone === "grid"
+        onActiveFocusChanged: if (activeFocus) search.zone = "grid"
         delegate: Item {
             required property int index
             readonly property var modelData: search.shown[index] || ({})
@@ -118,7 +144,7 @@ FocusScope {
                 y: 10 * search.u
                 posterW: search.posterW
                 media: modelData
-                focused: parent.GridView.isCurrentItem && grid.activeFocus
+                focused: parent.GridView.isCurrentItem && (grid.activeFocus || search.menuItem === modelData)
             }
         }
         Keys.onRightPressed: function (e) {
@@ -127,9 +153,16 @@ FocusScope {
         }
         Keys.onUpPressed: function (e) { if (currentIndex < cols) search.upFromTop(); else moveCurrentIndexUp() }
         Keys.onReturnPressed: if (search.shown.length) search.open(search.shown[currentIndex])
+        Keys.onMenuPressed: function (event) {
+            if (!currentItem || !search.shown.length) { event.accepted = false; return }
+            var w = search.posterW, h = w * 1.5
+            var p = currentItem.mapToItem(null, (grid.cellWidth - w) / 2 - w * 0.05, 10 * search.u - h * 0.05)
+            search.menu(search.shown[currentIndex], "", Qt.rect(p.x, p.y, w * 1.1, h * 1.1))
+        }
+        Keys.onPressed: function (e) { search.typeKey(e) }
     }
 
-    // popular or the results on their way: placeholder posters where they'll be
+    // popular on its way: placeholder posters where they'll be
     Grid {
         x: grid.x + search.gridGap / 2
         y: grid.y + 10 * search.u
@@ -137,16 +170,24 @@ FocusScope {
         columnSpacing: search.gridGap
         rowSpacing: search.gridGap
         visible: opacity > 0
-        opacity: search.shown.length === 0 && (search.typing ? search.busy : !search.popularKnown) ? 1 : 0
+        opacity: !search.searching && search.shown.length === 0 && !search.popularKnown ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 140 } }
         Repeater {
             model: grid.cols * 2
             Skeleton { cardW: search.posterW }
         }
     }
+    // the first results on their way
+    Spinner {
+        anchors.horizontalCenter: grid.horizontalCenter
+        y: grid.y + 240 * search.u
+        width: 72 * search.u; height: width
+        visible: search.busy && search.results.length === 0
+        running: visible && search.visible
+    }
     // nothing found: say so where the results would be
     Column {
-        visible: search.typing && !search.busy && search.results.length === 0
+        visible: search.searching && !search.busy && search.results.length === 0
         anchors.horizontalCenter: grid.horizontalCenter
         y: grid.y + 160 * search.u
         spacing: 22 * search.u
@@ -199,8 +240,14 @@ FocusScope {
             anchors { left: glassIcon.right; leftMargin: 16 * search.u; right: parent.right; rightMargin: 24 * search.u; verticalCenter: parent.verticalCenter }
             text: search.query
             placeholder: qsTr("Movies and shows")
-            active: keys.activeFocus
+            active: search.visible
             size: 26 * search.u
+        }
+        Pointer {
+            okKey: false
+            takesFocus: false
+            cursorShape: Qt.IBeamCursor
+            onTapped: { search.zone = "keys"; keys.forceActiveFocus() }
         }
     }
 
@@ -211,6 +258,7 @@ FocusScope {
         width: search.columnW
         height: kb.y - 22 * search.u - y
         focus: search.zone === "suggestions"
+        onActiveFocusChanged: if (activeFocus) search.zone = "suggestions"
         readonly property real chipH: Math.min(62 * search.u, (height - sugTitle.height - 12 * search.u - 5 * 8 * search.u) / 6)
         Section { id: sugTitle; text: qsTr("Suggestions"); visible: search.suggestions.length > 0 }
         Repeater {
@@ -228,6 +276,11 @@ FocusScope {
                 height: sugBox.chipH
                 focused: sugBox.activeFocus && search.suggestion === index
                 z: focused ? 1 : 0
+                Pointer {
+                    okKey: false
+                    onPointed: { search.suggestion = sug.index; sugBox.forceActiveFocus() }
+                    onTapped: search.query = sug.modelData
+                }
                 Marquee {
                     anchors { left: parent.left; leftMargin: 22 * search.u; right: parent.right; rightMargin: 22 * search.u; verticalCenter: parent.verticalCenter }
                     text: modelData
@@ -244,12 +297,11 @@ FocusScope {
         }
         Keys.onLeftPressed: if (search.shown.length) { search.zone = "grid"; grid.forceActiveFocus() }
         Keys.onReturnPressed: if (search.suggestions.length) search.query = search.suggestions[search.suggestion]
+        Keys.onPressed: function (e) { search.typeKey(e) }
     }
 
     FocusScope {
         id: keys
-        // real keyboards type here: the input bindings leave it alone
-        readonly property bool typing: true
         x: search.columnX
         y: kb.y
         width: search.columnW

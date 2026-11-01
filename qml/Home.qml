@@ -17,6 +17,33 @@ FocusScope {
     signal menu(var item, string rowId, rect at)
     signal upFromTop()
 
+    // ---- the wheel: hero and rows are one page that moves in pixels. a key brings the tv's rows back
+    property bool scrolled: false
+    readonly property real pageY: rows.contentY - rows.originY
+    property real heroBack: 0
+    readonly property real heroY: scrolled ? pageY : heroBack
+    NumberAnimation { id: heroHome; target: home; property: "heroBack"; to: 0; duration: 420; easing.type: Easing.OutCubic }
+    PageWheel { id: wheel; view: rows }
+    function wheelScroll(w) {
+        Input.setPointing(true)
+        heroHome.stop()
+        if (!scrolled) { heroBack = 0; scrolled = true }
+        wheel.scroll(w)
+    }
+    Connections {
+        target: Input
+        function onPointingChanged() {
+            if (Input.pointing || !home.scrolled) return
+            wheel.stop()
+            // the keys go on from the row at the top of the page
+            var i = rows.indexAt(rows.width / 2, rows.contentY + 40 * home.u)
+            if (i >= 0) rows.currentIndex = i
+            home.heroBack = home.pageY
+            home.scrolled = false
+            heroHome.start()
+        }
+    }
+
     function load() {
         Api.call("home.rows", { page: page }, function (ok, d) { home.known = true; if (ok) { home.specs = d; home.updateShown() } })
     }
@@ -136,6 +163,8 @@ FocusScope {
         item: home.current
         known: home.details
         knownVersion: home.detailsVersion
+        visible: home.heroY < height
+        transform: Translate { y: -home.heroY }
     }
 
     ListView {
@@ -149,7 +178,7 @@ FocusScope {
         // every row built ahead while idle (about ten): one built on the way down costs ~25 ms
         cacheBuffer: 6 * parent.height
         keyNavigationEnabled: true
-        highlightRangeMode: Input.pointing ? ListView.NoHighlightRange : ListView.StrictlyEnforceRange
+        highlightRangeMode: Input.pointing || home.scrolled ? ListView.NoHighlightRange : ListView.StrictlyEnforceRange
         preferredHighlightBegin: 0
         preferredHighlightEnd: 80 * home.u
         // an invisible highlight: without one the view follows the current row directly and
@@ -173,7 +202,7 @@ FocusScope {
             loading: (home.version, home.cache[modelData.id] === undefined)
             // rows above the focus hide behind the hero: one leaving is gone at once, one coming
             // back fades in with its slide (a behavior would pick the duration of the old state)
-            readonly property bool above: index < rows.currentIndex
+            readonly property bool above: index < rows.currentIndex && !home.scrolled
             opacity: 1
             onAboveChanged: {
                 fade.stop()
@@ -189,6 +218,18 @@ FocusScope {
             }
             onActivated: function (item) { home.open(item) }
             onMenu: function (item, index, at) { home.menu(item, modelData.id, at) }
+        }
+    }
+    // scrolled: the page passes under the bar, not through its text
+    Rectangle {
+        anchors { left: parent.left; right: parent.right; top: parent.top }
+        height: 190 * home.u
+        visible: opacity > 0
+        opacity: Math.min(1, home.heroY / (120 * home.u))
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.9) }
+            GradientStop { position: 0.55; color: Qt.rgba(0, 0, 0, 0.72) }
+            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
         }
     }
     // the rows before the page has them: placeholders where they'll be

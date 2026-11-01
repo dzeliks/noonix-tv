@@ -113,9 +113,6 @@ FocusScope {
                 media: modelData
                 style: library.history ? "landscape" : "poster"
                 focused: parent.GridView.isCurrentItem && (grid.activeFocus || library.menuItem === modelData)
-                TapHandler {
-                    onTapped: { grid.currentIndex = index; grid.forceActiveFocus(); library.open(modelData) }
-                }
             }
         }
         Keys.onUpPressed: function (e) {

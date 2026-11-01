@@ -5,6 +5,9 @@ import sys
 import xml.etree.ElementTree as ET
 
 T = {
+    # ---- on-screen keyboard
+    "space": "razmak",
+    "clear": "obriši",
     # ---- core: home rows
     "Up Next": "Sledeće",
     "Continue Watching": "Nastavi gledanje",

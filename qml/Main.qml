@@ -248,6 +248,7 @@ Window {
                 sourceComponent: Search {
                     focus: true
                     onOpen: function (it) { win.openItem(it) }
+                    onMenu: function (it, rowId, at) { win.rowMenu(it, rowId, searchL.item, at) }
                     onUpFromTop: nav.forceActiveFocus()
                 }
             }
@@ -294,6 +295,7 @@ Window {
                     onPlay: function (t, s) { win.startPlay(t, s) }
                     onSources: function (t) { win.openSources(t) }
                     onOpen: function (it) { win.openItem(it) }
+                    onMenu: function (it, at) { win.rowMenu(it, "", detailsL.item, at) }
                     onNotice: function (message) { toast.show(message) }
                     onBack: win.back()
                 }
@@ -315,7 +317,12 @@ Window {
             readonly property bool typing: activeFocus && win.page === "search"
             Keys.onPressed: function (e) {
                 if (!typing) return
-                if (e.key === Qt.Key_Backspace) { win.back(); e.accepted = true; return }
+                if (e.key === Qt.Key_Backspace) {
+                    if (searchL.item && searchL.item.query) searchL.item.query = searchL.item.query.slice(0, -1)
+                    else win.back()
+                    e.accepted = true
+                    return
+                }
                 if (e.text.length === 1 && e.text > " " && !(e.modifiers & Qt.ControlModifier) && searchL.item) {
                     searchL.item.typeFromBar(e.text)
                     e.accepted = true
@@ -573,7 +580,13 @@ Window {
         browse.forceActiveFocus()
         focusPage()
     }
+    function closePickers() {
+        if (tracks.visible) tracks.close()
+        if (matchSheet.visible) matchSheet.close()
+    }
     function stopPlayback() {
+        closePickers()
+        if (timing.visible) timing.finish(false)
         switching.stop()
         switchingSource = false
         tipTimer.stop()
@@ -641,8 +654,17 @@ Window {
         visible: win.videoUp && !matchTip.visible
         focus: win.playing
         onExit: win.stopPlayback()
-        onPickTracks: function (kind, x, w) { tracks.open(kind, x, w) }
-        onRateMatch: function (x, w) { matchSheet.open(x, w) }
+        // one picker at a time, its own button closes it
+        onPickTracks: function (kind, x, w) {
+            var same = tracks.visible && tracks.kind === kind
+            win.closePickers()
+            if (!same) tracks.open(kind, x, w)
+        }
+        onRateMatch: function (x, w) {
+            var same = matchSheet.visible
+            win.closePickers()
+            if (!same) matchSheet.open(x, w)
+        }
         pickerOpen: tracks.visible || matchSheet.visible
     }
     Finder {
@@ -733,6 +755,8 @@ Window {
         visible: false
         onVisibleChanged: if (!visible && win.menuHome) win.menuHome.menuItem = null
         readonly property real u: win.u
+        // a click beside it only closes it
+        Shield { onOutside: win.back() }
         Glass {
             id: optPanel
             width: Math.max(440 * win.u, win.menuAt.width)
@@ -744,6 +768,7 @@ Window {
             radius: 40 * win.u                 // rows 24 + inset 16
             kind: "panel"
         }
+        MouseArea { anchors.fill: optPanel; hoverEnabled: true; acceptedButtons: Qt.AllButtons }
         Text {
             id: optHead
             x: optPanel.x + 16 * win.u + 30 * win.u
@@ -796,6 +821,7 @@ Window {
         }
         // the page behind, frosted
         Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: Theme.veil }
+        Shield {}
         Text {
             anchors { horizontalCenter: parent.horizontalCenter; bottom: profList.top; bottomMargin: 96 * win.u }
             text: qsTr("Who's watching?")
@@ -974,7 +1000,18 @@ Window {
         }
     }
 
-    // the mouse everywhere: right click (or the side back button) is back, the wheel is the arrows
+    // the page the wheel scrolls in pixels: nothing over it, and it knows how
+    function wheelPage() {
+        if (win.videoUp || win.playing || finder.visible || sources.visible || profilePicker.visible || profileAdd.visible
+                || setupView.visible || exitPrompt.visible || splash.visible)
+            return null
+        var l = currentPage()
+        return l && l.item && l.item.wheelScroll ? l.item : null
+    }
+    // the card under the mouse (card options on right click); covered by a sheet there's none
+    property var pointedCard: null
+    // the mouse everywhere: right click (or the side back button) is back, or a card's options, the
+    // wheel scrolls the page (lists: the arrows)
     Item {
         anchors.fill: parent
         z: 20
@@ -982,7 +1019,14 @@ Window {
             // a mouse's right or back button; a touch has no buttons, every tap would count
             acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
             acceptedButtons: Qt.RightButton | Qt.BackButton
-            onTapped: Remote.Key("BACK")
+            onTapped: function (point, button) {
+                if (button === Qt.RightButton && win.pointedCard) {
+                    win.pointedCard.go()
+                    Remote.pointerKey("MENU")
+                } else {
+                    Remote.pointerKey("BACK")
+                }
+            }
         }
         // one handler sees one orientation only: a sideways swipe or tilt needs its own
         WheelHandler {
@@ -991,6 +1035,10 @@ Window {
             property real accX: 0
             acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
             function step(w) {
+                // scrolling away from the options closes them
+                if (menuPopup.visible) { win.back(); return }
+                var page = w.modifiers & Qt.ShiftModifier ? null : win.wheelPage()
+                if (page && w.angleDelta.y !== 0) { page.wheelScroll(w); return }
                 // a touchpad coasting after the fingers lift would keep stepping on its own
                 if (w.phase === Qt.ScrollMomentum) return
                 var dx = w.angleDelta.x, dy = w.angleDelta.y

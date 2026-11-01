@@ -14,8 +14,8 @@ Item {
 
     Text {
         id: label
-        // empty: the placeholder starts after the caret, where the first letter will go
-        anchors { left: parent.left; leftMargin: !f.text.length && f.active ? 9 * f.u : 0; right: parent.right; rightMargin: 9 * f.u; verticalCenter: parent.verticalCenter }
+        // the caret has its place before the first letter: nothing moves when it comes or goes
+        anchors { left: parent.left; leftMargin: 9 * f.u; right: parent.right; rightMargin: 9 * f.u; verticalCenter: parent.verticalCenter }
         text: f.text.length ? (f.secret ? "•".repeat(f.text.length) : f.text) : f.placeholder
         color: f.text.length ? Theme.fg : Theme.fg3
         elide: Text.ElideLeft
@@ -25,7 +25,7 @@ Item {
         id: caret
         property bool on: true
         visible: f.active && on
-        x: f.text.length ? Math.min(label.contentWidth, label.width) + 3 * f.u : 0
+        x: f.text.length ? label.x + Math.min(label.contentWidth, label.width) + 3 * f.u : 0
         anchors.verticalCenter: parent.verticalCenter
         width: 3 * f.u
         height: f.size * 1.15

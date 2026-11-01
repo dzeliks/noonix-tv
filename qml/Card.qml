@@ -86,7 +86,15 @@ Item {
     }
 
     Pointer {
-        onContainsMouseChanged: Theme.pointedCards = Math.max(0, Theme.pointedCards + (containsMouse ? 1 : -1))
-        Component.onDestruction: if (containsMouse) Theme.pointedCards = Math.max(0, Theme.pointedCards - 1)
+        id: point
+        onContainsMouseChanged: {
+            Theme.pointedCards = Math.max(0, Theme.pointedCards + (containsMouse ? 1 : -1))
+            if (containsMouse) win.pointedCard = point
+            else if (win.pointedCard === point) win.pointedCard = null
+        }
+        Component.onDestruction: {
+            if (containsMouse) Theme.pointedCards = Math.max(0, Theme.pointedCards - 1)
+            if (win.pointedCard === point) win.pointedCard = null
+        }
     }
 }

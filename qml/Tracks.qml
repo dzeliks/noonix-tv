@@ -97,6 +97,7 @@ FocusScope {
         height: Math.min(tr.height - 200 * tr.u, tr.linesHeight + 32 * tr.u)
         radius: 40 * tr.u
     }
+    MouseArea { anchors.fill: panel; hoverEnabled: true; acceptedButtons: Qt.AllButtons }
     ListView {
         id: list
         // 16 all round: the rows' 24 radius + 16 = the panel's 40, corners stay concentric
@@ -125,8 +126,9 @@ FocusScope {
         Keys.onReturnPressed: {
             var l = tr.lines[currentIndex]
             if (!l || l.header) return
-            if (l.kind === "search") tr.searchSubs()
-            else if (l.kind === "sub") Player.setSubtitleTrack(l.id); else Player.setAudioTrack(l.id)
+            if (l.kind === "search") { tr.searchSubs(); return }
+            if (l.kind === "sub") Player.setSubtitleTrack(l.id); else Player.setAudioTrack(l.id)
+            tr.close()
         }
         Keys.onUpPressed: function (e) { var i = currentIndex - 1; while (i >= 0 && tr.lines[i].header) i--; if (i >= 0) { currentIndex = i; remember() } }
         Keys.onDownPressed: function (e) { var i = currentIndex + 1; while (i < count && tr.lines[i].header) i++; if (i < count) { currentIndex = i; remember() } }

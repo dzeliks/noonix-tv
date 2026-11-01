@@ -110,7 +110,7 @@ FocusScope {
     }
 
     Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: Theme.veil }
-    MouseArea { anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.AllButtons; onClicked: sheet.close() }
+    Shield { onOutside: sheet.close() }
 
     Column {
         anchors.centerIn: parent

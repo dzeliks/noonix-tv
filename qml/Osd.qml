@@ -181,6 +181,8 @@ FocusScope {
         osd.rateMatch(l, r - l)
     }
     function act(b) {
+        // the open picker goes down with anything else; the buttons that open one swap or close it
+        if (pickerOpen && b !== "subs" && b !== "audio" && b !== "match") win.closePickers()
         if (b === "play") Player.togglePause()
         else if (b === "rew") Player.seek(-10)
         else if (b === "fwd") Player.seek(10)
@@ -261,7 +263,11 @@ FocusScope {
         // a handler: mouse areas skip presses qt tags as a touchpad's
         TapHandler {
             acceptedButtons: Qt.LeftButton
-            onTapped: if (osd.shown) Player.togglePause(); else osd.show()
+            onTapped: {
+                if (osd.pickerOpen) win.closePickers()
+                else if (osd.shown) Player.togglePause()
+                else osd.show()
+            }
         }
     }
 
@@ -349,7 +355,7 @@ FocusScope {
                 anchors { fill: parent; topMargin: -24 * osd.u; bottomMargin: -24 * osd.u }
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                function go(x) { if (osd.dur > 0) Player.seekTo(Math.max(0, Math.min(1, x / width)) * osd.dur); osd.show(0, "bar") }
+                function go(x) { if (osd.pickerOpen) win.closePickers(); if (osd.dur > 0) Player.seekTo(Math.max(0, Math.min(1, x / width)) * osd.dur); osd.show(0, "bar") }
                 onPressed: function (m) { go(m.x) }
                 onPositionChanged: function (m) { if (pressed) go(m.x) }
             }

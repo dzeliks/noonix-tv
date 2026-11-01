@@ -54,6 +54,8 @@ FocusScope {
     function resLabel(r) { return r >= 2160 ? "4K" : r >= 1440 ? "1440p" : r > 0 ? r + "p" : "?" }
     function gb(b) { return !b ? "" : b < 1e9 ? Math.max(1, Math.round(b / 1e6)) + " MB" : (b / 1e9).toFixed(b >= 1e10 ? 0 : 1) + " GB" }
 
+    // beside the panel: closes it, nothing behind it reacts
+    Shield { onOutside: sheet.close() }
     Glass {
         id: panel
         kind: "panel"
@@ -61,6 +63,8 @@ FocusScope {
         width: parent.width * 0.5
         radius: 56 * sheet.u
     }
+
+    MouseArea { anchors.fill: panel; hoverEnabled: true; acceptedButtons: Qt.AllButtons }
 
     Column {
         id: head
@@ -112,7 +116,7 @@ FocusScope {
                     Pointer {
                         okKey: false
                         onPointed: { sheet.chip = chipItem.index; chips.forceActiveFocus() }
-                        onTapped: { sheet.chip = chipItem.index; chips.forceActiveFocus(); Remote.Key("OK") }
+                        onTapped: { sheet.chip = chipItem.index; chips.forceActiveFocus(); Remote.pointerKey("OK") }
                     }
                     Row {
                         id: chipRow
@@ -255,6 +259,7 @@ FocusScope {
             readonly property var s: sheet.shown[index] || ({})
             width: list.width
             height: 116 * sheet.u
+            Pointer { okKey: false; onTapped: if (rowItem.s.addon !== undefined) sheet.pick(rowItem.s) }
             Rectangle {
                 anchors { fill: parent; leftMargin: 28 * sheet.u; rightMargin: 28 * sheet.u }
                 radius: 26 * sheet.u

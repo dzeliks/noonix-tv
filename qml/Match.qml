@@ -57,6 +57,7 @@ FocusScope {
         height: head.height + sheet.lines.length * 108 * sheet.u + 32 * sheet.u + 12 * sheet.u
         radius: 40 * sheet.u
     }
+    MouseArea { anchors.fill: panel; hoverEnabled: true; acceptedButtons: Qt.AllButtons }
     // what's playing: the release, and the subtitle on screen
     Column {
         id: head

@@ -38,19 +38,19 @@ Item {
             chars("q w e r t y u i o p"),
             [g(0.5)].concat(chars("a s d f g h j k l")).concat([g(0.5)]),
             [f("", 1.5, "shift", "shift")].concat(chars("z x c v b n m")).concat([f("", 1.5, "backspace", "backspace")]),
-            [f("123", 1.5, "page:123"), f("space", 4.5, "space"), f("clear", 1.5, "clear"), f(enterLabel, 2.5, "enter")]
+            [f("123", 1.5, "page:123"), f(qsTr("space"), 4.5, "space"), f(qsTr("clear"), 1.5, "clear"), f(enterLabel, 2.5, "enter")]
         ],
         "123": [
             chars("1 2 3 4 5 6 7 8 9 0"),
             chars("- / : ; ( ) $ & @ \""),
             [f("#+=", 1.5, "page:sym")].concat(chars(". , ? ! ' | ~")).concat([f("", 1.5, "backspace", "backspace")]),
-            [f("ABC", 1.5, "page:abc"), f("space", 4.5, "space"), f("clear", 1.5, "clear"), f(enterLabel, 2.5, "enter")]
+            [f("ABC", 1.5, "page:abc"), f(qsTr("space"), 4.5, "space"), f(qsTr("clear"), 1.5, "clear"), f(enterLabel, 2.5, "enter")]
         ],
         "sym": [
             chars("[ ] { } # % ^ * + ="),
             chars("_ \\ < > & ` $ ~ : \""),
             [f("123", 1.5, "page:123")].concat(chars(". , ? ! ' @ %")).concat([f("", 1.5, "backspace", "backspace")]),
-            [f("ABC", 1.5, "page:abc"), f("space", 4.5, "space"), f("clear", 1.5, "clear"), f(enterLabel, 2.5, "enter")]
+            [f("ABC", 1.5, "page:abc"), f(qsTr("space"), 4.5, "space"), f(qsTr("clear"), 1.5, "clear"), f(enterLabel, 2.5, "enter")]
         ]
     })
     readonly property var rows: pages[page]

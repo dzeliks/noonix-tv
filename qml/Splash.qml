@@ -93,6 +93,7 @@ FocusScope {
     readonly property var brand: ({ c1: "#D93D8A", c2: "#4A0E2F", glow: Qt.vector4d(1.0, 0.761, 0.882, 0.14) })   // the overlay brands.js "noonix-tv"
 
     // what the pink blooms out of (and the ui shows through once it's gone)
+    Shield {}
     Rectangle {
         id: dark
         anchors.fill: parent

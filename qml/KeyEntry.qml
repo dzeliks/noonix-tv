@@ -54,7 +54,7 @@ FocusScope {
     Keys.onEscapePressed: cancel()
 
     Rectangle { anchors.fill: parent; color: "black"; opacity: 0.35 * ke.reveal }
-    MouseArea { anchors.fill: parent; enabled: ke.isOpen; acceptedButtons: Qt.RightButton; onClicked: ke.cancel() }
+    Shield { enabled: ke.isOpen }
 
     Item {
         id: sheet

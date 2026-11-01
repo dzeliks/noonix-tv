@@ -54,8 +54,31 @@ FocusScope {
     signal play(var target, var stream)
     signal sources(var target)
     signal open(var item)
+    signal menu(var item, rect at)
     signal back()
     signal notice(string message)
+    property var menuItem: null
+
+    // the wheel moves the page in pixels, the focus stays. a key brings what has the focus back
+    property bool wheeled: false
+    PageWheel { id: wheel; view: scroller }
+    function wheelScroll(w) {
+        Input.setPointing(true)
+        wheeled = true
+        snap = true
+        wheel.scroll(w)
+        snap = false
+    }
+    Connections {
+        target: Input
+        function onPointingChanged() {
+            if (Input.pointing || !page.wheeled) return
+            wheel.stop()
+            page.wheeled = false
+            var to = more.activeFocus ? more : episodes.activeFocus ? episodes : seasonsRow.activeFocus ? seasonsRow : null
+            scroller.contentY = to ? Math.max(0, to.y - page.height * (to === seasonsRow ? 0.35 : 0.3)) : 0
+        }
+    }
 
     function playTarget() {
         if (isMovie) return { kind: "movie", tmdb: tmdbId }
@@ -404,7 +427,7 @@ FocusScope {
                     Text {
                         id: sLabel
                         anchors.centerIn: parent
-                        text: modelData.name || qsTr("Season %1").arg(modelData.number)
+                        text: !modelData.name || /^Season \d+$/.test(modelData.name) ? qsTr("Season %1").arg(modelData.number) : modelData.name
                         color: parent.foc ? Theme.focusFg : parent.sel ? Theme.fg : Theme.fg2
                         font { family: Theme.display; pixelSize: 25 * page.u; weight: Font.DemiBold }
                     }
@@ -425,6 +448,7 @@ FocusScope {
                 spacing: 44 * page.u
                 readonly property var eps: page.season ? page.season.episodes || [] : []
                 model: eps.length
+                cacheBuffer: 1200 * page.u
                 keyNavigationEnabled: true
                 // the focus rests on the second card, so the one before stays in view
                 highlightRangeMode: Input.pointing ? ListView.NoHighlightRange : ListView.ApplyRange
@@ -474,6 +498,9 @@ FocusScope {
                 width: page.width
                 title: qsTr("More Like This")
                 style: "poster"
+                optionsEnabled: true
+                menuItem: page.menuItem
+                onMenu: function (it, index, at) { page.menu(it, at) }
                 items: page.details ? page.details.more || [] : []
                 visible: items.length > 0
                 onActiveFocusChanged: if (activeFocus && !Input.pointing) scroller.contentY = Math.max(0, y - page.height * 0.3)

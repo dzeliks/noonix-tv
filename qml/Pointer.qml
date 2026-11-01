@@ -8,6 +8,7 @@ import QtQuick
 MouseArea {
     id: pt
     property bool okKey: true            // a click sends ok; false: just tapped()
+    property bool takesFocus: true       // false: pointing at it leaves the focus where it is
     signal pointed()
     signal tapped()
     anchors.fill: parent
@@ -31,7 +32,7 @@ MouseArea {
         for (var k = chain.length - 1; k >= 0; --k) chain[k].view.currentIndex = chain[k].index
         if (chain.length) chain[0].view.forceActiveFocus()
     }
-    function go() { focusLists(); pt.pointed() }
+    function go() { if (takesFocus) focusLists(); pt.pointed() }
 
     function whole() {
         var it = pt.parent, w = pt.Window.window
@@ -50,7 +51,7 @@ MouseArea {
         acceptedButtons: Qt.LeftButton
         onTapped: {
             pt.go()
-            if (pt.okKey) Remote.Key("OK"); else pt.tapped()
+            if (pt.okKey) Remote.pointerKey("OK"); else pt.tapped()
         }
     }
 }

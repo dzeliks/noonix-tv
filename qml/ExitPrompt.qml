@@ -14,7 +14,7 @@ FocusScope {
     function close() { opacity = 0 }
 
     Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: Theme.veil }
-    MouseArea { anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.AllButtons; onClicked: ep.stay() }
+    Shield { onOutside: ep.stay() }
 
     Column {
         anchors.centerIn: parent

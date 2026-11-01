@@ -33,6 +33,8 @@ public:
     Q_INVOKABLE bool realKey() const { return m_realKey; }
 
     bool pointing() const { return m_pointing; }
+    // the wheel moves a page: from now on the mouse is in charge, even if it hasn't moved yet
+    Q_INVOKABLE void setPointing(bool on);
     QString padKind() const { return m_padKind; }
     QVariantMap bindings() const;
     // what the user changed ({pad: {...}, keys: {...}}, missing actions keep their defaults)
@@ -77,7 +79,6 @@ private:
     QPointF m_lastPos{-1, -1};
     bool m_escFired = false;
     bool m_pointing = false;
-    void setPointing(bool on);
 
     bool m_padsOn = false;
     QTimer m_poll;

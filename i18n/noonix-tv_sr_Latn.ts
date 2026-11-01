@@ -367,6 +367,17 @@
         </message>
     </context>
     <context>
+        <name>Keyboard</name>
+        <message>
+            <source>space</source>
+            <translation>razmak</translation>
+        </message>
+        <message>
+            <source>clear</source>
+            <translation>obriši</translation>
+        </message>
+    </context>
+    <context>
         <name>Library</name>
         <message>
             <source>Library</source>

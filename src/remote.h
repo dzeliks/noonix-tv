@@ -11,6 +11,9 @@
 
 class QQmlEngine;
 
+// on a posted key event: the mouse stands behind it (Remote::pointerKey)
+inline constexpr quint32 pointerKeyMark = 0x4e58;
+
 class Remote : public QObject
 {
     Q_OBJECT
@@ -38,6 +41,8 @@ private:
 
 public slots:
     Q_SCRIPTABLE void Key(const QString &button);
+    // a key the mouse stands for (a click is ok, right click is back): the mouse stays in charge
+    Q_INVOKABLE void pointerKey(const QString &button);
     Q_SCRIPTABLE void InputKind(const QString &kind);
     Q_SCRIPTABLE void Raise();
     // test runs only (NOONIX_TEST=1): the mouse moves to x, y in the window, a left click there
@@ -57,6 +62,8 @@ signals:
 private:
     bool m_covered = false;
     bool m_glass = false;
+    bool m_alt = false;
+    bool m_keyFromPointer = false;
     QPointer<QWindow> m_window;
     QString m_kind = QStringLiteral("remote");
 };

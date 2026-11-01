@@ -299,7 +299,8 @@ bool Input::eventFilter(QObject *obj, QEvent *ev)
         return QObject::eventFilter(obj, ev);
     auto *k = static_cast<QKeyEvent *>(ev);
     if (ev->type() == QEvent::KeyPress) {
-        setPointing(false);
+        if (k->nativeVirtualKey() != pointerKeyMark)
+            setPointing(false);
 #ifdef Q_OS_ANDROID
         // a tv remote's d-pad centre is enter, a keyboard's enter is return
         m_realKey = ev->spontaneous() && k->key() != Qt::Key_Enter;

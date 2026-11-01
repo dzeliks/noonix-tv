@@ -20,7 +20,7 @@ FocusScope {
     function answer(yes) { opacity = 0; answered(yes); closed() }
 
     Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: Theme.veil }
-    MouseArea { anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.AllButtons; onClicked: if (!help.asking) help.close() }
+    Shield { onOutside: if (!help.asking) help.close() }
 
     readonly property var texts: help.topic === "debrid" ? [
         qsTr("A debrid service (TorBox, Real-Debrid, AllDebrid and others) is a paid service that fetches videos to its own fast servers, and you watch from there. It starts quickly and plays smoothly."),

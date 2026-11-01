@@ -37,6 +37,7 @@
 #include <QMouseEvent>
 #include <QQmlEngine>
 #include <QStandardPaths>
+#include <QTimer>
 #include <QUrl>
 
 Remote::Remote(QObject *parent)
@@ -51,11 +52,31 @@ void Remote::setWindow(QWindow *w)
 }
 
 // qt drops the focused item when the window loses the keyboard: keep it, so remote keys still
-// land (and the focus ring stays) while someone types in another app
+// land (and the focus ring stays) while someone types in another app. alt held as the keyboard
+// goes is alt-tab: the compositor keeps the release, and a fullscreen window goes down like a game
 bool Remote::eventFilter(QObject *obj, QEvent *ev)
 {
-    if (obj == m_window && ev->type() == QEvent::FocusOut)
+    if (obj != m_window)
+        return QObject::eventFilter(obj, ev);
+    switch (ev->type()) {
+    case QEvent::KeyPress:
+    case QEvent::KeyRelease:
+        if (static_cast<QKeyEvent *>(ev)->key() == Qt::Key_Alt)
+            m_alt = ev->type() == QEvent::KeyPress;
+        break;
+    case QEvent::FocusIn:
+        m_alt = false;
+        break;
+    case QEvent::FocusOut:
+#ifndef Q_OS_ANDROID
+        if (m_alt && m_window->visibility() == QWindow::FullScreen)
+            QTimer::singleShot(0, m_window, [w = m_window] { if (w) w->showMinimized(); });
+#endif
+        m_alt = false;
         return true;
+    default:
+        break;
+    }
     return QObject::eventFilter(obj, ev);
 }
 
@@ -69,7 +90,7 @@ void Remote::activate()
             + QStringLiteral("/noonix-tv-activate.js");
         QFile f(path);
         if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
-            f.write(QStringLiteral("for (const w of workspace.windowList()) if (w.pid === %1 && w.normalWindow) workspace.activeWindow = w;\n")
+            f.write(QStringLiteral("for (const w of workspace.windowList()) if (w.pid === %1 && w.normalWindow) { w.minimized = false; workspace.activeWindow = w; }\n")
                         .arg(QCoreApplication::applicationPid()).toUtf8());
         return path;
     }();
@@ -83,7 +104,8 @@ void Remote::activate()
     call(QStringLiteral("unloadScript"), {QStringLiteral("noonix-tv-activate")});
     call(QStringLiteral("loadScript"), {script, QStringLiteral("noonix-tv-activate")});
     call(QStringLiteral("start"), {});
-    call(QStringLiteral("unloadScript"), {QStringLiteral("noonix-tv-activate")});
+    // kwin reads the file in the background: unloaded right away it never runs
+    QTimer::singleShot(1000, this, [call] { call(QStringLiteral("unloadScript"), {QStringLiteral("noonix-tv-activate")}); });
 #endif
 }
 
@@ -180,8 +202,16 @@ void Remote::Key(const QString &button)
     const QString text = k == Qt::Key_Return ? QStringLiteral("\r") : QString();
     // a dialog of ours on top (a folder or file picker) takes the keys, not the page behind it
     QWindow *to = QGuiApplication::modalWindow() ? QGuiApplication::modalWindow() : m_window.data();
-    QCoreApplication::postEvent(to, new QKeyEvent(QEvent::KeyPress, k, Qt::NoModifier, text));
-    QCoreApplication::postEvent(to, new QKeyEvent(QEvent::KeyRelease, k, Qt::NoModifier, text));
+    const quint32 mark = m_keyFromPointer ? pointerKeyMark : 0;
+    QCoreApplication::postEvent(to, new QKeyEvent(QEvent::KeyPress, k, Qt::NoModifier, 0, mark, 0, text));
+    QCoreApplication::postEvent(to, new QKeyEvent(QEvent::KeyRelease, k, Qt::NoModifier, 0, mark, 0, text));
+}
+
+void Remote::pointerKey(const QString &button)
+{
+    m_keyFromPointer = true;
+    Key(button);
+    m_keyFromPointer = false;
 }
 
 void Remote::Pointer(double x, double y)
