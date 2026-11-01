@@ -218,7 +218,7 @@ jobs:
           [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME but core/Cargo.toml says $v"; exit 1; }
       - name: sdk, ndk, rust target
         run: |
-          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ninja-build p7zip-full
+          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ninja-build p7zip-full libegl1 libgl1 libopengl0 libxkbcommon0 libfontconfig1 libglib2.0-0t64 libdbus-1-3 libgssapi-krb5-2
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" "build-tools;36.0.0" "ndk;$NDK_VERSION" > /dev/null
           rustup target add aarch64-linux-android
       - uses: actions/cache@v6
