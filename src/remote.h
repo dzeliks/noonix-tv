@@ -63,6 +63,7 @@ private:
     bool m_covered = false;
     bool m_glass = false;
     bool m_alt = false;
+    bool m_refull = false;
     bool m_keyFromPointer = false;
     QPointer<QWindow> m_window;
     QString m_kind = QStringLiteral("remote");

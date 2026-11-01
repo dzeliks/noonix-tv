@@ -66,11 +66,18 @@ bool Remote::eventFilter(QObject *obj, QEvent *ev)
         break;
     case QEvent::FocusIn:
         m_alt = false;
+        // windows brings a minimized window back as a normal one
+        if (m_refull) {
+            m_refull = false;
+            QTimer::singleShot(0, m_window, [w = m_window] { if (w) w->showFullScreen(); });
+        }
         break;
     case QEvent::FocusOut:
 #ifndef Q_OS_ANDROID
-        if (m_alt && m_window->visibility() == QWindow::FullScreen)
+        if (m_alt && m_window->visibility() == QWindow::FullScreen) {
+            m_refull = true;
             QTimer::singleShot(0, m_window, [w = m_window] { if (w) w->showMinimized(); });
+        }
 #endif
         m_alt = false;
         return true;
