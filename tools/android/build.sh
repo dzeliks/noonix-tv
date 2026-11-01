@@ -3,7 +3,7 @@
 # (tools/android/qt-fetch.py) and rust's aarch64-linux-android target
 #   QT_ANDROID=<qt for android> QT_HOST=<host qt> ANDROID_SDK_ROOT=<sdk> [ANDROID_NDK_ROOT=<ndk>]
 #   [KEYSTORE=<file> KEYSTORE_ALIAS=<alias> KEYSTORE_PASS=<pass>] tools/android/build.sh <work dir>
-#   -> <work>/Noonix-TV-<version>-android-arm64.apk
+#   -> <work>/Noonix-TV-<version>-android-arm64-preview.apk
 # built-in app keys come from the NOONIX_TMDB_* / NOONIX_TRAKT_* environment, like the other builds
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -21,7 +21,7 @@ cmake --build "$work/build" --target apk
 
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$root/core/Cargo.toml" | head -1)
 apk="$(ls -t "$work/build/android-build/build/outputs/apk/release/"*.apk | head -1)"
-out="$work/Noonix-TV-$version-android-arm64.apk"
+out="$work/Noonix-TV-$version-android-arm64-preview.apk"
 tools="$(ls -d "$ANDROID_SDK_ROOT"/build-tools/* | sort -V | tail -1)"
 # libmpv's c++ runtime (newer than the ndk's), stored like the other native libs: uncompressed
 stage="$work/stage"

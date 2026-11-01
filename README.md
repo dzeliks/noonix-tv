@@ -91,8 +91,9 @@ Both update themselves from Settings › About.
 Apple could not verify it: click Done, then System Settings › Privacy & Security › Open Anyway.
 Or once in Terminal: `xattr -dr com.apple.quarantine "/Applications/Noonix TV.app"`.
 
-**Android** (preview): `Noonix-TV-<version>-android-arm64.apk` for Android TV, Google TV, tablets
-and phones (in landscape), Android 9 or newer on a 64-bit ARM device. Install it from the file
+**Android** (preview build, HDR videos play in SDR for now): `Noonix-TV-<version>-android-arm64-preview.apk`
+for Android TV, Google TV, tablets and phones (in landscape), Android 9 or newer on a 64-bit ARM device.
+Install it from the file
 (allow your file manager or browser to install apps), or on a TV with `adb install`. It plays your
 library from the device's storage or a USB drive and the sources you add; a remote, a game
 controller and touch all work.
