@@ -30,8 +30,9 @@ cp "$work/libmpv/lib/libc++_shared.so" "$stage/lib/arm64-v8a/"
 # what ships inside with its license and source, like the other builds
 mkdir -p "$stage/assets"
 QT_ANDROID="$QT_ANDROID" python3 "$root/tools/third-party.py" android aarch64-linux-android > "$stage/assets/THIRD-PARTY.txt"
+cp "$root/LICENSE" "$root/fonts/Inter-OFL.txt" "$stage/assets/"
 cp "$apk" "$work/unaligned.apk"
-(cd "$stage" && zip -q -0 "$work/unaligned.apk" lib/arm64-v8a/libc++_shared.so && zip -q "$work/unaligned.apk" assets/THIRD-PARTY.txt)
+(cd "$stage" && zip -q -0 "$work/unaligned.apk" lib/arm64-v8a/libc++_shared.so && zip -q "$work/unaligned.apk" assets/THIRD-PARTY.txt assets/LICENSE assets/Inter-OFL.txt)
 "$tools/zipalign" -f -p 4 "$work/unaligned.apk" "$out.tmp"
 if [[ -n "${KEYSTORE:-}" ]]; then
     "$tools/apksigner" sign --ks "$KEYSTORE" --ks-key-alias "${KEYSTORE_ALIAS:?}" \

@@ -142,7 +142,9 @@ or [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 This product uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by
 TMDB. Watch history comes from [Trakt](https://trakt.tv), extra subtitles from
-[OpenSubtitles.com](https://www.opensubtitles.com) and skip times from IntroDB. Noonix TV isn't
-affiliated with any of them.
+[OpenSubtitles.com](https://www.opensubtitles.com) and the OpenSubtitles addon run by Stremio, and
+skip times from IntroDB. Addons use Stremio's addon format. Noonix TV isn't affiliated with any of
+them or with Stremio. Other names shown in the app, such as streaming services, belong to their
+owners and only describe where a title is available.
 
 Made with ❤️ by [aleksa.sh](https://aleksa.sh).

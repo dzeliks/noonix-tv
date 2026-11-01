@@ -32,8 +32,9 @@ warranty**, to the extent the law allows; see sections 15 and 16 of the license.
 ## Other services
 
 Movie and show information comes from TMDB, watch history from Trakt, subtitles from
-OpenSubtitles.com and skip times from IntroDB. Noonix TV isn't affiliated with any of them, and using
-them is subject to their own terms.
+OpenSubtitles.com and the OpenSubtitles addon run by Stremio, and skip times from IntroDB. Addons use
+Stremio's addon format. Noonix TV isn't affiliated with any of them or with Stremio, and using them
+is subject to their own terms.
 
 ## Changes
 

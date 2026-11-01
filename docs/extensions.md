@@ -4,8 +4,8 @@ A Noonix TV extension is one small JSON file, usually named `something.noonix`. 
 setup so others can add it in one step: Stremio addon addresses, whether those sources answer with
 torrents, and release patterns that sort or hide releases.
 
-Noonix TV comes with no extensions and no addons, and it doesn't list, host or review any. Each user
-adds the ones they choose, from a file or from an address, in setup or in Settings › Sources.
+Noonix TV comes with no extensions and no video addons, and it doesn't list, host or review any
+(the one thing built in is an optional subtitles lookup). Each user adds the ones they choose, from a file or from an address, in setup or in Settings › Sources.
 
 - [Quick start](#quick-start)
 - [Example: an open movies club](#example-an-open-movies-club)

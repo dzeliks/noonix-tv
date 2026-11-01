@@ -302,3 +302,6 @@ jobs:
             if [ -n "$prev" ]; then git log --format='- %s' "$prev..$TAG"; else echo "- first release"; fi
           } > notes.md
           gh release edit "$TAG" --draft=false --notes-file notes.md
+
+  # aur: a job here (needs: publish, tags without '-') would run packaging/aur/bump.sh and publish.sh with an
+  # AUR_SSH_KEY secret. paused: the aur isn't taking new accounts

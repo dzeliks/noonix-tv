@@ -42,6 +42,7 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$bin" "$app/Contents/MacOS/Noonix TV"
 # what ships inside with its license (both arches link the same crates)
 python3 "$repo/tools/third-party.py" mac "$t" > "$app/Contents/Resources/THIRD-PARTY.txt"
+cp "$repo/LICENSE" "$app/Contents/Resources/"
 
 # icon: the icon composer document (light, dark, clear and tinted) -> Assets.car + an icns for
 # older finders

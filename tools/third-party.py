@@ -44,6 +44,9 @@ def crates(target):
     return lines + ['']
 
 
+FFMPEG = 'https://git.ffmpeg.org/gitweb/ffmpeg.git/tree/refs/tags/'
+
+
 def windows():
     d = pins('tools/windows/deps.sh')
     mpv = d['MPV_DEV'].split('/')[-1].removesuffix('.7z')
@@ -53,7 +56,7 @@ def windows():
         f'- Qt {d["QT_VERSION"]}  [LGPL-3.0-only]  official build, source: https://download.qt.io/official_releases/qt/',
         f'- libmpv ({mpv})  [GPL-2.0-or-later as built]  https://github.com/shinchiro/mpv-winbuild-cmake',
         '    mpv with FFmpeg, libplacebo, libass, dav1d and their own dependencies linked in;',
-        '    sources: https://github.com/mpv-player/mpv and the build recipe above',
+        f'    sources: https://github.com/mpv-player/mpv/commit/{mpv.rsplit("-", 1)[-1]} and the build recipe above',
         f'- SDL {d["SDL_VERSION"]}  [Zlib]  https://github.com/libsdl-org/SDL',
         f'- Vulkan loader {loader}  [Apache-2.0]  https://github.com/KhronosGroup/Vulkan-Loader',
         f'- llvm-mingw {d["LLVM_MINGW"]} runtime (libc++, libunwind, mingw-w64)  [Apache-2.0 WITH LLVM-exception, ZPL-2.1]',
@@ -67,9 +70,9 @@ def mac():
     mpvkit = re.search(r'MPVKit\.git", exact: "([^"]+)"', pkg)[1]
     return [
         'Noonix TV for macOS: GPL-3.0-or-later (LICENSE). Bundled, unchanged:',
-        f'- MPVKit {mpvkit}  [LGPL-3.0 build]  https://github.com/mpvkit/MPVKit',
+        f'- MPVKit {mpvkit}  [LGPL-3.0 build]  https://github.com/mpvkit/MPVKit/tree/{mpvkit}',
         '    mpv, FFmpeg, libplacebo, libass, dav1d, MoltenVK (Apache-2.0) and their own dependencies;',
-        '    sources: https://github.com/mpv-player/mpv, https://ffmpeg.org and the recipe above',
+        f'    sources: https://github.com/mpv-player/mpv, {FFMPEG}{mpvkit.rsplit("-", 1)[-1]} and the recipe above',
         '',
     ]
 
@@ -77,15 +80,16 @@ def mac():
 def android():
     sh = open(os.path.join(ROOT, 'tools', 'android', 'libmpv.sh')).read()
     pin = lambda k: re.search(rf'^{k}=(\S+)', sh, re.M)[1]
+    ffmpeg = re.search(r'ffmpeg ([\d.]+)', sh)[1]
     cfg = open(os.path.join(os.environ['QT_ANDROID'], 'lib', 'cmake', 'Qt6', 'Qt6ConfigVersionImpl.cmake')).read()
     qt = re.search(r'set\(PACKAGE_VERSION "([^"]+)"', cfg)[1]
     return [
         'Noonix TV for Android: GPL-3.0-or-later (LICENSE). Bundled, unchanged:',
         f'- Qt {qt}  [LGPL-3.0-only]  official build, source: https://download.qt.io/official_releases/qt/',
         f'- libmpv-android {pin("aar_v")} (mpv {pin("mpv_v")})  [MIT; mpv GPL-2.0-or-later, FFmpeg GPL-3.0-or-later as built]',
-        '    https://github.com/jarnedemeulemeester/libmpv-android',
+        f'    https://github.com/jarnedemeulemeester/libmpv-android/tree/v{pin("aar_v")}',
         '    mpv with FFmpeg, libplacebo, libass, dav1d, mbedtls and their own dependencies linked in;',
-        '    sources: https://github.com/mpv-player/mpv, https://ffmpeg.org and the build recipe above',
+        f'    sources: https://github.com/mpv-player/mpv/tree/v{pin("mpv_v")}, {FFMPEG}n{ffmpeg} and the build recipe above',
         f'- OpenSSL 3 (KDAB android_openssl {pin("ssl_rev")[:12]})  [Apache-2.0]  https://github.com/KDAB/android_openssl',
         '- LLVM libc++ (from the NDK and libmpv-android)  [Apache-2.0 WITH LLVM-exception]  https://github.com/llvm/llvm-project',
         '',
