@@ -30,8 +30,11 @@ def fetch(repo, want, dest):
             path = os.path.join(dest, ".dl", a)
             print("qt:", a, flush=True)
             urllib.request.urlretrieve(f"{repo}/{name}/{p.findtext('Version')}{a}", path)
+            # the linux host's icu comes flat: its libraries belong in lib/ (the tools' rpath)
+            to = os.path.join(dest, "lib") if a.startswith("icu-") else dest
+            os.makedirs(to, exist_ok=True)
             # bsdtar (macos, libarchive) reads 7z; elsewhere 7z
-            cmd = ["tar", "-xf", path, "-C", dest] if sys.platform == "darwin" else ["7z", "x", "-y", "-bso0", f"-o{dest}", path]
+            cmd = ["tar", "-xf", path, "-C", to] if sys.platform == "darwin" else ["7z", "x", "-y", "-bso0", f"-o{to}", path]
             subprocess.run(cmd, check=True)
             os.remove(path)
     missing = want - found
