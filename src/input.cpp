@@ -297,9 +297,16 @@ bool Input::eventFilter(QObject *obj, QEvent *ev)
     }
     if (ev->type() != QEvent::KeyPress && ev->type() != QEvent::KeyRelease)
         return QObject::eventFilter(obj, ev);
-    if (ev->type() == QEvent::KeyPress)
-        setPointing(false);
     auto *k = static_cast<QKeyEvent *>(ev);
+    if (ev->type() == QEvent::KeyPress) {
+        setPointing(false);
+#ifdef Q_OS_ANDROID
+        // a tv remote's d-pad centre is enter, a keyboard's enter is return
+        m_realKey = ev->spontaneous() && k->key() != Qt::Key_Enter;
+#else
+        m_realKey = ev->spontaneous();
+#endif
+    }
     // dev: NOONIX_KEYLOG=1 prints what the platform hands over
     static const bool keyLog = qEnvironmentVariableIsSet("NOONIX_KEYLOG");
     if (keyLog && ev->type() == QEvent::KeyPress)

@@ -125,9 +125,9 @@ FocusScope {
                 var map = {}
                 map[Qt.Key_Up] = "UP"; map[Qt.Key_Down] = "DOWN"; map[Qt.Key_Left] = "LEFT"; map[Qt.Key_Right] = "RIGHT"
                 if (map[e.key]) { kb.key(map[e.key]); e.accepted = true; return }
-                // a real keyboard's enter submits once it typed or pasted here; a remote's ok (posted, no
-                // scan code, or a usb remote that never types) presses the focused key
-                if ((e.key === Qt.Key_Return || e.key === Qt.Key_Enter) && e.nativeScanCode !== 0 && typed) { ke.submit(); e.accepted = true; return }
+                // a real keyboard's enter submits once it typed or pasted here; a remote's ok (posted, a d-pad
+                // centre, or a usb remote that never types) presses the focused key
+                if ((e.key === Qt.Key_Return || e.key === Qt.Key_Enter) && Input.realKey() && typed) { ke.submit(); e.accepted = true; return }
                 if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { kb.key("OK"); e.accepted = true; return }
                 if (e.key === Qt.Key_Backspace) { ke.text = ke.text.slice(0, -1); ke.status = ""; e.accepted = true; return }
                 if (e.key === Qt.Key_V && (e.modifiers & Qt.ControlModifier)) { ke.text += Desktop.paste(); ke.status = ""; typed = true; e.accepted = true; return }

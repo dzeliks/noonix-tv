@@ -170,7 +170,7 @@ FocusScope {
                 map[Qt.Key_Up] = "UP"; map[Qt.Key_Down] = "DOWN"; map[Qt.Key_Left] = "LEFT"; map[Qt.Key_Right] = "RIGHT"
                 if (map[e.key]) { kb.key(map[e.key]); e.accepted = true; return }
                 if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
-                    if (typed && e.nativeScanCode !== 0) pa.create(); else kb.key("OK")
+                    if (typed && Input.realKey()) pa.create(); else kb.key("OK")
                     e.accepted = true; return
                 }
                 if (e.key === Qt.Key_Backspace) { pa.name = pa.name.slice(0, -1); e.accepted = true; return }
