@@ -23,6 +23,7 @@ var strings = [
     QT_TRANSLATE_NOOP("core", "Netflix"),
     QT_TRANSLATE_NOOP("core", "Max"),
     QT_TRANSLATE_NOOP("core", "On This PC"),
+    QT_TRANSLATE_NOOP("core", "On This Device"),
 
     // the library and the user's own sources (core/src/library.rs, extensions.rs)
     QT_TRANSLATE_NOOP("core", "This PC"),

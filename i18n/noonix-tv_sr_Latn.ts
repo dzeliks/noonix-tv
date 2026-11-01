@@ -2732,6 +2732,10 @@
             <translation>Na ovom računaru</translation>
         </message>
         <message>
+            <source>On This Device</source>
+            <translation>Na ovom uređaju</translation>
+        </message>
+        <message>
             <source>This PC</source>
             <translation>Ovaj računar</translation>
         </message>

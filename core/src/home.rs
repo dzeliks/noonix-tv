@@ -4,13 +4,16 @@ use crate::trakt::Account;
 use anyhow::{bail, Result};
 use serde_json::{json, Value};
 
+/// the library's row: a phone, tablet or tv box is a device, not a pc
+const LOCAL: &str = if cfg!(target_os = "android") { "On This Device" } else { "On This PC" };
+
 /// the kodi home rows, in kodi's order
 pub fn rows() -> Value {
     json!([
         { "id": "upnext",        "title": "Up Next",          "style": "episode" },
         { "id": "continue",      "title": "Continue Watching", "style": "landscape" },
         { "id": "recent",        "title": "Recently Played",  "style": "poster" },
-        { "id": "library",       "title": "On This PC",       "style": "poster" },
+        { "id": "library",       "title": LOCAL,       "style": "poster" },
         { "id": "popular-tv",    "title": "Popular TV Shows", "style": "poster" },
         { "id": "popular-movie", "title": "Popular Movies",   "style": "poster" },
         { "id": "netflix-tv",    "title": "Netflix Shows",    "style": "poster", "brand": "netflix" },
@@ -23,7 +26,7 @@ pub fn rows() -> Value {
 pub fn movie_rows() -> Value {
     json!([
         { "id": "continue-movie", "title": "Continue Watching", "style": "landscape" },
-        { "id": "library-movie",  "title": "On This PC",        "style": "poster" },
+        { "id": "library-movie",  "title": LOCAL,        "style": "poster" },
         { "id": "popular-movie",  "title": "Popular",           "style": "poster" },
         { "id": "trending-movie", "title": "Trending",          "style": "poster" },
         { "id": "netflix-movie",  "title": "Netflix",           "style": "poster", "brand": "netflix" },
@@ -39,7 +42,7 @@ pub fn movie_rows() -> Value {
 pub fn show_rows() -> Value {
     json!([
         { "id": "upnext",        "title": "Up Next",        "style": "episode" },
-        { "id": "library-show",  "title": "On This PC",     "style": "poster" },
+        { "id": "library-show",  "title": LOCAL,     "style": "poster" },
         { "id": "popular-tv",    "title": "Popular",        "style": "poster" },
         { "id": "trending-tv",   "title": "Trending",       "style": "poster" },
         { "id": "netflix-tv",    "title": "Netflix",        "style": "poster", "brand": "netflix" },

@@ -969,6 +969,8 @@ Window {
         anchors.fill: parent
         z: 20
         TapHandler {
+            // a mouse's right or back button; a touch has no buttons, every tap would count
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
             acceptedButtons: Qt.RightButton | Qt.BackButton
             onTapped: Remote.Key("BACK")
         }
