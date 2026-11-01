@@ -7,7 +7,7 @@ use serde_json::Value;
 use std::time::Duration;
 
 pub static CLIENT: Lazy<Client> = Lazy::new(|| {
-    Client::builder()
+    builder()
         .user_agent(concat!("NoonixTV/", env!("CARGO_PKG_VERSION")))
         .connect_timeout(Duration::from_secs(6))
         .timeout(Duration::from_secs(20))
@@ -17,6 +17,35 @@ pub static CLIENT: Lazy<Client> = Lazy::new(|| {
         .build()
         .expect("http client")
 });
+
+/// android: the system's certificate store. rustls' platform verifier needs a java side the qt
+/// app doesn't ship
+#[cfg(target_os = "android")]
+fn builder() -> reqwest::ClientBuilder {
+    static ROOTS: Lazy<Vec<reqwest::Certificate>> = Lazy::new(|| {
+        // the updatable store (android 14+) first, then the image's own
+        let dir = ["/apex/com.android.conscrypt/cacerts", "/system/etc/security/cacerts"]
+            .into_iter()
+            .find(|d| std::path::Path::new(d).is_dir())
+            .unwrap_or("/system/etc/security/cacerts");
+        let roots: Vec<_> = std::fs::read_dir(dir)
+            .into_iter()
+            .flatten()
+            .flatten()
+            .filter_map(|e| std::fs::read(e.path()).ok())
+            .filter_map(|pem| reqwest::Certificate::from_pem_bundle(&pem).ok())
+            .flatten()
+            .collect();
+        tracing::info!("tls: {} roots from {dir}", roots.len());
+        roots
+    });
+    Client::builder().tls_certs_only(ROOTS.iter().cloned())
+}
+
+#[cfg(not(target_os = "android"))]
+fn builder() -> reqwest::ClientBuilder {
+    Client::builder()
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum HttpError {

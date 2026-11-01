@@ -65,7 +65,7 @@ if(ANDROID)
     list(APPEND SOURCES src/videosurface_scene.cpp src/videoview.cpp src/videoview.h)
     # libavcodec: ffmpeg's mediacodec decoders get the java vm from main()
     find_library(AVCODEC avcodec PATHS ${NOONIX_MPV_DIR}/lib NO_DEFAULT_PATH NO_CMAKE_FIND_ROOT_PATH)
-    set(PLATFORM_LIBS Qt6::OpenGL noonix_mpv ${AVCODEC})
+    set(PLATFORM_LIBS Qt6::OpenGL noonix_mpv ${AVCODEC} log)
 elseif(WIN32)
     # shinchiro's libmpv: NOONIX_MPV_DIR holds include/, libmpv.dll.a and libmpv-2.dll
     set(NOONIX_MPV_DIR "" CACHE PATH "libmpv for windows")

@@ -27,6 +27,9 @@
 #include <thread>
 #ifdef Q_OS_ANDROID
 #include <QJniEnvironment>
+#include <QSslSocket>
+#include <android/log.h>
+#include <unistd.h>
 #elif defined(Q_OS_LINUX)
 #include <csignal>
 #include <ctime>
@@ -40,6 +43,27 @@ extern "C" int av_jni_set_java_vm(void *vm, void *log_ctx);   // libavcodec/jni.
 #endif
 
 namespace {
+
+#ifdef Q_OS_ANDROID
+// android drops stdout and stderr: the core's log and mpv's lines go to logcat instead
+void stderrToLogcat()
+{
+    int fds[2];
+    if (pipe(fds) != 0)
+        return;
+    dup2(fds[1], STDOUT_FILENO);
+    dup2(fds[1], STDERR_FILENO);
+    close(fds[1]);
+    setvbuf(stdout, nullptr, _IOLBF, 0);
+    setvbuf(stderr, nullptr, _IONBF, 0);
+    std::thread([fd = fds[0]] {
+        FILE *in = fdopen(fd, "r");
+        char line[1024];
+        while (in && fgets(line, sizeof line, in))
+            __android_log_write(ANDROID_LOG_INFO, "noonix", line);
+    }).detach();
+}
+#endif
 
 QScreen *pickScreen()
 {
@@ -101,8 +125,16 @@ void watchStalls()
 
 int main(int argc, char *argv[])
 {
+#ifdef Q_OS_ANDROID
+    stderrToLogcat();
+#endif
     QGuiApplication::setDesktopFileName(QStringLiteral("noonix-tv"));   // Wayland app_id
     QGuiApplication app(argc, argv);
+#ifdef Q_OS_ANDROID
+    // artwork comes over qt's https: openssl from the apk (tools/android/libmpv.sh)
+    qInfo("tls: %s, %s", qPrintable(QSslSocket::activeBackend()),
+          QSslSocket::supportsSsl() ? qPrintable(QSslSocket::sslLibraryVersionString()) : "no ssl");
+#endif
     // the desktop entry's icon too (Icon=noonix-tv); the grey one while the desktop is dark
     const auto setIcon = [&app] {
         const bool dark = QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark;

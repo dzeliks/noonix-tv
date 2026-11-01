@@ -1,7 +1,12 @@
 package io.github.dzeliks.noonixtv;
 
+import android.content.pm.ApplicationInfo;
+import android.os.Bundle;
+import android.system.Os;
 import android.view.InputDevice;
 import android.view.KeyEvent;
+
+import java.util.Arrays;
 
 import org.qtproject.qt.android.bindings.QtActivity;
 
@@ -38,6 +43,31 @@ public class NoonixActivity extends QtActivity {
             case 0x057e: return "nintendo";
             default: return "generic";
         }
+    }
+
+    // tests: am start ... --es noonixEnv "NOONIX_HIDE=1,2 NOONIX_MUTE=1". qt takes no launch arguments
+    // in a release build, and there only these harmless few are let in (a debuggable build takes any)
+    private static final String[] TEST_ENV = {"NOONIX_HIDE", "NOONIX_MUTE", "NOONIX_KEYLOG", "QT_LOGGING_RULES"};
+
+    @Override
+    public void onCreate(Bundle state) {
+        String env = getIntent() != null ? getIntent().getStringExtra("noonixEnv") : null;
+        if (env != null) {
+            boolean debuggable = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+            for (String pair : env.trim().split("\\s+")) {
+                int eq = pair.indexOf('=');
+                if (eq <= 0)
+                    continue;
+                String name = pair.substring(0, eq);
+                if (!debuggable && !Arrays.asList(TEST_ENV).contains(name))
+                    continue;
+                try {
+                    Os.setenv(name, pair.substring(eq + 1), true);
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        super.onCreate(state);
     }
 
     @Override
