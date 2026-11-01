@@ -370,7 +370,7 @@ enum DevKeys {
                     let line = String(cString: buf).trimmingCharacters(in: .whitespacesAndNewlines)
                     DispatchQueue.main.async {
                         MainActor.assumeIsolated {
-                            if let k = names[line] { _ = send(k) }
+                            if let k = names[line] { if !(Input.keyed() && k.picks) { _ = send(k) } }
                             else if line.hasPrefix("text:") { _ = typed(.text(String(line.dropFirst(5)))) }
                             else if line == "erase" { _ = typed(.erase) }
                             else if line == "submit" { _ = typed(.submit) }
