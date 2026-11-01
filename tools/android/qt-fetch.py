@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 # qt for android (one abi) and the host qt its tools come from, straight from qt's online repository
-#   qt-fetch.py android <version> <abi> <dest> [module...]   e.g. qt-fetch.py android 6.12.0 arm64_v8a /p/qt-android qtshadertools
-#   qt-fetch.py host <version> <dest> [module...]            macos host (universal clang_64)
+#   qt-fetch.py android <version> <abi> <dest> <host dest> [module...]
+#       e.g. qt-fetch.py android 6.12.0 arm64_v8a /p/qt-android /p/qt-host qtimageformats qtshadertools
+#   qt-fetch.py host <version> <dest> [module...]            this machine's host qt (mac: universal, linux: x64)
 import os
+import re
 import subprocess
 import sys
 import urllib.request
@@ -41,15 +43,32 @@ def main():
     kind, version = sys.argv[1], sys.argv[2]
     v = version.replace(".", "")
     if kind == "android":
-        abi, dest, modules = sys.argv[3], sys.argv[4], sys.argv[5:]
+        abi, dest, host, modules = sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6:]
         repo = f"{BASE}/all_os/android/qt6_{v}/qt6_{v}_{abi}"
         suffix = f"android_{abi}"
     else:
         dest, modules = sys.argv[3], sys.argv[4:]
-        repo = f"{BASE}/mac_x64/desktop/qt6_{v}/qt6_{v}"
-        suffix = "clang_64"
+        plat, suffix = ("mac_x64", "clang_64") if sys.platform == "darwin" else ("linux_x64", "linux_gcc_64")
+        repo = f"{BASE}/{plat}/desktop/qt6_{v}/qt6_{v}"
     want = {f"qt.qt6.{v}.{suffix}"} | {f"qt.qt6.{v}.addons.{m}.{suffix}" for m in modules}
     fetch(repo, want, dest)
+    if kind == "android":
+        link_host(dest, host)
+
+
+# the android qt's tools are the host qt's: target_qt.conf points there (relative, so the pair
+# can move together)
+def link_host(dest, host):
+    conf = os.path.join(dest, "bin", "target_qt.conf")
+    text = open(conf).read()
+    keys = {
+        "HostPrefix": os.path.relpath(host, os.path.join(dest, "bin")),
+        "HostData": os.path.relpath(dest, host),
+        "HostSpec": "macx-clang" if sys.platform == "darwin" else "linux-g++",
+    }
+    for k, v in keys.items():
+        text = re.sub(rf"^{k}=.*$", f"{k}={v}", text, flags=re.M) if re.search(rf"^{k}=", text, re.M) else text + f"{k}={v}\n"
+    open(conf, "w").write(text)
 
 
 if __name__ == "__main__":

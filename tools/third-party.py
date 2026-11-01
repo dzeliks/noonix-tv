@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""THIRD-PARTY.txt for the windows and mac builds (the appimage's comes from appimage/deploy.py,
-which takes only the rust crates from here): what ships inside, unchanged, with its license and
-where its source lives. versions come from the pins, crates from cargo metadata
-  tools/third-party.py windows|mac|crates <rust target> > THIRD-PARTY.txt"""
+"""THIRD-PARTY.txt for the windows, mac and android builds (the appimage's comes from
+appimage/deploy.py, which takes only the rust crates from here): what ships inside, unchanged, with
+its license and where its source lives. versions come from the pins, crates from cargo metadata
+  tools/third-party.py windows|mac|android|crates <rust target> > THIRD-PARTY.txt
+  (android: QT_ANDROID=<its qt> for qt's version)"""
 import json
 import os
 import re
@@ -73,12 +74,30 @@ def mac():
     ]
 
 
+def android():
+    sh = open(os.path.join(ROOT, 'tools', 'android', 'libmpv.sh')).read()
+    pin = lambda k: re.search(rf'^{k}=(\S+)', sh, re.M)[1]
+    cfg = open(os.path.join(os.environ['QT_ANDROID'], 'lib', 'cmake', 'Qt6', 'Qt6ConfigVersionImpl.cmake')).read()
+    qt = re.search(r'set\(PACKAGE_VERSION "([^"]+)"', cfg)[1]
+    return [
+        'Noonix TV for Android: GPL-3.0-or-later (LICENSE). Bundled, unchanged:',
+        f'- Qt {qt}  [LGPL-3.0-only]  official build, source: https://download.qt.io/official_releases/qt/',
+        f'- libmpv-android {pin("aar_v")} (mpv {pin("mpv_v")})  [MIT; mpv GPL-2.0-or-later, FFmpeg GPL-3.0-or-later as built]',
+        '    https://github.com/jarnedemeulemeester/libmpv-android',
+        '    mpv with FFmpeg, libplacebo, libass, dav1d, mbedtls and their own dependencies linked in;',
+        '    sources: https://github.com/mpv-player/mpv, https://ffmpeg.org and the build recipe above',
+        f'- OpenSSL 3 (KDAB android_openssl {pin("ssl_rev")[:12]})  [Apache-2.0]  https://github.com/KDAB/android_openssl',
+        '- LLVM libc++ (from the NDK and libmpv-android)  [Apache-2.0 WITH LLVM-exception]  https://github.com/llvm/llvm-project',
+        '',
+    ]
+
+
 def main():
     kind, target = sys.argv[1], sys.argv[2]
     if kind == 'crates':
         out = crates(target)
     else:
-        out = (windows() if kind == 'windows' else mac()) + crates(target)
+        out = {'windows': windows, 'mac': mac, 'android': android}[kind]() + crates(target)
     sys.stdout.write('\n'.join(out) + '\n')
 
 

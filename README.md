@@ -73,8 +73,8 @@ well, and how to write your own.
 
 Get the latest build from [Releases](https://github.com/dzeliks/noonix-tv/releases/latest).
 
-**Linux**: `Noonix-TV-<version>-x86_64.AppImage` runs on Ubuntu 22.04, Debian 12, Fedora 36 and
-newer. It is self-contained.
+**Linux**: `Noonix-TV-<version>-x86_64.AppImage` (or `-aarch64` for ARM) runs on Ubuntu 22.04,
+Debian 12, Fedora 36 and newer. It is self-contained.
 
 ```sh
 chmod +x Noonix-TV-*.AppImage
@@ -86,10 +86,16 @@ installs per user without admin rights and is self-contained.
 
 Both update themselves from Settings › About.
 
-**macOS** (preview): `noonix-tv-<version>-macos-universal.zip`, one app for Apple silicon and
-Intel, on macOS 26 or newer. Not notarised yet, so the first launch says
+**macOS** (preview): `noonix-tv-<version>-macos-arm64.zip` for Apple silicon or
+`-macos-x86_64.zip` for Intel, on macOS 26 or newer. Not notarised yet, so the first launch says
 Apple could not verify it: click Done, then System Settings › Privacy & Security › Open Anyway.
 Or once in Terminal: `xattr -dr com.apple.quarantine "/Applications/Noonix TV.app"`.
+
+**Android** (preview): `Noonix-TV-<version>-android-arm64.apk` for Android TV, Google TV, tablets
+and phones (in landscape), Android 9 or newer on a 64-bit ARM device. Install it from the file
+(allow your file manager or browser to install apps), or on a TV with `adb install`. It plays your
+library from the device's storage or a USB drive and the sources you add; a remote, a game
+controller and touch all work.
 
 ## Build from source
 
@@ -109,6 +115,10 @@ docker run --rm -v "$PWD:/src:ro" -v "$PWD/build-win:/build" noonix-wincross \
 ```
 
 macOS: `mac/build.sh` on a Mac with the command line tools and Rust.
+
+Android: the SDK and NDK, JDK 17, Rust's `aarch64-linux-android` target and Qt for Android with its
+host Qt (`tools/android/qt-fetch.py` fetches both), then `tools/android/build.sh` (its header lists
+the variables).
 
 ## Your responsibility
 

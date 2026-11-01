@@ -72,12 +72,8 @@ jobs:
           name: noonix-core-macos-${{ matrix.arch }}
           path: mac/.build/core/libnoonix_core.a
           retention-days: 7
-      # its line in SHA256SUMS too (publish keeps the lines of files it didn't make)
+      # with its .sha256: the release's publish job puts the line into SHA256SUMS
       - if: inputs.tag != ''
         run: |
-          gh release upload "${{ inputs.tag }}" mac/dist/*.zip --clobber
-          if gh release download "${{ inputs.tag }}" --pattern SHA256SUMS --dir sums 2> /dev/null; then
-            zip="$(cd mac/dist && ls *.zip)"
-            { grep -v "  $zip\$" sums/SHA256SUMS || true; (cd mac/dist && shasum -a 256 "$zip"); } > SHA256SUMS
-            gh release upload "${{ inputs.tag }}" SHA256SUMS --clobber
-          fi
+          (cd mac/dist && zip="$(ls *.zip)" && shasum -a 256 "$zip" > "$zip.sha256")
+          gh release upload "${{ inputs.tag }}" mac/dist/*.zip mac/dist/*.zip.sha256 --clobber

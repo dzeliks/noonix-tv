@@ -1,8 +1,8 @@
 name: release
 
-# a v* tag (tools/release.sh) builds the appimages (x86_64, aarch64), the windows setup (and the
-# mac preview), checks them end to end and publishes them with SHA256SUMS (the in-app updater
-# reads it). the files travel between jobs on a draft release. workflow_dispatch builds the same things into a
+# a v* tag (tools/release.sh) builds the appimages (x86_64, aarch64), the windows setup, the mac
+# apps and the android apk, checks them end to end and publishes them with SHA256SUMS (the in-app
+# updater reads it). the files travel between jobs on a draft release. workflow_dispatch builds the same things into a
 # draft "ci-<run>" release (only the newest one is kept), never published
 # the appimage's base is ubuntu 22.04 (glibc 2.35): it runs on ubuntu 22.04, debian 12 and newer.
 # windows is cross-built on linux (llvm-mingw, tools/windows)
@@ -199,8 +199,73 @@ jobs:
       tag: ${{ needs.draft.outputs.tag }}
     secrets: inherit
 
+  # the android app (tv boxes, tablets, phones in landscape): an arm64 apk. a release's apk carries
+  # the release key (secrets ANDROID_KEYSTORE / ANDROID_KEYSTORE_PASS, tools/android/keystore.sh);
+  # without it the apk is only a run artifact, signed with a throwaway debug key
+  android:
+    needs: draft
+    runs-on: ubuntu-24.04
+    env:
+      QT_VERSION: 6.12.0
+      NDK_VERSION: 27.2.12479018
+      HAS_KEY: ${{ secrets.ANDROID_KEYSTORE != '' }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: tag matches the version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          v="$(sed -n 's/^version = "\(.*\)"/\1/p' core/Cargo.toml | head -1)"
+          [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME but core/Cargo.toml says $v"; exit 1; }
+      - name: sdk, ndk, rust target
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ninja-build p7zip-full
+          yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" "build-tools;36.0.0" "ndk;$NDK_VERSION" > /dev/null
+          rustup target add aarch64-linux-android
+      - uses: actions/cache@v6
+        id: qt-cache
+        with:
+          path: /opt/qt
+          key: qt-android-${{ env.QT_VERSION }}-${{ hashFiles('tools/android/qt-fetch.py') }}
+      - name: qt for android
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        run: |
+          python3 tools/android/qt-fetch.py host "$QT_VERSION" /opt/qt/host qtshadertools
+          python3 tools/android/qt-fetch.py android "$QT_VERSION" arm64_v8a /opt/qt/android /opt/qt/host qtimageformats qtshadertools
+      - uses: actions/cache@v6
+        with:
+          path: build/android/libmpv
+          key: libmpv-android-${{ hashFiles('tools/android/libmpv.sh') }}
+      - name: apk
+        env:
+          NOONIX_TMDB_API_KEY: ${{ secrets.NOONIX_TMDB_API_KEY }}
+          NOONIX_TMDB_READ_TOKEN: ${{ secrets.NOONIX_TMDB_READ_TOKEN }}
+          NOONIX_TRAKT_CLIENT_ID: ${{ secrets.NOONIX_TRAKT_CLIENT_ID }}
+          NOONIX_TRAKT_CLIENT_SECRET: ${{ secrets.NOONIX_TRAKT_CLIENT_SECRET }}
+          NOONIX_RELEASE: '1'
+          KS: ${{ secrets.ANDROID_KEYSTORE }}
+          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+        run: |
+          export JAVA_HOME="$JAVA_HOME_17_X64" ANDROID_NDK_ROOT="$ANDROID_SDK_ROOT/ndk/$NDK_VERSION"
+          if [ -n "$KS" ]; then
+            printf '%s' "$KS" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            export KEYSTORE="$RUNNER_TEMP/release.keystore" KEYSTORE_ALIAS=noonix
+          fi
+          QT_ANDROID=/opt/qt/android QT_HOST=/opt/qt/host tools/android/build.sh build/android
+          cd build/android && sha256sum *.apk > "$(ls *.apk).sha256"
+      - name: onto the draft
+        if: env.HAS_KEY == 'true'
+        run: gh release upload "${{ needs.draft.outputs.tag }}" build/android/*.apk build/android/*.apk.sha256 --clobber
+      - if: env.HAS_KEY != 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: noonix-tv-android-debug-signed
+          path: build/android/*.apk
+          retention-days: 7
+
+  # waits for every build; the mac and android ones may fail without holding the release back
   publish:
-    needs: [draft, appimage, windows, windows-smoke]
+    needs: [draft, appimage, windows, windows-smoke, macos, android]
+    if: ${{ !cancelled() && needs.appimage.result == 'success' && needs.windows-smoke.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -210,7 +275,8 @@ jobs:
         env:
           TAG: ${{ needs.draft.outputs.tag }}
         run: |
-          gh release download "$TAG" --pattern '*.AppImage.sha256' --dir sums
+          # each build leaves <file>.sha256 next to its file (windows hands its lines over)
+          gh release download "$TAG" --pattern '*.sha256' --dir sums
           { cat sums/*.sha256; printf '%s\n' "${{ needs.windows.outputs.sum }}"; } > SHA256SUMS
           # a rebuild keeps the sums of the files it didn't make
           if gh release download "$TAG" --pattern SHA256SUMS --dir old 2> /dev/null; then
