@@ -22,6 +22,8 @@ class Remote : public QObject
 public:
     explicit Remote(QObject *parent = nullptr);
     void setWindow(QWindow *w);
+    // a normal window with its title bar, or fullscreen; shows the window that way
+    Q_INVOKABLE void setTitleBar(bool on);
     bool registerService();
     QString inputKind() const { return m_kind; }
     // kwin id of the tv wallpaper window, from the remote daemon's state ("" when there is none)
@@ -64,6 +66,7 @@ private:
     bool m_glass = false;
     bool m_alt = false;
     bool m_refull = false;
+    bool m_titleBar = false;
     bool m_keyFromPointer = false;
     QPointer<QWindow> m_window;
     QString m_kind = QStringLiteral("remote");

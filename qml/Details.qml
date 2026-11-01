@@ -211,7 +211,7 @@ FocusScope {
         anchors.fill: parent
         contentHeight: body.height
         interactive: false
-        Behavior on contentY { enabled: !page.snap; NumberAnimation { duration: 420; easing.type: Easing.OutCubic } }
+        Behavior on contentY { enabled: !page.snap && !wheel.running; NumberAnimation { duration: 420; easing.type: Easing.OutCubic } }
 
         Column {
             id: body

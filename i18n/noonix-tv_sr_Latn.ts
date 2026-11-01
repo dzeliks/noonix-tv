@@ -1398,6 +1398,14 @@
             <translation>Pokreće Noonix TV kad se prijaviš na računar</translation>
         </message>
         <message>
+            <source>Show the title bar</source>
+            <translation>Prikaži naslovnu traku</translation>
+        </message>
+        <message>
+            <source>A normal window with the title bar and its buttons</source>
+            <translation>Običan prozor sa naslovnom trakom i njenim dugmićima</translation>
+        </message>
+        <message>
             <source>Match the TV's refresh rate</source>
             <translation>Uskladi osvežavanje TV-a</translation>
         </message>
@@ -1951,6 +1959,14 @@
         <message>
             <source>Starts Noonix TV when you sign in, handy on a PC made for the TV</source>
             <translation>Pokreće Noonix TV kad se prijaviš, zgodno za računar namenjen televizoru</translation>
+        </message>
+        <message>
+            <source>Show the title bar</source>
+            <translation>Prikaži naslovnu traku</translation>
+        </message>
+        <message>
+            <source>A normal window with the title bar and its buttons</source>
+            <translation>Običan prozor sa naslovnom trakom i njenim dugmićima</translation>
         </message>
         <message>
             <source>Match the TV's refresh rate</source>

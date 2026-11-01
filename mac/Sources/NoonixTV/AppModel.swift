@@ -245,6 +245,7 @@ final class AppModel {
         if let a = st {
             autoLogin = a["auto_login"] as? Bool == true
             matchTipOff = a["match_tip_off"] as? Bool == true
+            showTitleBar(a["title_bar"] as? Bool == true)
         }
         await loadProfiles()
         // set up before, and not signing in on its own: who's watching first (qml prepareLaunch)

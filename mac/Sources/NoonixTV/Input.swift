@@ -41,9 +41,9 @@ final class PageScroll {
             goal = max(0, min(end, (y ?? start) - e.scrollingDeltaY))
             y = goal
         } else {
-            // the system speeds a quick wheel up on its own
-            goal = max(0, min(end, goal - e.scrollingDeltaY * 60 * u))
-            withAnimation(.easeOut(duration: 0.26)) { y = goal }
+            // the system speeds a quick wheel up on its own; a spring keeps its speed on a new goal
+            goal = max(0, min(end, goal - e.scrollingDeltaY * 200 * u))
+            withAnimation(.smooth(duration: 0.28)) { y = goal }
         }
     }
     /// the row at the top of the page, where the keys go on from

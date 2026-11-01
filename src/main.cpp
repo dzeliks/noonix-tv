@@ -198,7 +198,6 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("Remote"), &remote);
     engine.rootContext()->setContextProperty(QStringLiteral("Desktop"), &desktop);
     engine.rootContext()->setContextProperty(QStringLiteral("Input"), &input);
-    engine.rootContext()->setContextProperty(QStringLiteral("Windowed"), qEnvironmentVariableIsSet("NOONIX_WINDOWED"));
 
     // NOONIX_QML_DIR = live qml from the source tree
     const QString qmlDir = qEnvironmentVariable("NOONIX_QML_DIR");
@@ -210,14 +209,16 @@ int main(int argc, char *argv[])
     auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
     window->setScreen(pickScreen());
     window->setGeometry(window->screen()->geometry());
-    if (qEnvironmentVariableIsSet("NOONIX_WINDOWED"))
-        window->show();
-    else
-        window->showFullScreen();
-    player.setWindow(window);
+    auto *core = engine.singletonInstance<Core *>(QStringLiteral("Noonix.Core"), QStringLiteral("Core"));
     remote.setWindow(window);
+#ifdef Q_OS_ANDROID
+    remote.setTitleBar(false);
+#else
+    remote.setTitleBar(qEnvironmentVariableIsSet("NOONIX_WINDOWED") || (core && core->appFlag(QStringLiteral("title_bar"))));
+#endif
+    player.setWindow(window);
     input.setWindow(window);
-    if (auto *core = engine.singletonInstance<Core *>(QStringLiteral("Noonix.Core"), QStringLiteral("Core")))
+    if (core)
         player.setCore(core);
     QObject::connect(&video, &VideoSurface::renderReady, &player, &Player::setRenderReady, Qt::SingleShotConnection);
     QObject::connect(&app, &QCoreApplication::aboutToQuit, &player, &Player::shutdown);

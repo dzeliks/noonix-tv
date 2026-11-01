@@ -22,6 +22,16 @@ struct NoonixApp: App {
     }
 }
 
+/// the window's own title bar (settings), or the page right up to the window's edge
+@MainActor
+func showTitleBar(_ on: Bool) {
+    for w in NSApp.windows where w.styleMask.contains(.titled) {
+        w.titleVisibility = on ? .visible : .hidden
+        w.titlebarAppearsTransparent = !on
+        if on { w.styleMask.remove(.fullSizeContentView) } else { w.styleMask.insert(.fullSizeContentView) }
+    }
+}
+
 /// on quit: the last playback point and anything the build started shut down before the process goes
 /// (a mac has no parent-death signal: they'd outlive the app)
 final class Quit: NSObject, NSApplicationDelegate {

@@ -187,6 +187,7 @@ FocusScope {
                 out.push({ label: qsTr("Add to the app menu"), detail: qsTr("Find Noonix TV with your other apps"), checkable: true,
                            checked: !!dk.menu || dk.menuChosen === null, act: "desk:menu" })
             out.push({ label: qsTr("Open at login"), detail: qsTr("Starts Noonix TV when you sign in, handy on a PC made for the TV"), checkable: true, checked: !!dk.login, act: "desk:login" })
+            out.push({ label: qsTr("Show the title bar"), detail: qsTr("A normal window with the title bar and its buttons"), checkable: true, checked: app.title_bar === true, act: "titlebar" })
             out.push({ label: qsTr("Match the TV's refresh rate"), detail: qsTr("24 / 25 / 50 / 60 Hz for each video, never the resolution or HDR"), checkable: true, checked: app.refresh_match === true, act: "app:refresh_match" })
             out.push({ label: qsTr("Dim the controllers while playing"), detail: qsTr("Lightbar off, player light low"), checkable: true, checked: appOn("pad_leds"), act: "app:pad_leds" })
         }
@@ -251,6 +252,9 @@ FocusScope {
             }
         } else if (a.indexOf("app:") === 0) {
             var k = a.slice(4); setApp(k, !appOn(k))
+        } else if (a === "titlebar") {
+            setApp("title_bar", app.title_bar !== true)
+            Remote.setTitleBar(app.title_bar === true)
         } else if (a === "balkan") {
             balkan(!l.checked)
         }

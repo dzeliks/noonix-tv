@@ -173,6 +173,8 @@ final class SetupModel {
         case "playback":
             out.append(Line(label: L("Open at login"), detail: L("Starts Noonix TV when you sign in, handy on a Mac made for the TV"),
                             checkable: true, checked: loginOn, act: "login"))
+            out.append(Line(label: L("Show the title bar"), detail: L("A normal window with the title bar and its buttons"),
+                            checkable: true, checked: appS["title_bar"] as? Bool == true, act: "titlebar"))
             out.append(Line(label: L("Match the screen's refresh rate"), detail: L("24 / 25 / 50 / 60 Hz for each video, never the resolution or HDR"),
                             checkable: true, checked: appS["refresh_match"] as? Bool == true, act: "refresh"))
         case "benchmark":
@@ -301,6 +303,11 @@ final class SetupModel {
                 if let i = list.firstIndex(of: p[2]) { if list.count > 1 { list.remove(at: i) } } else { list.append(p[2]) }
                 if p[1] == "languages" { languages = list } else { subtitles = list }
             }
+        } else if a == "titlebar" {
+            let v = appS["title_bar"] as? Bool != true
+            appS["title_bar"] = v
+            showTitleBar(v)
+            Task { _ = try? await Core.shared.raw("settings.setApp", ["key": "title_bar", "value": v]) }
         } else if a == "login" {
             Task {
                 do {

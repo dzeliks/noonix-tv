@@ -294,14 +294,30 @@ void Remote::InputKind(const QString &kind)
     emit inputKindChanged();
 }
 
+void Remote::setTitleBar(bool on)
+{
+    m_titleBar = on;
+    if (!on) {
+        m_window->showFullScreen();
+        return;
+    }
+    // three quarters of the screen, in its middle
+    const QRect screen = m_window->screen()->geometry();
+    QRect r(QPoint(), screen.size() * 3 / 4);
+    r.moveCenter(screen.center());
+    m_window->setMinimumSize(QSize(960, 540));
+    m_window->setGeometry(r);
+    m_window->showNormal();
+}
+
 void Remote::Raise()
 {
     if (m_window) {
         // show() means "show normal": it would drop fullscreen and the window would resize mid-splash
-        if (qEnvironmentVariableIsSet("NOONIX_WINDOWED"))
-            m_window->show();
-        else
+        if (!m_titleBar)
             m_window->showFullScreen();
+        else if (m_window->visibility() == QWindow::Minimized)
+            m_window->showNormal();
         m_window->raise();
         activate();
     }

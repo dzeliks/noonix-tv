@@ -293,6 +293,8 @@ T = {
     "Find extra subtitles": "Nađi dodatne titlove",
     "From OpenSubtitles, for your subtitle languages the file doesn't have": "Sa OpenSubtitles-a, za tvoje jezike koje fajl nema",
     "Dim the controllers while playing": "Priguši kontrolere tokom gledanja",
+    "Show the title bar": "Prikaži naslovnu traku",
+    "A normal window with the title bar and its buttons": "Običan prozor sa naslovnom trakom i njenim dugmićima",
     "HDR on this screen": "HDR na ovom ekranu",
     "Picks the sources that suit it best. Set it yourself if the screen is guessed wrong": "Bira izvore koji mu najbolje odgovaraju. Podesi sam ako je ekran pogrešno prepoznat",
     "Automatic (%1)": "Automatski (%1)",

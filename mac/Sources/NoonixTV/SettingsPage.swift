@@ -213,6 +213,8 @@ final class SettingsModel {
             out.append(Line(label: L("Language"), value: UILang.shared.code == "sr" ? "Srpski" : "English", act: "uilang"))
             out.append(Line(label: L("Open at login"), detail: L("Starts Noonix TV when you sign in to this Mac"),
                             checkable: true, checked: loginTick >= 0 && SMAppService.mainApp.status == .enabled, act: "login"))
+            out.append(Line(label: L("Show the title bar"), detail: L("A normal window with the title bar and its buttons"),
+                            checkable: true, checked: appSettings["title_bar"] as? Bool == true, act: "titlebar"))
             out.append(Line(label: L("Match the screen's refresh rate"), detail: L("Switches the screen to 24 / 25 / 50 / 60 Hz for each video (never the resolution or HDR)"),
                             checkable: true, checked: appSettings["refresh_match"] as? Bool == true, act: "refresh"))
             out.append(Line(label: L("Find extra subtitles"), detail: L("From OpenSubtitles, for your subtitle languages the file doesn't have"),
@@ -411,6 +413,11 @@ final class SettingsModel {
             } else if a == "profile-import" {
                 app.importProfile()
                 return
+            } else if a == "titlebar" {
+                let v = appSettings["title_bar"] as? Bool != true
+                appSettings["title_bar"] = v
+                showTitleBar(v)
+                _ = await json("settings.setApp", ["key": "title_bar", "value": v])
             } else if a == "login" {
                 do {
                     if SMAppService.mainApp.status == .enabled { try await SMAppService.mainApp.unregister() } else { try SMAppService.mainApp.register() }

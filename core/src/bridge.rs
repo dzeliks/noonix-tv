@@ -15,6 +15,11 @@ pub mod qobject {
         #[qinvokable]
         fn call(self: Pin<&mut Self>, method: &QString, args: &QString) -> u64;
 
+        // an app setting that's on, read right away: the window needs it before its first frame
+        #[qinvokable]
+        #[cxx_name = "appFlag"]
+        fn app_flag(self: &Self, key: &QString) -> bool;
+
         #[qsignal]
         fn result(self: Pin<&mut Self>, id: u64, ok: bool, json: QString);
 
@@ -26,7 +31,7 @@ pub mod qobject {
     impl cxx_qt::Initialize for Core {}
 }
 
-use crate::{app, rpc};
+use crate::{app, rpc, store};
 use core::pin::Pin;
 use cxx_qt::{CxxQtType, Threading};
 use cxx_qt_lib::QString;
@@ -63,6 +68,12 @@ impl cxx_qt::Initialize for qobject::Core {
 }
 
 impl qobject::Core {
+    pub fn app_flag(&self, key: &QString) -> bool {
+        let key = key.to_string();
+        let on = store::DB.lock().ok().and_then(|c| store::get_setting(&c, "app", &key).ok().flatten());
+        on.and_then(|v| v.as_bool()).unwrap_or(false)
+    }
+
     pub fn call(mut self: Pin<&mut Self>, method: &QString, args: &QString) -> u64 {
         let id = {
             let mut rust = self.as_mut().rust_mut();
