@@ -442,6 +442,7 @@ FocusScope {
             height: setup.lines.length ? Math.min(530 * setup.u, list.contentHeight) + 32 * setup.u : 0
             visible: height > 0
             Glass { anchors.fill: parent; kind: "panel"; radius: 40 * setup.u }
+            ListWheel { view: list }
             ListView {
                 id: list
                 anchors { fill: parent; margins: 16 * setup.u }

@@ -29,6 +29,8 @@ public:
     void setWindow(QWindow *w);
     // the mouse really moved just now (qt quick also sends hover when things move under a resting cursor)
     Q_INVOKABLE bool pointerLive() const { return m_moved.isValid() && m_moved.elapsed() < 200; }
+    // from pointingChanged: this first key after the mouse only brought the selection back
+    Q_INVOKABLE void holdKey() { m_holdKey = true; }
     // the key being handled came from a real keyboard (not a remote's or pad's ok): its enter submits
     Q_INVOKABLE bool realKey() const { return m_realKey; }
 
@@ -79,6 +81,7 @@ private:
     QPointF m_lastPos{-1, -1};
     bool m_escFired = false;
     bool m_pointing = false;
+    bool m_holdKey = false;
 
     bool m_padsOn = false;
     QTimer m_poll;

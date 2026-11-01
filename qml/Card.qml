@@ -8,7 +8,8 @@ Item {
     property var media: ({})
     property string style: "poster"          // poster | landscape | episode
     property bool focused: false
-    readonly property bool lifted: focused && (Input.pointing !== true || Theme.pointedCards > 0)
+    // with the mouse in use only the card under it: moving off lets it down
+    readonly property bool lifted: focused && (Input.pointing !== true || point.containsMouse)
     readonly property bool wide: style !== "poster"
     readonly property real u: Theme.u
     property real posterW: 214 * u
@@ -88,13 +89,9 @@ Item {
     Pointer {
         id: point
         onContainsMouseChanged: {
-            Theme.pointedCards = Math.max(0, Theme.pointedCards + (containsMouse ? 1 : -1))
             if (containsMouse) win.pointedCard = point
             else if (win.pointedCard === point) win.pointedCard = null
         }
-        Component.onDestruction: {
-            if (containsMouse) Theme.pointedCards = Math.max(0, Theme.pointedCards - 1)
-            if (win.pointedCard === point) win.pointedCard = null
-        }
+        Component.onDestruction: if (win.pointedCard === point) win.pointedCard = null
     }
 }

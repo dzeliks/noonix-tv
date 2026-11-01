@@ -160,7 +160,8 @@ struct PosterGrid: View {
         let lines = (model.items.count + cols - 1) / max(1, cols)
         // the focused line stays in view, a line's worth of room above it once it moved down
         let maxScroll = max(0, CGFloat(lines) * cellH - height + 40 * u)
-        let scroll = min(maxScroll, max(0, CGFloat(heldLine ?? line) * cellH - cellH * 0.6))
+        let keyed = min(maxScroll, max(0, CGFloat(heldLine ?? line) * cellH - cellH * 0.6))
+        let scroll = model.scroll.y ?? keyed
         let first = max(0, Int(scroll / cellH) - 1) * cols
         let last = min(model.items.count, first + (Int(height / cellH) + 3) * cols)
         ZStack(alignment: .topLeading) {
@@ -169,9 +170,7 @@ struct PosterGrid: View {
                 Card(media: it, style: style, focused: active && model.index == i, u: u, posterW: posterW)
                     .contentShape(.rect)
                     .onContinuousHover { phase in
-                        // a line half out of view doesn't take the pointer
-                        let top = CGFloat(i / cols) * cellH + 20 * u - scroll
-                        if case .active = phase, Input.pointerLive, top >= 0, top + cellH - 20 * u <= height + 1 { app.navFocused = false; model.head = false; model.index = i; if app.page == .search { app.search.zone = "grid" } }
+                        if case .active = phase, Input.pointerLive { app.navFocused = false; model.head = false; model.index = i; if app.page == .search { app.search.zone = "grid" } }
                     }
                     .onTapGesture { model.index = i; app.open(it) }
                     .zIndex(active && model.index == i ? 1 : 0)
@@ -181,9 +180,16 @@ struct PosterGrid: View {
         }
         .frame(width: CGFloat(cols) * cellW, height: height, alignment: .topLeading)
         .clipped()
-        .animation(Theme.slide, value: scroll)
+        .animation(model.scroll.y == nil ? Theme.slide : nil, value: scroll)
         // the pointer moving the focus doesn't scroll the grid (the wheel does)
         .onChange(of: model.index) { old, _ in heldLine = Input.pointerHolds ? heldLine ?? old / max(1, cols) : nil }
+        .onChange(of: PointerMode.shared.on) { _, on in if !on { heldLine = nil } }
+        .onChange(of: keyed + maxScroll, initial: true) {
+            model.scroll.start = keyed
+            model.scroll.end = maxScroll
+            model.scroll.rowsTop = cellH
+            model.scroll.height = height
+        }
     }
 }
 

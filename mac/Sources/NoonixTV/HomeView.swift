@@ -31,8 +31,8 @@ struct RailsPage: View {
                 let y = rowsTop + heights.prefix(i).reduce(0, +) - before
                 MediaRowView(model: row, active: pageActive && i == cur, u: u, width: size.width,
                              point: { idx in
-                                 // a row behind the hero or half below the page doesn't take the pointer
-                                 guard wheelY != nil || i >= top, y + heights[i] - gap <= size.height + 1 else { return }
+                                 // a row behind the hero or fading out under the bar doesn't take the pointer
+                                 guard wheelY != nil || i >= top, y + heights[i] / 2 >= 210 * u else { return }
                                  app.navFocused = false
                                  rails.point(row, idx)
                              },
@@ -46,10 +46,11 @@ struct RailsPage: View {
                     .geometryGroup()
                     .offset(y: y)
             }
-            // scrolled: the page passes under the bar, not through its text
-            LinearGradient(stops: [.init(color: .black.opacity(0.9), location: 0), .init(color: .black.opacity(0.72), location: 0.55),
+            // scrolled: the page fades into the black before it gets to the bar and the profile
+            LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.46),
+                                   .init(color: .black.opacity(0.8), location: 0.62), .init(color: .black.opacity(0.32), location: 0.8),
                                    .init(color: .black.opacity(0), location: 1)], startPoint: .top, endPoint: .bottom)
-                .frame(width: size.width, height: 190 * u)
+                .frame(width: size.width, height: 300 * u)
                 .opacity(min(1, (wheelY ?? 0) / (120 * u)))
                 .allowsHitTesting(false)
             // the rows before the page has them: placeholders where they'll be
@@ -64,7 +65,12 @@ struct RailsPage: View {
         .frame(width: size.width, height: size.height, alignment: .topLeading)
         .clipped()
         .animation(Theme.slide, value: top)
-        .onChange(of: rails.current) { old, new in held = Input.pointerHolds ? min(held ?? old, new) : nil }
+        .onChange(of: rails.current) { old, new in
+            held = Input.pointerHolds ? min(held ?? old, new) : nil
+            // keys on the scrolled page: it follows, at the top row it's the tv's page again
+            if !Input.pointing { rails.scroll.reveal(new) }
+        }
+        .onChange(of: PointerMode.shared.on) { _, on in if !on { held = nil } }
         .onChange(of: current?.id) { aheadOfFocus() }
         .onAppear { aheadOfFocus() }
         .onChange(of: heights, initial: true) { _, hs in
@@ -72,6 +78,9 @@ struct RailsPage: View {
             for h in hs { tops.append(y); y += h }
             rails.scroll.tops = tops
             rails.scroll.end = max(0, y - size.height * 0.47)
+            rails.scroll.rowsTop = rowsTop
+            rails.scroll.clearY = 210 * u
+            rails.scroll.height = size.height
         }
         .onChange(of: keyed, initial: true) { _, k in rails.scroll.start = k }
     }

@@ -106,6 +106,17 @@ final class Rails {
         focusedId = row.id
         row.index = index
     }
+
+    func leaveMouse(_ active: Bool) -> Bool {
+        let i = scroll.rowInView(current)
+        if i != current {
+            current = i
+            focusedId = focusedRow?.id
+        } else {
+            scroll.reveal(i)
+        }
+        return active && !PointerMode.shared.onCard
+    }
 }
 
 @MainActor @Observable
@@ -616,22 +627,36 @@ final class AppModel {
     // ---- the wheel: scrolling away from a card's options closes them; home and titles move in pixels
     private var wheelPage: PageScroll? {
         if let d = detailStack.last { return d.scroll }
+        if page == .library { return library.scroll }
+        // search: the grid, not the column beside it
+        if page == .search {
+            let x = NSApp.keyWindow?.mouseLocationOutsideOfEventStream.x ?? 0
+            return x < size.width - Theme.margin(u) - 575 * u ? search.grid.scroll : nil
+        }
         return rails[page]?.scroll
+    }
+    /// nothing over the page
+    private var pageOnTop: Bool {
+        splash == nil && !entry.isOpen && help == nil && folderPicker == nil && extSheet == nil && profileSheet == nil
+            && profileEdit == nil && trakt == nil && site == nil && setup == nil && picker == nil && exitChoice == nil && !playing
+            && finder == nil && sources == nil && menu == nil
     }
     func wheel(_ e: NSEvent) -> Bool {
         if menu != nil { menu = nil; return true }
-        guard splash == nil, !entry.isOpen, help == nil, folderPicker == nil, extSheet == nil, profileSheet == nil,
-              profileEdit == nil, trakt == nil, site == nil, setup == nil, picker == nil, exitChoice == nil, !playing,
-              finder == nil, sources == nil, let s = wheelPage else { return false }
-        if !PointerMode.shared.on { PointerMode.shared.on = true }
-        s.wheel(e, u: u)
+        guard pageOnTop, let s = wheelPage else { return false }
+        s.wheel(e.scrollingDeltaY, precise: e.hasPreciseScrollingDeltas, u: u)
         return true
     }
-    /// a key after the wheel: the rows and the focus take over, from the row at the top
-    func leaveWheel() {
-        guard let s = wheelPage, s.y != nil else { return }
-        if detailStack.isEmpty, let r = rails[page] { r.current = s.topRow }
-        withAnimation(Theme.slide) { s.y = nil }
+    /// over the video the wheel is still the arrows; a track list scrolls by itself
+    var wheelSteps: Bool { playing && Osd.shared?.picker == nil }
+    /// a key after the mouse: the selection if it's still in view, else the first thing in view; the
+    /// page stays and follows. true: nothing was showing, the key only brought the selection back
+    func leaveMouse() -> Bool {
+        guard pageOnTop else { return false }
+        if let d = detailStack.last { return d.leaveMouse() }
+        if page == .library { return library.head ? false : library.leaveMouse(!navFocused) }
+        if page == .search { return search.zone == "grid" ? search.grid.leaveMouse(!navFocused) : false }
+        return rails[page]?.leaveMouse(!navFocused) ?? false
     }
 
     // ---- keys
@@ -770,12 +795,24 @@ final class GridModel {
     var headIndex = 0
     /// a library with videos opens on them, until a tab is picked
     var picked = false
+    /// the wheel on the grid (rowsTop: a line's height, height: the grid's)
+    let scroll = PageScroll()
 
     func load() async {
         loading = true
         items = (try? await Core.shared.call("library.list", ["section": section], as: LibraryList.self))?.items ?? []
         index = min(index, max(0, items.count - 1))
         loading = false
+    }
+
+    func leaveMouse(_ active: Bool) -> Bool {
+        guard let y = scroll.y else { return active && !PointerMode.shared.onCard }
+        let cols = max(1, columns), h = scroll.rowsTop
+        let mid = CGFloat(index / cols) * h + h / 2
+        let seen = mid >= y && mid <= y + scroll.height
+        if !seen { index = min(max(0, items.count - 1), Int((y / max(1, h)).rounded(.up)) * cols + index % cols) }
+        withAnimation(Theme.slide) { scroll.y = nil }
+        return active && (!seen || !PointerMode.shared.onCard)
     }
 
     /// false: up from the first line or back (the owner takes the focus)

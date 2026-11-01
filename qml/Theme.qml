@@ -34,9 +34,10 @@ QtObject {
     // springs shared by every focus lift, so the whole ui moves alike
     readonly property real springK: 4.2
     readonly property real springDamp: 0.62
-    // cards under the mouse right now: with the mouse in use the focused card is lifted only
-    // while the mouse is on a card (moving off it lets it down, back on lifts it again)
-    property int pointedCards: 0
+    // the mouse: the lists under it and when the wheel last moved one
+    property var wheelList: null
+    property var wheelRow: null
+    property double wheelAt: 0
 
     function px(v) { return v * u }
     function time(secs) {

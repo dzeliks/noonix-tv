@@ -149,7 +149,7 @@ FocusScope {
                     visible: !modelData.icon
                     text: modelData.label
                     color: parent.tint
-                    font { family: Theme.display; pixelSize: 28 * nav.u; weight: parent.on ? Font.DemiBold : Font.Medium }
+                    font { family: Theme.display; pixelSize: 28 * nav.u; weight: Font.Medium }
                 }
                 Symbol {
                     anchors.centerIn: parent

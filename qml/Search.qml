@@ -115,6 +115,7 @@ FocusScope {
         visible: search.busy && search.results.length > 0
         running: visible && search.visible
     }
+    ListWheel { view: grid; cards: true }
     GridView {
         id: grid
         x: Theme.margin - search.gridGap / 2
@@ -124,7 +125,8 @@ FocusScope {
         readonly property int cols: 4
         cellWidth: search.posterW + search.gridGap
         cellHeight: search.posterW * 1.5 + search.gridGap
-        clip: false
+        // the wheel stops at any pixel: nothing over the title
+        clip: Input.pointing
         model: search.shown.length
         keyNavigationEnabled: true
         highlightRangeMode: Input.pointing ? GridView.NoHighlightRange : GridView.ApplyRange

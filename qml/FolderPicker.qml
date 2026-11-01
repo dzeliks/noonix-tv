@@ -105,6 +105,7 @@ FocusScope {
             Glass { anchors.fill: parent; kind: "panel"; radius: 40 * picker.u }
             // a click outside the list closes the sheet; on it, it doesn't
             MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons }
+            ListWheel { view: list }
             ListView {
                 id: list
                 anchors { fill: parent; margins: 16 * picker.u }

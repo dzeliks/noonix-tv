@@ -7,6 +7,8 @@ enum Key { case up, down, left, right, ok, back, menu, playPause, ff, rw, pageUp
 
 /// the player's own keys, which nothing else uses
 extension Key { var media: Bool { [.ff, .rw, .pageUp, .pageDown, .next, .stop].contains(self) } }
+/// a key that moves or picks: the first of these after the mouse may only bring the selection back
+extension Key { var picks: Bool { [.up, .down, .left, .right, .ok].contains(self) } }
 
 /// a real keyboard typing into an on-screen field (qml KeyEntry, ProfileAdd, Search)
 enum Typed { case text(String), erase, submit }
@@ -16,8 +18,7 @@ enum Typed { case text(String), erase, submit }
 final class PointerMode {
     static let shared = PointerMode()
     var on = false
-    /// the mouse is on a card: with the mouse in use the focused card is lifted only then (moving
-    /// off lets it down, back on lifts it again)
+    /// the mouse is on a card: with the mouse in use only that card is lifted (moving off lets it down)
     private(set) var onCard = false
     @ObservationIgnored private var cards = Set<UUID>()
     func card(_ id: UUID, _ inside: Bool) {
@@ -26,28 +27,51 @@ final class PointerMode {
     }
 }
 
-/// the wheel on a page (qml PageWheel): pixels, a page moves as one. nil = where the keys have it
+/// the wheel on a page, a grid or a row (qml PageWheel): pixels, it moves as one, the focus stays
+/// with the mouse. nil = where the keys have it
 @MainActor @Observable
 final class PageScroll {
     var y: CGFloat?
     @ObservationIgnored var start: CGFloat = 0
     @ObservationIgnored var end: CGFloat = 0
     @ObservationIgnored var tops: [CGFloat] = []
+    /// where the rows start in the window, what the bar and its fade cover, the window's height
+    @ObservationIgnored var rowsTop: CGFloat = 0
+    @ObservationIgnored var clearY: CGFloat = 0
+    @ObservationIgnored var height: CGFloat = 0
     @ObservationIgnored private var goal: CGFloat = 0
 
-    func wheel(_ e: NSEvent, u: CGFloat) {
+    func wheel(_ delta: CGFloat, precise: Bool, u: CGFloat) {
         if y == nil { goal = start; y = start }
-        if e.hasPreciseScrollingDeltas {
-            goal = max(0, min(end, (y ?? start) - e.scrollingDeltaY))
+        if precise {
+            goal = max(0, min(end, (y ?? start) - delta))
             y = goal
         } else {
             // the system speeds a quick wheel up on its own; a spring keeps its speed on a new goal
-            goal = max(0, min(end, goal - e.scrollingDeltaY * 200 * u))
+            goal = max(0, min(end, goal - delta * 200 * u))
             withAnimation(.smooth(duration: 0.28)) { y = goal }
         }
     }
-    /// the row at the top of the page, where the keys go on from
-    var topRow: Int { max(0, (tops.lastIndex { $0 <= (y ?? 0) + 1 } ?? 0)) }
+    /// the keys on the scrolled page: row i comes in whole, the top row ends it
+    func reveal(_ i: Int) {
+        guard let now = y, tops.indices.contains(i) else { return }
+        if i == 0 { withAnimation(Theme.slide) { y = nil }; return }
+        let top = rowsTop + tops[i], bottom = rowsTop + (i + 1 < tops.count ? tops[i + 1] : end + height - rowsTop)
+        var to = now
+        if top - to < clearY { to = top - clearY } else if bottom - to > height { to = bottom - height }
+        goal = max(0, min(end, to))
+        withAnimation(Theme.slide) { y = goal }
+    }
+    /// a key after the mouse: the row kept if at least half of it is in view, else the first such row
+    func rowInView(_ current: Int) -> Int {
+        let at = y ?? start
+        func half(_ i: Int) -> Bool {
+            guard tops.indices.contains(i) else { return false }
+            let top = rowsTop + tops[i] - at, h = (i + 1 < tops.count ? tops[i + 1] : end + height - rowsTop) - tops[i]
+            return min(top + h, height) - max(top, clearY) >= h / 2
+        }
+        return half(current) ? current : tops.indices.first(where: half) ?? current
+    }
 }
 
 /// the tv app's input everywhere (Main.qml): arrows / return / escape, the wheel scrolls a page (the
@@ -66,13 +90,30 @@ enum Input {
 
     /// the pointer really moved just now (a list sliding under a resting cursor doesn't count)
     static var pointerLive: Bool { Date().timeIntervalSince(lastMove) < 0.15 }
+    /// the row of cards under the mouse: sideways, the wheel moves it
+    static var row: PageScroll?
+    /// the page moved under a resting mouse: a move of nothing, so what's under it now takes the hover
+    private static var rehoverTask: Task<Void, Never>?
+    private static func rehover() {
+        rehoverTask?.cancel()
+        rehoverTask = Task {
+            try? await Task.sleep(for: .milliseconds(40))
+            guard !Task.isCancelled, let w = NSApp.keyWindow,
+                  let e = NSEvent.mouseEvent(with: .mouseMoved, location: w.mouseLocationOutsideOfEventStream, modifierFlags: [],
+                                             timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: w.windowNumber,
+                                             context: nil, eventNumber: 0, clickCount: 0, pressure: 0) else { return }
+            NSApp.postEvent(e, atStart: false)
+        }
+    }
     /// the mouse moved last (no key since): lists don't scroll for it, the wheel and keys do
     /// (qml Input.pointing); the rows show their page arrows meanwhile
     static var pointing: Bool { PointerMode.shared.on }
     static var pointerHolds: Bool { pointing && pointerLive }
-    static func keyed() {
-        if PointerMode.shared.on { PointerMode.shared.on = false }
-        AppModel.current?.leaveWheel()
+    /// true: this first key after the mouse only brought the selection back
+    static func keyed() -> Bool {
+        guard PointerMode.shared.on else { return false }
+        PointerMode.shared.on = false
+        return AppModel.current?.leaveMouse() ?? false
     }
     /// a page that scrolls in pixels takes the wheel (true: it did)
     static var wheel: ((NSEvent) -> Bool)?
@@ -95,7 +136,10 @@ enum Input {
 
     static func install(_ to: @escaping (Key) -> Bool, typed: @escaping (Typed) -> Bool) {
         guard monitors.isEmpty else { return }
-        let send = { (k: Key) -> Bool in keyed(); return to(k) }
+        let send = { (k: Key) -> Bool in
+            if keyed(), k.picks { return true }
+            return to(k)
+        }
         monitors.append(NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { e in
             lastMove = Date()
             if !PointerMode.shared.on { PointerMode.shared.on = true }
@@ -111,7 +155,15 @@ enum Input {
             let scale: CGFloat = e.hasPreciseScrollingDeltas ? 1 : 40
             var dx = e.scrollingDeltaX * scale, dy = e.scrollingDeltaY * scale
             if e.modifierFlags.contains(.shift) { dx = dy; dy = 0 }
-            if dy != 0, abs(dy) >= abs(dx), wheel?(e) == true { return nil }
+            if PointerMode.shared.on == false { PointerMode.shared.on = true }
+            if dy != 0, abs(dy) >= abs(dx), wheel?(e) == true { rehover(); return nil }
+            if dx != 0, abs(dx) > abs(dy), let r = row {
+                r.wheel(e.scrollingDeltaX != 0 ? e.scrollingDeltaX : e.scrollingDeltaY, precise: e.hasPreciseScrollingDeltas, u: AppModel.current?.u ?? 1)
+                rehover()
+                return nil
+            }
+            // only over the video it's the arrows. elsewhere the lists scroll by themselves
+            guard AppModel.current?.wheelSteps == true else { rehover(); return e }
             if e.phase == .began { accX = 0; accY = 0 }
             // a trackpad's coasting after the fingers lift would keep stepping on its own
             if !e.momentumPhase.isEmpty { return nil }
@@ -166,7 +218,10 @@ enum Pads {
     private static var backHold: Task<Void, Never>?
 
     static func install(_ f: @escaping (Key) -> Bool) {
-        send = { k in Input.keyed(); return f(k) }
+        send = { k in
+            if Input.keyed(), k.picks { return true }
+            return f(k)
+        }
         GCController.shouldMonitorBackgroundEvents = false
         NotificationCenter.default.addObserver(forName: .GCControllerDidConnect, object: nil, queue: .main) { n in
             guard let c = n.object as? GCController else { return }
@@ -315,7 +370,7 @@ enum DevKeys {
                     let line = String(cString: buf).trimmingCharacters(in: .whitespacesAndNewlines)
                     DispatchQueue.main.async {
                         MainActor.assumeIsolated {
-                            if let k = names[line] { Input.keyed(); _ = send(k) }
+                            if let k = names[line] { _ = send(k) }
                             else if line.hasPrefix("text:") { _ = typed(.text(String(line.dropFirst(5)))) }
                             else if line == "erase" { _ = typed(.erase) }
                             else if line == "submit" { _ = typed(.submit) }

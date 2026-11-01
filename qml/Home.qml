@@ -13,35 +13,71 @@ FocusScope {
     property var menuItem: null
     readonly property real u: Theme.u
     readonly property var current: rows.currentItem ? rows.currentItem.current : null
+    // the wheel running cards past a resting mouse: the hero and what's fetched wait for the page to stop
+    property var shownItem: null
+    function settle() { shownItem = current; Qt.callLater(preloadAround) }
+    onCurrentChanged: if (wheel.running) settleLater.restart(); else settle()
+    Timer { id: settleLater; interval: 160; onTriggered: if (wheel.running) restart(); else home.settle() }
     signal open(var item)
     signal menu(var item, string rowId, rect at)
     signal upFromTop()
 
-    // ---- the wheel: hero and rows are one page that moves in pixels. a key brings the tv's rows back
+    // ---- the wheel: hero and rows are one page that moves in pixels. keys take it over as it is and
+    // follow the selection; at the top row it's the tv's page again, the hero and one row
     property bool scrolled: false
+    // the rows don't follow the current row: the mouse has the page, or the keys and the glide do. it
+    // ends only once the page is where the tv's rows have it: strict range picks the current row from
+    // wherever the view is
+    property bool free: false
+    // the row at the top for the keys (those above hide behind the hero): the mouse picking one doesn't change it
+    property int topRow: 0
     readonly property real pageY: rows.contentY - rows.originY
-    property real heroBack: 0
-    readonly property real heroY: scrolled ? pageY : heroBack
-    NumberAnimation { id: heroHome; target: home; property: "heroBack"; to: 0; duration: 420; easing.type: Easing.OutCubic }
-    PageWheel { id: wheel; view: rows }
+    readonly property real heroY: scrolled ? pageY : 0
+    // below the bar and the fade
+    readonly property real clearY: 210 * u
+    PageWheel {
+        id: wheel
+        view: rows
+        onRunningChanged: if (!running) home.free = Input.pointing || home.scrolled
+    }
     function wheelScroll(w) {
-        Input.setPointing(true)
-        heroHome.stop()
-        if (!scrolled) { heroBack = 0; scrolled = true }
+        scrolled = true
+        free = true
         wheel.scroll(w)
     }
+    onPageYChanged: if (scrolled && pageY < 0.5 && (Input.pointing || rows.currentIndex === 0)) { scrolled = false; topRow = 0 }
     Connections {
         target: Input
         function onPointingChanged() {
-            if (Input.pointing || !home.scrolled) return
-            wheel.stop()
-            // the keys go on from the row at the top of the page
-            var i = rows.indexAt(rows.width / 2, rows.contentY + 40 * home.u)
-            if (i >= 0) rows.currentIndex = i
-            home.heroBack = home.pageY
-            home.scrolled = false
-            heroHome.start()
+            if (Input.pointing) { home.free = true; return }
+            var i = home.rowInView()
+            if (rows.activeFocus && !win.pointedCard) Input.holdKey()
+            rows.currentIndex = i
+            home.reveal(i)
         }
+    }
+    // a key after the mouse: the selection if it's still in view, else the first row in view
+    function rowInView() {
+        var it = rows.currentItem
+        if (it) {
+            var y = rows.y + it.y - rows.contentY
+            if (Math.min(y + it.height, height) - Math.max(y, clearY) >= it.height / 2) return rows.currentIndex
+        }
+        var at = Math.max(rows.originY, scrolled ? rows.contentY - rows.y + clearY : rows.contentY)
+        var i = rows.indexAt(rows.width / 2, at + 100 * u)
+        return i >= 0 ? i : rows.currentIndex
+    }
+    // the keys' way with the free page: the row comes in whole, the top row takes it all the way up
+    function reveal(i) {
+        var it = rows.itemAtIndex(i)
+        if (!it) return
+        var to = rows.contentY
+        if (!scrolled) { to = it.y; topRow = i }
+        else if (i === 0) to = rows.originY
+        else if (it.y < to - rows.y + clearY) to = it.y + rows.y - clearY
+        else if (it.y + it.height > to + rows.height) to = it.y + it.height - rows.height
+        wheel.goal = wheel.clamp(to)
+        wheel.start()
     }
 
     function load() {
@@ -94,7 +130,7 @@ FocusScope {
         version++
         updateShown()
     }
-    Component.onCompleted: load()
+    Component.onCompleted: { free = Input.pointing; load() }
 
     // ---- ahead of the focus: details, logo and backdrop of the 3 next items in every direction
     // (same row both ways, the focused card of the 3 rows above and below), so the hero is instant
@@ -135,7 +171,6 @@ FocusScope {
         out.forEach(prefetch)
         ahead = out
     }
-    onCurrentChanged: Qt.callLater(preloadAround)
     onVersionChanged: Qt.callLater(preloadAround)
     readonly property var aheadDetails: {
         var v = detailsVersion, out = []
@@ -160,7 +195,7 @@ FocusScope {
     Hero {
         id: hero
         anchors.fill: parent
-        item: home.current
+        item: home.shownItem
         known: home.details
         knownVersion: home.detailsVersion
         visible: home.heroY < height
@@ -177,10 +212,18 @@ FocusScope {
         spacing: 8 * home.u
         // every row built ahead while idle (about ten): one built on the way down costs ~25 ms
         cacheBuffer: 6 * parent.height
+        // the view is the bottom half of the page: drawn up to the top of the window, or a row
+        // would vanish as it leaves the view
+        displayMarginBeginning: y
         keyNavigationEnabled: true
-        highlightRangeMode: Input.pointing || home.scrolled ? ListView.NoHighlightRange : ListView.StrictlyEnforceRange
-        preferredHighlightBegin: 0
-        preferredHighlightEnd: 80 * home.u
+        onCurrentIndexChanged: {
+            if (!home.free) home.topRow = currentIndex
+            else if (!Input.pointing) home.reveal(currentIndex)
+        }
+        // free: a range nothing leaves, so the view stays put and the highlight keeps up
+        highlightRangeMode: home.free ? ListView.ApplyRange : ListView.StrictlyEnforceRange
+        preferredHighlightBegin: home.free ? -100000 : 0
+        preferredHighlightEnd: home.free ? 100000 : 80 * home.u
         // an invisible highlight: without one the view follows the current row directly and
         // jumps, the move duration only animates a highlight
         highlight: Item {}
@@ -202,7 +245,7 @@ FocusScope {
             loading: (home.version, home.cache[modelData.id] === undefined)
             // rows above the focus hide behind the hero: one leaving is gone at once, one coming
             // back fades in with its slide (a behavior would pick the duration of the old state)
-            readonly property bool above: index < rows.currentIndex && !home.scrolled
+            readonly property bool above: index < home.topRow && !home.scrolled
             opacity: 1
             onAboveChanged: {
                 fade.stop()
@@ -220,17 +263,21 @@ FocusScope {
             onMenu: function (item, index, at) { home.menu(item, modelData.id, at) }
         }
     }
-    // scrolled: the page passes under the bar, not through its text
+    // scrolled: the page fades into the black before it gets to the bar and the profile
     Rectangle {
         anchors { left: parent.left; right: parent.right; top: parent.top }
-        height: 190 * home.u
+        height: 300 * home.u
         visible: opacity > 0
         opacity: Math.min(1, home.heroY / (120 * home.u))
         gradient: Gradient {
-            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.9) }
-            GradientStop { position: 0.55; color: Qt.rgba(0, 0, 0, 0.72) }
+            GradientStop { position: 0.0; color: Theme.bg }
+            GradientStop { position: 0.46; color: Theme.bg }
+            GradientStop { position: 0.62; color: Qt.rgba(0, 0, 0, 0.8) }
+            GradientStop { position: 0.8; color: Qt.rgba(0, 0, 0, 0.32) }
             GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
         }
+        // what's fading out takes no hover
+        MouseArea { width: parent.width; height: parent.height * 0.62; hoverEnabled: true; acceptedButtons: Qt.NoButton }
     }
     // the rows before the page has them: placeholders where they'll be
     Column {

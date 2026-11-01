@@ -299,8 +299,15 @@ bool Input::eventFilter(QObject *obj, QEvent *ev)
         return QObject::eventFilter(obj, ev);
     auto *k = static_cast<QKeyEvent *>(ev);
     if (ev->type() == QEvent::KeyPress) {
-        if (k->nativeVirtualKey() != pointerKeyMark)
+        if (k->nativeVirtualKey() != pointerKeyMark) {
+            const bool fromMouse = m_pointing;
+            m_holdKey = false;
             setPointing(false);
+            const int key = k->key();
+            if (fromMouse && m_holdKey && (key == Qt::Key_Up || key == Qt::Key_Down || key == Qt::Key_Left || key == Qt::Key_Right
+                                           || key == Qt::Key_Return || key == Qt::Key_Enter))
+                return true;
+        }
 #ifdef Q_OS_ANDROID
         // a tv remote's d-pad centre is enter, a keyboard's enter is return
         m_realKey = ev->spontaneous() && k->key() != Qt::Key_Enter;

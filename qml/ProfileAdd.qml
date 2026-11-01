@@ -98,6 +98,7 @@ FocusScope {
             letter: pa.name.trim().charAt(0).toUpperCase()
         }
         // the looks: colours, then the pictures
+        ListWheel { view: looks; across: true }
         ListView {
             id: looks
             width: Math.min(parent.width, count * (72 + 18) * pa.u - 18 * pa.u + 2 * 10 * pa.u)

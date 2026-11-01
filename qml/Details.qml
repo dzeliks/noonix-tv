@@ -63,7 +63,6 @@ FocusScope {
     property bool wheeled: false
     PageWheel { id: wheel; view: scroller }
     function wheelScroll(w) {
-        Input.setPointing(true)
         wheeled = true
         snap = true
         wheel.scroll(w)
@@ -75,8 +74,19 @@ FocusScope {
             if (Input.pointing || !page.wheeled) return
             wheel.stop()
             page.wheeled = false
-            var to = more.activeFocus ? more : episodes.activeFocus ? episodes : seasonsRow.activeFocus ? seasonsRow : null
-            scroller.contentY = to ? Math.max(0, to.y - page.height * (to === seasonsRow ? 0.35 : 0.3)) : 0
+            // what has the focus if it's still in view, else the first thing in view
+            var all = [actions, seasonsRow, episodes, more].filter(function (s) { return s.visible })
+            var seen = all.filter(function (s) {
+                var mid = s.y + s.height / 2
+                return mid >= scroller.contentY && mid <= scroller.contentY + page.height
+            })
+            var to = all.filter(function (s) { return s.activeFocus })[0] || null
+            if (seen.length && seen.indexOf(to) < 0) {
+                to = seen[0]
+                to.forceActiveFocus()
+                Input.holdKey()
+            }
+            scroller.contentY = to && to !== actions ? Math.max(0, to.y - page.height * (to === seasonsRow ? 0.35 : 0.3)) : 0
         }
     }
 
@@ -412,7 +422,7 @@ FocusScope {
                     if (!activeFocus) return
                     if (!Input.pointing) scroller.contentY = Math.max(0, y - page.height * 0.35)
                     // land on the season that's open, not the first one
-                    for (var i = 0; i < seasons.length; ++i)
+                    if (!Input.pointing) for (var i = 0; i < seasons.length; ++i)
                         if (seasons[i].number === page.seasonNo) { currentIndex = i; break }
                 }
                 delegate: Rectangle {
@@ -437,6 +447,8 @@ FocusScope {
                 Keys.onDownPressed: episodes.forceActiveFocus()
             }
 
+            ListWheel { view: seasonsRow; across: true }
+            ListWheel { view: episodes; across: true; cards: true }
             ListView {
                 id: episodes
                 visible: seasonsRow.visible

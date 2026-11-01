@@ -129,6 +129,7 @@ FocusScope {
         }
     }
 
+    ListWheel { view: list; across: true; cards: true }
     RowArrows {
         view: list
         restSlot: row.restSlot

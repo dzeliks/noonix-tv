@@ -91,6 +91,9 @@ FocusScope {
         color: Theme.fg3
         font { family: Theme.text; pixelSize: 23 * library.u }
     }
+    // off the grid (the tabs) the wheel still moves it
+    function wheelScroll(w) { gridWheel.scroll(w) }
+    ListWheel { id: gridWheel; view: grid; cards: true }
     GridView {
         id: grid
         x: Theme.margin - 20 * library.u; y: 380 * library.u

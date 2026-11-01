@@ -125,6 +125,7 @@ FocusScope {
     }
 
     // sections
+    ListWheel { view: menu }
     ListView {
         id: menu
         x: Theme.margin
@@ -467,6 +468,7 @@ FocusScope {
         }
     }
 
+    ListWheel { view: page }
     ListView {
         id: page
         visible: settings.ready

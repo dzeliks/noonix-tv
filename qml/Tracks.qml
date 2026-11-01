@@ -98,6 +98,7 @@ FocusScope {
         radius: 40 * tr.u
     }
     MouseArea { anchors.fill: panel; hoverEnabled: true; acceptedButtons: Qt.AllButtons }
+    ListWheel { view: list }
     ListView {
         id: list
         // 16 all round: the rows' 24 radius + 16 = the panel's 40, corners stay concentric

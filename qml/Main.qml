@@ -828,6 +828,7 @@ Window {
             color: Theme.fg
             font { family: Theme.display; pixelSize: 56 * win.u; weight: Font.Bold }
         }
+        ListWheel { view: profList; across: true }
         ListView {
             id: profList
             anchors.centerIn: parent
@@ -1011,7 +1012,7 @@ Window {
     // the card under the mouse (card options on right click); covered by a sheet there's none
     property var pointedCard: null
     // the mouse everywhere: right click (or the side back button) is back, or a card's options, the
-    // wheel scrolls the page (lists: the arrows)
+    // wheel moves the list under the mouse or the page, never the focus (only over the video it's the arrows)
     Item {
         anchors.fill: parent
         z: 20
@@ -1037,8 +1038,12 @@ Window {
             function step(w) {
                 // scrolling away from the options closes them
                 if (menuPopup.visible) { win.back(); return }
-                var page = w.modifiers & Qt.ShiftModifier ? null : win.wheelPage()
-                if (page && w.angleDelta.y !== 0) { page.wheelScroll(w); return }
+                var across = w.angleDelta.y === 0 || (w.modifiers & Qt.ShiftModifier) !== 0
+                var list = across ? Theme.wheelRow : Theme.wheelList
+                if (list && list.view.visible) { list.scroll(w); return }
+                var page = across ? null : win.wheelPage()
+                if (page) { page.wheelScroll(w); return }
+                if (!win.videoUp && !win.playing) return
                 // a touchpad coasting after the fingers lift would keep stepping on its own
                 if (w.phase === Qt.ScrollMomentum) return
                 var dx = w.angleDelta.x, dy = w.angleDelta.y

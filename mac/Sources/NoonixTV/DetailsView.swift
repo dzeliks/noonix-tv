@@ -13,6 +13,17 @@ final class DetailsModel: Identifiable {
     var inLibrary = false
     var libraryReady = false
     let scroll = PageScroll()
+    /// where each part of the page starts
+    @ObservationIgnored var zoneTops: [(Zone, CGFloat)] = []
+    /// a key after the wheel: what has the focus if it's still in view, else the first thing in view
+    func leaveMouse() -> Bool {
+        guard let y = scroll.y else { return false }
+        let seen = zoneTops.filter { $0.1 + 120 >= y && $0.1 + 120 <= y + scroll.height }
+        let keep = seen.contains { $0.0 == zone }
+        if !keep, let to = seen.first?.0 { zone = to }
+        withAnimation(Theme.slide) { scroll.y = nil }
+        return !keep
+    }
     var zone: Zone = .actions
     /// the focus starts on play, back is left of it
     var action = 1
@@ -251,15 +262,11 @@ struct DetailsView: View {
                 actions(u: u, margin: margin)
                 if shows {
                     seasonPills(u: u, margin: margin)
-                    // a row half below the page doesn't take the pointer
-                    episodes(u: u, W: W, height: episodesH, whole: yEpisodes - contentY + 400 * u * 9 / 16 + 92 * u <= H)
+                    episodes(u: u, W: W, height: episodesH)
                 }
                 if !model.more.items.isEmpty {
                     MediaRowView(model: model.more, active: app.sources == nil && model.zone == .more, u: u, width: W,
-                                 point: { i in
-                                     guard yMore - contentY + MediaRowView.height("poster", u: u) - 30 * u <= H else { return }
-                                     model.zone = .more; model.more.index = i
-                                 },
+                                 point: { i in model.zone = .more; model.more.index = i },
                                  activate: { i in if let it = model.more.items[safe: i] { app.open(it) } })
                 }
                 Color.clear.frame(width: 1, height: 80 * u)
@@ -269,8 +276,12 @@ struct DetailsView: View {
             .animation(model.scroll.y == nil ? Theme.slide : nil, value: contentY)
         }
         .onChange(of: model.zone) { old, _ in heldY = Input.pointerHolds ? heldY ?? yFor(old) : nil }
+        .onChange(of: PointerMode.shared.on) { _, on in if !on { heldY = nil } }
         .onChange(of: yFor(.more) + (heldY ?? yFor(model.zone)), initial: true) {
             model.scroll.start = heldY ?? yFor(model.zone)
+            model.zoneTops = (shows ? [(DetailsModel.Zone.actions, yActions), (.seasons, ySeasons), (.episodes, yEpisodes)] : [(.actions, yActions)])
+                + (model.more.items.isEmpty ? [] : [(.more, yMore)])
+            model.scroll.height = H
             model.scroll.end = model.more.items.isEmpty ? yFor(shows ? .episodes : .actions) : max(0, yMore + MediaRowView.height("poster", u: u) + 80 * u - H)
         }
         .frame(width: W, height: H, alignment: .topLeading)
@@ -410,7 +421,7 @@ struct DetailsView: View {
         .animation(.easeOut(duration: 0.14), value: model.seasonIndex)
     }
 
-    private func episodes(u: CGFloat, W: CGFloat, height: CGFloat, whole: Bool) -> some View {
+    private func episodes(u: CGFloat, W: CGFloat, height: CGFloat) -> some View {
         let eps = model.season?.episodes ?? []
         return CardStrip(items: eps, style: "episode", index: model.episodeIndex, focused: app.sources == nil && model.zone == .episodes, u: u, width: W,
                          restSlot: 1, spacing: 44 * u,
@@ -420,7 +431,7 @@ struct DetailsView: View {
                              return ("\(n).  " + (e.episodeTitle ?? L("Episode %1", n)), sub.joined(separator: "  ·  "))
                          },
                          badge: { $0.watched == true },
-                         point: { i in if whole { model.zone = .episodes; model.episodeIndex = i } },
+                         point: { i in model.zone = .episodes; model.episodeIndex = i },
                          activate: { i in model.playEpisode(i) })
             .frame(height: height, alignment: .top)
     }

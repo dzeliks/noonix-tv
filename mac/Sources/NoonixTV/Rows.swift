@@ -97,8 +97,10 @@ struct CardStrip: View {
     private var step: CGFloat { cardW + spacing }
     private var margin: CGFloat { Theme.margin(u) }
 
-    /// where the pointer left the row: it doesn't scroll for the mouse, only to keep a card whole
+    /// where the pointer left the row: it doesn't scroll for the mouse
     @State private var held: Int?
+    /// the wheel sideways, in pixels
+    @State private var side = PageScroll()
     /// the pointer is over the row: its page arrows show (mouse only, gone with the first key)
     @State private var over = false
     private var pointer: PointerMode { .shared }
@@ -142,14 +144,10 @@ struct CardStrip: View {
         .animation(.easeOut(duration: 0.18), value: show)
     }
 
-    /// the least move that shows card i whole
-    private func fit(_ f: Int, _ i: Int) -> Int {
-        let room = Int(((width - margin - cardW) / step).rounded(.down))
-        return max(0, min(lastFirst, min(i, max(f, i - room))))
-    }
-
     var body: some View {
-        let first = held.map { min($0, lastFirst) } ?? firstShown(index)
+        let keyed = held.map { min($0, lastFirst) } ?? firstShown(index)
+        let first = side.y.map { Int(($0 / step).rounded()) } ?? keyed
+        let px = side.y ?? CGFloat(first) * step
         let visible = Int((width / step).rounded(.up)) + 1
         let range = max(0, first - 3)..<min(items.count, first + visible + 3)
         ZStack(alignment: .topLeading) {
@@ -167,24 +165,37 @@ struct CardStrip: View {
                         }
                     }
                     .contentShape(.rect)
-                    // a card half out of view doesn't take the pointer (focusing it would scroll the row)
+                    // one faded out at the edge doesn't take the pointer
                     .onContinuousHover { phase in
-                        if case .active = phase, Input.pointerLive, i >= first, margin + CGFloat(i - first) * step + cardW <= width + 1 { point(i) }
+                        if case .active = phase, Input.pointerLive, i >= first { point(i) }
                     }
                     .onTapGesture { point(i); activate(i) }
                     .opacity(i < first ? 0 : 1)
                     .animation(.easeInOut(duration: 0.22), value: first)
                     .zIndex(focused && i == index ? 1 : 0)
                     .geometryGroup()
-                    .offset(x: margin + CGFloat(i) * step - CGFloat(first) * step)
+                    .offset(x: margin + CGFloat(i) * step - px)
             }
         }
         .frame(width: width, height: cardH + 30 * u, alignment: .topLeading)
         .overlay(alignment: .topLeading) { arrows(first) }
-        .onHover { over = $0 }
-        .animation(Theme.slide, value: first)
+        .onHover { inside in
+            over = inside
+            if inside { Input.row = side } else if Input.row === side { Input.row = nil }
+        }
+        .onDisappear { if Input.row === side { Input.row = nil } }
+        .animation(side.y == nil ? Theme.slide : nil, value: first)
+        .onChange(of: first, initial: true) { side.start = CGFloat(first) * step; side.end = CGFloat(lastFirst) * step }
         .onChange(of: index) { old, new in
-            held = Input.pointerHolds ? fit(held.map { min($0, lastFirst) } ?? firstShown(old), new) : nil
+            held = Input.pointerHolds ? (side.y == nil ? held.map { min($0, lastFirst) } ?? firstShown(old) : held) : nil
+        }
+        // a key: the selection if it's still in view, else the first card in view
+        .onChange(of: PointerMode.shared.on) { _, on in
+            guard !on, side.y != nil else { return }
+            let f = max(0, min(lastFirst, first))
+            side.y = nil
+            held = f
+            if focused, index < f || index >= f + page { point(min(items.count - 1, f)) }
         }
     }
 }

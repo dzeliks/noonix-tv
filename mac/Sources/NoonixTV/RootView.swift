@@ -217,7 +217,7 @@ struct TopNav: View {
                     if let icon = p.icon {
                         Image(systemName: icon).font(.system(size: 26 * u, weight: .medium))
                     } else {
-                        Text(L(p.title)).font(Theme.display(28 * u, on ? .semibold : .medium))
+                        Text(L(p.title)).font(Theme.display(28 * u, .medium))
                     }
                 }
                 .foregroundStyle(ink ? Theme.focusFg : on || lit ? Theme.fg : Theme.fg2)

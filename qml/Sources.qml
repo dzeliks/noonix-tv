@@ -231,6 +231,7 @@ FocusScope {
         }
     }
 
+    ListWheel { view: list }
     ListView {
         id: list
         anchors { left: panel.left; right: panel.right; top: head.bottom; bottom: panel.bottom; topMargin: 24 * sheet.u; bottomMargin: 30 * sheet.u }

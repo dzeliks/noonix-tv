@@ -1,10 +1,9 @@
 import QtQuick
 
-// the mouse: moving over something focuses it (like the arrows would), a click is ok on it.
-// inside lists it picks that row in every list around it. only real movement counts, so a
-// list scrolling under a resting cursor (qt's synthetic hover) never steals the focus. lists don't
-// scroll for the mouse (Input.pointing), so something half out of the window or hidden doesn't
-// take it either: the wheel brings it in
+// the mouse: what it's over has the focus (like the arrows would), a click is ok on it. inside lists
+// it picks that row in every list around it, and no list moves for it: a card half out of the window
+// takes the focus where it is. only real movement counts, or the wheel moving the list under the
+// mouse: anything else sliding under a resting cursor (qt's synthetic hover) never steals the focus
 MouseArea {
     id: pt
     property bool okKey: true            // a click sends ok; false: just tapped()
@@ -29,21 +28,27 @@ MouseArea {
                 d = d.parent
             }
         }
-        for (var k = chain.length - 1; k >= 0; --k) chain[k].view.currentIndex = chain[k].index
+        for (var k = chain.length - 1; k >= 0; --k) {
+            // a list scrolls to its current item at once: back before anything draws
+            v = chain[k].view
+            var x = v.contentX, y = v.contentY
+            v.currentIndex = chain[k].index
+            v.contentX = x
+            v.contentY = y
+        }
         if (chain.length) chain[0].view.forceActiveFocus()
     }
     function go() { if (takesFocus) focusLists(); pt.pointed() }
 
-    function whole() {
-        var it = pt.parent, w = pt.Window.window
-        if (!it || !w) return true
-        for (var d = it; d; d = d.parent)
+    // not what's hidden (rows behind the hero, cards faded out at a row's edge)
+    function shown() {
+        for (var d = pt.parent; d; d = d.parent)
             if (!d.visible || d.opacity === 0) return false
-        var p = it.mapToItem(null, 0, 0)
-        return p.x >= -1 && p.y >= -1 && p.x + it.width <= w.width + 1 && p.y + it.height <= w.height + 1
+        return true
     }
 
-    onPositionChanged: if (Input.pointerLive() && whole()) go()
+    onPositionChanged: if (Input.pointerLive() && shown()) go()
+    onContainsMouseChanged: if (containsMouse && Input.pointing && Date.now() - Theme.wheelAt < 150 && shown()) go()
     // the click is a tap handler's: mouse areas skip presses qt tags as a touchpad's (laptop touchpads,
     // some virtual mice), handlers take every pointer
     TapHandler {
