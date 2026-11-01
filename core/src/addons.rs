@@ -84,7 +84,7 @@ pub async fn list() -> Result<Vec<Row>> {
 pub async fn add(url: &str) -> Result<Row> {
     let a = stremio::load_manifest(url).await?;
     anyhow::ensure!(
-        a.resources.iter().any(|r| matches!(r.as_str(), "stream" | "catalog" | "meta" | "subtitles")),
+        a.usable(),
         "This addon doesn't offer anything Noonix TV can use"
     );
     let id = store::with(move |c| insert(c, &a)).await?;

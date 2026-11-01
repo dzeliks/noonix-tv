@@ -317,7 +317,7 @@ pub async fn preview(args: &Value) -> Result<Value> {
         anyhow::anyhow!("That address didn't answer")
     })?;
     anyhow::ensure!(
-        a.resources.iter().any(|r| matches!(r.as_str(), "Stream" | "catalog" | "meta" | "subtitles")),
+        a.usable(),
         "This addon doesn't offer anything Noonix TV can use"
     );
     let t = token();

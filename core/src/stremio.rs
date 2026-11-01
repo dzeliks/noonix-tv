@@ -24,6 +24,11 @@ impl Addon {
         self.manifest_url.trim_end_matches("/manifest.json")
     }
 
+    /// streams, catalogs, details or subtitles: something noonix tv uses
+    pub fn usable(&self) -> bool {
+        self.resources.iter().any(|r| matches!(r.as_str(), "stream" | "catalog" | "meta" | "subtitles"))
+    }
+
     pub fn provides(&self, resource: &str, kind: &str, id: &str) -> bool {
         self.resources.iter().any(|r| r == resource)
             && (self.types.is_empty() || self.types.iter().any(|t| t == kind))
@@ -773,6 +778,11 @@ mod tests {
         let addon = load_manifest(&format!("{base}/")).await.unwrap();
         assert_eq!((addon.id.as_str(), addon.name.as_str(), addon.version.as_str()), ("org.mock", "Mock", "1.2.3"));
         assert_eq!(addon.resources, vec!["stream", "meta"]);
+        assert!(addon.usable());
+        // a stream-only addon is enough, a manifest of nothing isn't
+        let only = |r: &[&str]| Addon { resources: r.iter().map(|s| s.to_string()).collect(), ..addon.clone() };
+        assert!(only(&["stream"]).usable());
+        assert!(!only(&["addon_catalog"]).usable());
         assert!(addon.provides("stream", "series", "tt0000001:1:2"));
         assert!(!addon.provides("stream", "series", "kitsu:1"));
         assert!(!addon.provides("subtitles", "movie", "tt1"));

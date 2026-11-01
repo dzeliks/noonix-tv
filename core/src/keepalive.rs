@@ -32,13 +32,11 @@ pub fn status() -> Value {
 /// while the app is open: a run when the last one is older than 20 h, and a timer whose
 /// appimage moved gets the new path
 pub async fn in_app() {
-    if timer::installed() && !own_db() {
-        if cli_command().is_ok_and(|c| !timer::command().contains(&c)) {
-            match tokio::task::spawn_blocking(install).await {
-                Ok(Ok(_)) => tracing::info!("keepalive timer points at this copy now"),
-                Ok(Err(e)) => tracing::warn!("keepalive timer: {e:#}"),
-                Err(_) => {}
-            }
+    if timer::installed() && !own_db() && cli_command().is_ok_and(|c| !timer::command().contains(&c)) {
+        match tokio::task::spawn_blocking(install).await {
+            Ok(Ok(_)) => tracing::info!("keepalive timer points at this copy now"),
+            Ok(Err(e)) => tracing::warn!("keepalive timer: {e:#}"),
+            Err(_) => {}
         }
     }
     loop {
