@@ -69,7 +69,7 @@ FocusScope {
         source: "assets/kitty/" + file + ".svg"
         sourceSize: Qt.size(Math.ceil(box.width * splash.res), Math.ceil(box.height * splash.res))
         smooth: true
-        mipmap: true
+        mipmap: !Theme.android
     }
     // one antenna: sways about the knob (the box's bottom centre), dragged by the glide and
     // springing back; amp -1 mirrors it, so the pair opens and closes like a v

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# libmpv for android (arm64-v8a or armeabi-v7a): libmpv-android's prebuilt libmpv + ffmpeg (mit, built from mpv
+# libmpv for android (arm64-v8a, armeabi-v7a or x86_64): libmpv-android's prebuilt libmpv + ffmpeg (mit, built from mpv
 # and ffmpeg's own sources) and the matching mpv headers, both pinned. also openssl 3 from kdab's
 # android_openssl (apache 2.0): qt's tls backend on android (https artwork)
 #   tools/android/libmpv.sh <dest> [abi]   -> <dest>/include/mpv/*.h, <dest>/lib/*.so
@@ -16,6 +16,8 @@ case "$abi" in
 01d2bd0baac626efd3309f35f99c4b826dd9b885a7e4d14d5b12b3603d3a407f  libssl_3.so" ;;
     armeabi-v7a) ssl_sums="a9d5352e52600e1c1c05d12e3112a479af7a2a3287760e3fcde432a423266b19  libcrypto_3.so
 a1a9fda0b13d93a30cf103f993c080eafc6e1dee249e1a29d68cd7616dc052a4  libssl_3.so" ;;
+    x86_64) ssl_sums="bc4bdd31835659e639c2dc8f0a722342f51230074c23ee3dd6d1fa2353d72db1  libcrypto_3.so
+2af32571317adf90fb7a007756a17dd15cd2469da9ebbd4e973883f8753369c1  libssl_3.so" ;;
     *) echo "unknown abi: $abi" >&2; exit 1 ;;
 esac
 

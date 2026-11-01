@@ -93,6 +93,8 @@ Or once in Terminal: `xattr -dr com.apple.quarantine "/Applications/Noonix TV.ap
 
 **Android** (preview build, HDR videos play in SDR for now): `Noonix-TV-<version>-android-arm64-preview.apk`
 for Android TV, Google TV, tablets and phones (in landscape), Android 9 or newer on a 64-bit ARM device.
+`-android-armv7-preview.apk` is for 32-bit TV boxes (playback only keeps working there, no HDR planned), and
+`-android-x86_64-preview.apk` for Chromebooks and PC boxes.
 Install it from the file
 (allow your file manager or browser to install apps), or on a TV with `adb install`. It plays your
 library from the device's storage or a USB drive and the sources you add; a remote, a game

@@ -1,4 +1,7 @@
 #include "player.h"
+#ifdef Q_OS_ANDROID
+#include <sys/system_properties.h>
+#endif
 #include "remote.h"
 #include "videosurface.h"
 #include "noonix_core/src/bridge.cxxqt.h"
@@ -86,7 +89,14 @@ Player::Player(bool nativeVideo, QObject *parent)
     opt("vo", "libmpv");
     // mediacodec's frames copied back for the gl render (the direct one wants its own surface);
     // phones and tv boxes keep the default scalers, high-quality is too much for most of them
-    opt("hwdec", "mediacodec-copy");
+    // the emulator's decoder hangs inside android and takes mpv's core with it
+    char qemu[PROP_VALUE_MAX] = {}, oldQemu[PROP_VALUE_MAX] = {};
+    __system_property_get("ro.boot.qemu", qemu);
+    __system_property_get("ro.kernel.qemu", oldQemu);
+    opt("hwdec", qemu[0] == '1' || oldQemu[0] == '1' ? "no" : "mediacodec-copy");
+    // the decoder on its own thread: a stuck mediacodec must not hold mpv's core, the ui's property
+    // reads wait for the core and android kills an app that stops answering
+    opt("vd-queue-enable", "yes");
 #else
     Q_UNUSED(nativeVideo)
     opt("vo", "libmpv");
@@ -143,6 +153,22 @@ Player::Player(bool nativeVideo, QObject *parent)
     m_tickTimer.setInterval(10000);
     m_tickTimer.setTimerType(Qt::VeryCoarseTimer);
     connect(&m_tickTimer, &QTimer::timeout, this, [this] { tick(QStringLiteral("tick")); });
+#ifdef Q_OS_ANDROID
+    // no picture although packets wait for the decoder: a mediacodec that never answers, software
+    // from here on. a slow network doesn't count, the cache is empty then
+    m_firstFrame.setSingleShot(true);
+    m_firstFrame.setInterval(6000);
+    connect(&m_firstFrame, &QTimer::timeout, this, [this] {
+        if (getNode("demuxer-cache-duration").toDouble() < 2) {
+            m_firstFrame.start();
+            return;
+        }
+        qWarning("no frame from mediacodec, decoding in software");
+        // not the waiting kind: the old decoder has to let go first
+        const char *no = "no";
+        mpv_set_property_async(m_mpv, 0, "hwdec", MPV_FORMAT_STRING, &no);
+    });
+#endif
     m_posEmit.start();
 }
 
@@ -524,12 +550,18 @@ void Player::drain()
         case MPV_EVENT_NONE:
             return;
         case MPV_EVENT_FILE_LOADED:
+#ifdef Q_OS_ANDROID
+            m_firstFrame.start();
+#endif
             onFileLoaded();
             break;
         case MPV_EVENT_END_FILE: {
             auto *e = static_cast<mpv_event_end_file *>(ev->data);
             if (e->reason == MPV_END_FILE_REASON_REDIRECT)
                 break;
+#ifdef Q_OS_ANDROID
+            m_firstFrame.stop();
+#endif
             if (e->reason == MPV_END_FILE_REASON_ERROR)
                 onEnd(QStringLiteral("error"), QString::fromUtf8(mpv_error_string(e->error)));
             else if (e->reason == MPV_END_FILE_REASON_EOF)
@@ -539,6 +571,9 @@ void Player::drain()
             break;
         }
         case MPV_EVENT_PLAYBACK_RESTART:
+#ifdef Q_OS_ANDROID
+            m_firstFrame.stop();
+#endif
             if (m_markFrame) {
                 m_markFrame = false;
                 Desktop::devMark(QStringLiteral("play: first frame"));

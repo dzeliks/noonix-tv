@@ -137,6 +137,9 @@ private:
     bool m_paused = false, m_buffering = false;
     QElapsedTimer m_posEmit;
     QTimer m_tickTimer;
+#ifdef Q_OS_ANDROID
+    QTimer m_firstFrame;
+#endif
     QVariantMap m_item, m_source, m_next, m_vp;
     QVariantList m_segments, m_chapters, m_audio, m_subs;
     bool m_markFrame = false;

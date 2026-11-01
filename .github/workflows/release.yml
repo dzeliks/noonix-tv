@@ -1,7 +1,7 @@
 name: release
 
 # a v* tag (tools/release.sh) builds the appimages (x86_64, aarch64), the windows setup, the mac
-# apps and the android apks (arm64, armv7), checks them end to end and publishes them with SHA256SUMS (the in-app
+# apps and the android apks (arm64, armv7, x86_64), checks them end to end and publishes them with SHA256SUMS (the in-app
 # updater reads it). the files travel between jobs on a draft release. workflow_dispatch builds the same things into a
 # draft "ci-<run>" release (only the newest one is kept), never published
 # the appimage's base is ubuntu 22.04 (glibc 2.35): it runs on ubuntu 22.04, debian 12 and newer.
@@ -205,7 +205,8 @@ jobs:
     secrets: inherit
 
   # the android app (tv boxes, tablets, phones in landscape): an arm64 apk, the full app, and an armv7
-  # one for 32-bit tv boxes (no hdr or new rendering planned there). a release's apks carry
+  # one for 32-bit tv boxes (no hdr or new rendering planned there), x86_64 for chromebooks and pc
+  # boxes. a release's apks carry
   # the release key (secrets ANDROID_KEYSTORE / ANDROID_KEYSTORE_PASS, tools/android/keystore.sh);
   # without it the apk is only a run artifact, signed with a throwaway debug key
   android:
@@ -221,6 +222,9 @@ jobs:
           - abi: armeabi-v7a
             qt: armv7
             rust: armv7-linux-androideabi
+          - abi: x86_64
+            qt: x86_64
+            rust: x86_64-linux-android
     runs-on: ubuntu-24.04
     env:
       QT_VERSION: 6.12.0

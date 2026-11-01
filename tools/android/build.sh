@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # the android app on a mac or linux box with the android sdk + ndk, qt for android of that abi
 # (tools/android/qt-fetch.py) and rust's target for it. ABI=arm64-v8a (the default: the full app,
-# hdr and new rendering go here) or armeabi-v7a (32-bit tv boxes: playback only keeps working)
+# hdr and new rendering go here), x86_64 (chromebooks, pc boxes, emulators) or armeabi-v7a (32-bit
+# tv boxes: playback only keeps working). no 32-bit x86: cxx-qt-lib's qvariant doesn't fit it
 #   QT_ANDROID=<qt for android> QT_HOST=<host qt> ANDROID_SDK_ROOT=<sdk> [ANDROID_NDK_ROOT=<ndk>] [ABI=<abi>]
 #   [KEYSTORE=<file> KEYSTORE_ALIAS=<alias> KEYSTORE_PASS=<pass>] tools/android/build.sh <work dir>
-#   -> <work>/Noonix-TV-<version>-android-<arm64|armv7>-preview.apk
+#   -> <work>/Noonix-TV-<version>-android-<arm64|armv7|x86_64>-preview.apk
 # built-in app keys come from the NOONIX_TMDB_* / NOONIX_TRAKT_* environment, like the other builds
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -19,6 +20,7 @@ case "$abi" in
         # cc-rs asks clang for plain arm here, which qt refuses (armv5)
         export CFLAGS_armv7_linux_androideabi=--target=armv7a-linux-androideabi28
         export CXXFLAGS_armv7_linux_androideabi=--target=armv7a-linux-androideabi28 ;;
+    x86_64) name=x86_64 triple=x86_64-linux-android ;;
     *) echo "unknown abi: $abi" >&2; exit 1 ;;
 esac
 
