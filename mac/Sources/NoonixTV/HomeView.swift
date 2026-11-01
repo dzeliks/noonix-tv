@@ -16,19 +16,23 @@ struct RailsPage: View {
         let heights = shown.map { MediaRowView.height($0.row.style, u: u) + gap }
         let cur = min(rails.current, max(0, shown.count - 1))
         let top = min(held ?? cur, cur)
-        let before = heights.prefix(top).reduce(0, +)
+        let keyed = heights.prefix(top).reduce(0, +)
+        // the wheel: hero and rows are one page
+        let wheelY = rails.scroll.y
+        let before = wheelY ?? keyed
         let current = rails.focusedRow?.current
         let pageActive = !app.navFocused && app.detailStack.isEmpty
 
         ZStack(alignment: .topLeading) {
             Hero(item: current, u: u, size: size)
+                .offset(y: -(wheelY ?? 0))
 
             ForEach(Array(shown.enumerated()), id: \.element.id) { i, row in
                 let y = rowsTop + heights.prefix(i).reduce(0, +) - before
                 MediaRowView(model: row, active: pageActive && i == cur, u: u, width: size.width,
                              point: { idx in
                                  // a row behind the hero or half below the page doesn't take the pointer
-                                 guard i >= top, y + heights[i] - gap <= size.height + 1 else { return }
+                                 guard wheelY != nil || i >= top, y + heights[i] - gap <= size.height + 1 else { return }
                                  app.navFocused = false
                                  rails.point(row, idx)
                              },
@@ -37,11 +41,17 @@ struct RailsPage: View {
                              })
                     // rows above the focus hide behind the hero: gone at once, back with a fade
                     // (only the fade: the move stays on the page's slide like every other row)
-                    .animation(i < top ? .easeOut(duration: 0.1) : .easeIn(duration: 0.45)) { $0.opacity(i < top ? 0 : 1) }
+                    .animation(i < top ? .easeOut(duration: 0.1) : .easeIn(duration: 0.45)) { $0.opacity(i < top && wheelY == nil ? 0 : 1) }
                     // one piece: its cards don't trail its title on the way
                     .geometryGroup()
                     .offset(y: y)
             }
+            // scrolled: the page passes under the bar, not through its text
+            LinearGradient(stops: [.init(color: .black.opacity(0.9), location: 0), .init(color: .black.opacity(0.72), location: 0.55),
+                                   .init(color: .black.opacity(0), location: 1)], startPoint: .top, endPoint: .bottom)
+                .frame(width: size.width, height: 190 * u)
+                .opacity(min(1, (wheelY ?? 0) / (120 * u)))
+                .allowsHitTesting(false)
             // the rows before the page has them: placeholders where they'll be
             if !rails.known {
                 ForEach(Array(Rails.placeholders.enumerated()), id: \.offset) { i, row in
@@ -57,6 +67,13 @@ struct RailsPage: View {
         .onChange(of: rails.current) { old, new in held = Input.pointerHolds ? min(held ?? old, new) : nil }
         .onChange(of: current?.id) { aheadOfFocus() }
         .onAppear { aheadOfFocus() }
+        .onChange(of: heights, initial: true) { _, hs in
+            var tops: [CGFloat] = [], y: CGFloat = 0
+            for h in hs { tops.append(y); y += h }
+            rails.scroll.tops = tops
+            rails.scroll.end = max(0, y - size.height * 0.47)
+        }
+        .onChange(of: keyed, initial: true) { _, k in rails.scroll.start = k }
     }
 
     /// details of the next 3 cards each way and of the rows around, so the hero is instant

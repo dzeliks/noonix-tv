@@ -1,4 +1,5 @@
 import AppKit
+import SwiftUI
 import GameController
 import MediaPlayer
 
@@ -25,8 +26,33 @@ final class PointerMode {
     }
 }
 
-/// the tv app's input everywhere (Main.qml): arrows / return / escape, the wheel is the arrows,
-/// right click is back, the mouse focuses what it moves over (only real movement counts)
+/// the wheel on a page (qml PageWheel): pixels, a page moves as one. nil = where the keys have it
+@MainActor @Observable
+final class PageScroll {
+    var y: CGFloat?
+    @ObservationIgnored var start: CGFloat = 0
+    @ObservationIgnored var end: CGFloat = 0
+    @ObservationIgnored var tops: [CGFloat] = []
+    @ObservationIgnored private var goal: CGFloat = 0
+
+    func wheel(_ e: NSEvent, u: CGFloat) {
+        if y == nil { goal = start; y = start }
+        if e.hasPreciseScrollingDeltas {
+            goal = max(0, min(end, (y ?? start) - e.scrollingDeltaY))
+            y = goal
+        } else {
+            // the system speeds a quick wheel up on its own
+            goal = max(0, min(end, goal - e.scrollingDeltaY * 60 * u))
+            withAnimation(.easeOut(duration: 0.26)) { y = goal }
+        }
+    }
+    /// the row at the top of the page, where the keys go on from
+    var topRow: Int { max(0, (tops.lastIndex { $0 <= (y ?? 0) + 1 } ?? 0)) }
+}
+
+/// the tv app's input everywhere (Main.qml): arrows / return / escape, the wheel scrolls a page (the
+/// arrows elsewhere), right click is back or a card's options, the mouse focuses what it moves over
+/// (only real movement counts)
 @MainActor
 enum Input {
     private static var monitors: [Any] = []
@@ -44,7 +70,12 @@ enum Input {
     /// (qml Input.pointing); the rows show their page arrows meanwhile
     static var pointing: Bool { PointerMode.shared.on }
     static var pointerHolds: Bool { pointing && pointerLive }
-    static func keyed() { if PointerMode.shared.on { PointerMode.shared.on = false } }
+    static func keyed() {
+        if PointerMode.shared.on { PointerMode.shared.on = false }
+        AppModel.current?.leaveWheel()
+    }
+    /// a page that scrolls in pixels takes the wheel (true: it did)
+    static var wheel: ((NSEvent) -> Bool)?
 
     /// what a key typed while an on-screen keyboard is up means (nil: a normal key)
     private static func typing(_ e: NSEvent) -> Typed? {
@@ -70,8 +101,9 @@ enum Input {
             if !PointerMode.shared.on { PointerMode.shared.on = true }
             return e
         } as Any)
+        // not a key: the mouse stays in charge, the page doesn't jump to the focus
         monitors.append(NSEvent.addLocalMonitorForEvents(matching: .rightMouseDown) { e in
-            _ = send(.back)
+            _ = to(PointerMode.shared.onCard ? .menu : .back)
             return nil
         } as Any)
         monitors.append(NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { e in
@@ -79,6 +111,7 @@ enum Input {
             let scale: CGFloat = e.hasPreciseScrollingDeltas ? 1 : 40
             var dx = e.scrollingDeltaX * scale, dy = e.scrollingDeltaY * scale
             if e.modifierFlags.contains(.shift) { dx = dy; dy = 0 }
+            if dy != 0, abs(dy) >= abs(dx), wheel?(e) == true { return nil }
             if e.phase == .began { accX = 0; accY = 0 }
             // a trackpad's coasting after the fingers lift would keep stepping on its own
             if !e.momentumPhase.isEmpty { return nil }

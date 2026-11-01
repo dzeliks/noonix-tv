@@ -32,7 +32,7 @@ final class KeyboardModel {
     private static func g(_ w: CGFloat) -> Cap { Cap(t: "", w: w, kind: .gap, v: "") }
 
     var rows: [[Cap]] {
-        let last = { (p: String, l: String) in [self.f(l, 1.5, "page:" + p), self.f("space", 4.5, "space"), self.f("clear", 1.5, "clear"), self.f(self.enterLabel, 2.5, "enter")] }
+        let last = { (p: String, l: String) in [self.f(l, 1.5, "page:" + p), self.f(L("space"), 4.5, "space"), self.f(L("clear"), 1.5, "clear"), self.f(self.enterLabel, 2.5, "enter")] }
         switch page {
         case "123":
             return [Self.c("1 2 3 4 5 6 7 8 9 0"), Self.c("- / : ; ( ) $ & @ \""),

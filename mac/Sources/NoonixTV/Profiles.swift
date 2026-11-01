@@ -220,6 +220,8 @@ final class ProfileEditModel {
 struct ProfileEditView: View {
     @Environment(AppModel.self) private var app
     let model: ProfileEditModel
+    /// under the mouse: a click picks it, hovering only shows it
+    @State private var pointedLook: Int?
 
     var body: some View {
         let u = app.u
@@ -235,18 +237,19 @@ struct ProfileEditView: View {
                     HStack(spacing: 18 * u) {
                         ForEach(Array(model.choices.enumerated()), id: \.offset) { i, c in
                             let foc = i == model.choice && model.onLooks
+                            let pointed = pointedLook == i
                             ZStack {
                                 Avatar(colour: i < ProfileEditModel.colours.count ? c : model.lastColour, letter: "",
                                        size: 64 * u, image: i < ProfileEditModel.colours.count ? nil : c)
-                                    .scaleEffect(foc ? 1.14 : 1)
-                                    .animation(.easeOut(duration: 0.14), value: foc)
+                                    .scaleEffect(foc || pointed ? 1.14 : 1)
+                                    .animation(.easeOut(duration: 0.14), value: foc || pointed)
                                 Circle().stroke(.white, lineWidth: 4 * u).frame(width: 80 * u, height: 80 * u)
-                                    .opacity(i == model.choice ? (foc ? 1 : 0.45) : 0)
+                                    .opacity(i == model.choice ? (foc ? 1 : 0.45) : pointed ? 0.3 : 0)
                             }
                             .frame(width: 72 * u, height: 92 * u)
                             .id(i)
                             .contentShape(.rect)
-                            .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.choice = i; model.onLooks = true } }
+                            .onHover { inside in pointedLook = inside ? i : pointedLook == i ? nil : pointedLook }
                             .onTapGesture { model.choice = i; model.onLooks = false }
                         }
                     }
@@ -256,7 +259,9 @@ struct ProfileEditView: View {
                 .frame(width: min(inner, count * 90 * u - 18 * u + 20 * u), height: 92 * u)
                 .onChange(of: model.choice) { withAnimation(.easeOut(duration: 0.22)) { proxy.scrollTo(model.choice, anchor: .center) } }
             }
-            EntryField(text: model.name, placeholder: L("Name"), active: !model.onLooks, size: 28 * u, u: u)
+            EntryField(text: model.name, placeholder: L("Name"), active: true, size: 28 * u, u: u)
+                .contentShape(.rect)
+                .onTapGesture { model.onLooks = false }
             KeyboardView(model: model.kb, u: u / 2, width: inner, active: !model.onLooks)
             Text(L("Up to pick a colour or a picture. Pictures: PNG or JPG files in %1", model.dir))
                 .font(Theme.text(22 * u)).foregroundStyle(Theme.fg3)
@@ -265,8 +270,9 @@ struct ProfileEditView: View {
         .frame(width: inner)
         .padding(48 * u)
         .panelGlass(56 * u, u: u, lift: -0.22)
-        // in the middle of the app, over whatever asked for it
+        // in the middle of the app, over whatever asked for it; nothing behind it takes the mouse
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background { Color.black.opacity(0.001).contentShape(.rect).onTapGesture {} }
     }
 }
 

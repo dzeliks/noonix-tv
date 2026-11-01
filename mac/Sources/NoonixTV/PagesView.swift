@@ -132,6 +132,8 @@ extension GridModel {
             }
             return true
         }
+        // files have no card options
+        if k == .menu, section == "files" { return true }
         if key(k, app: app) { return true }
         if k == .back { return false }
         head = true
@@ -218,8 +220,20 @@ struct SearchPage: View {
                        height: bottomY - (topY + titleH + 8 * u), active: active && s.zone == "grid", posterW: posterW)
                 // the grid's 20 of lift room, where qml's cells hold their cards 10 down and centred
                 .offset(x: margin - 20 * u, y: topY + titleH + 8 * u)
-            // popular or the results on their way: placeholder posters where they'll be
-            if s.grid.items.isEmpty && (s.typing ? s.busy : !s.popularKnown) {
+            // new results on the way over the old ones
+            if s.busy && !s.grid.items.isEmpty {
+                SearchSection(text: L("Searching…"), u: u).hidden()
+                    .overlay(alignment: .trailing) { Spinner(size: 30 * u, color: Theme.fg2).offset(x: 48 * u) }
+                    .offset(x: margin, y: topY)
+            }
+            // the first results on their way
+            if s.busy && s.grid.items.isEmpty {
+                Spinner(size: 72 * u, color: .white)
+                    .frame(width: columnX - margin)
+                    .offset(x: margin, y: topY + titleH + 18 * u + 240 * u)
+            }
+            // popular on its way: placeholder posters where they'll be
+            if !s.typing && s.grid.items.isEmpty && !s.popularKnown {
                 SkeletonGrid(style: "poster", cols: 4, cellW: cellW, cellH: cellH, height: bottomY - (topY + titleH + 8 * u), cardW: posterW, u: u)
                     .offset(x: margin - 20 * u, y: topY + titleH + 8 * u)
                     .transition(.opacity)
@@ -240,7 +254,7 @@ struct SearchPage: View {
             HStack(spacing: 16 * u) {
                 Image(systemName: "magnifyingglass").font(.system(size: 20 * u, weight: .semibold)).foregroundStyle(Theme.fg2)
                     .frame(width: 26 * u, height: 26 * u)
-                FieldLine(text: s.query, placeholder: L("Movies and shows"), active: s.zone == "keys" && !app.navFocused, size: 26 * u, u: u)
+                FieldLine(text: s.query, placeholder: L("Movies and shows"), active: true, size: 26 * u, u: u)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 24 * u)
@@ -249,6 +263,8 @@ struct SearchPage: View {
                 Capsule().fill(Color.white.opacity(0.1))
                     .overlay { Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1 * u) }
             }
+            .contentShape(.capsule)
+            .onTapGesture { app.navFocused = false; s.zone = "keys" }
             .offset(x: columnX, y: fieldY)
 
             if !sugs.isEmpty {

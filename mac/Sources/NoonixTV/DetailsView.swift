@@ -12,6 +12,7 @@ final class DetailsModel: Identifiable {
     var seasonNo = 1
     var inLibrary = false
     var libraryReady = false
+    let scroll = PageScroll()
     var zone: Zone = .actions
     /// the focus starts on play, back is left of it
     var action = 1
@@ -182,6 +183,7 @@ final class DetailsModel: Identifiable {
             case .left: more.index = max(0, more.index - 1)
             case .right: more.index = min(max(0, more.items.count - 1), more.index + 1)
             case .ok: if let it = more.current { app?.open(it) }
+            case .menu: if let it = more.current { app?.menu = CardMenu(item: it, row: nil, at: app?.focusedArt) }
             case .up: zone = hasSeasons ? .episodes : .actions
             default: break
             }
@@ -223,7 +225,7 @@ struct DetailsView: View {
             }
         }
         // the pointer moving the focus doesn't scroll the page (the wheel does)
-        let contentY = heldY ?? yFor(model.zone)
+        let contentY = model.scroll.y ?? heldY ?? yFor(model.zone)
         let d = model.details
 
         ZStack(alignment: .topLeading) {
@@ -264,9 +266,13 @@ struct DetailsView: View {
             }
             .geometryGroup()
             .offset(y: -contentY)
-            .animation(Theme.slide, value: contentY)
+            .animation(model.scroll.y == nil ? Theme.slide : nil, value: contentY)
         }
         .onChange(of: model.zone) { old, _ in heldY = Input.pointerHolds ? heldY ?? yFor(old) : nil }
+        .onChange(of: yFor(.more) + (heldY ?? yFor(model.zone)), initial: true) {
+            model.scroll.start = heldY ?? yFor(model.zone)
+            model.scroll.end = model.more.items.isEmpty ? yFor(shows ? .episodes : .actions) : max(0, yMore + MediaRowView.height("poster", u: u) + 80 * u - H)
+        }
         .frame(width: W, height: H, alignment: .topLeading)
         .clipped()
         .background(Color.black)
@@ -380,7 +386,7 @@ struct DetailsView: View {
             ForEach(Array(model.seasons.enumerated()), id: \.offset) { i, s in
                 let sel = s.number == model.seasonNo
                 let foc = app.sources == nil && model.zone == .seasons && model.seasonIndex == i
-                Text(s.name ?? L("Season %1", s.number))
+                Text(s.name.map { $0.hasPrefix("Season ") && Int($0.dropFirst(7)) != nil } == false ? s.name! : L("Season %1", s.number))
                     .font(Theme.display(25 * u, .semibold))
                     .lineLimit(1).fixedSize()
                     .foregroundStyle(foc ? Theme.focusFg : sel ? Theme.fg : Theme.fg2)

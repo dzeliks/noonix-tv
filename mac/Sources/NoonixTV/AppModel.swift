@@ -64,6 +64,7 @@ final class Rails {
     /// home.rows answered (placeholder rows until then)
     var known = false
     var current = 0
+    let scroll = PageScroll()
     @ObservationIgnored private var focusedId: String?
     private static let personal: Set = ["upnext", "continue", "continue-movie", "recent", "library", "library-movie", "library-show"]
 
@@ -220,6 +221,7 @@ final class AppModel {
                   o["available"] as? Bool == true, let latest = o["latest"] as? String, self?.playing == false else { return }
             self?.notify(L("Noonix TV %1 is out  ·  Settings › About", latest))
         }
+        Input.wheel = { [weak self] e in self?.wheel(e) ?? false }
         Input.install({ [weak self] k in
             if self?.inputKind != "keyboard" { self?.inputKind = "keyboard" }
             return self?.key(k) ?? false
@@ -340,7 +342,10 @@ final class AppModel {
         if entry.isOpen { entry.typed(t); return true }
         if let p = profileEdit { p.typed(t); return true }
         // the search page's keyboard has the focus
-        if page == .search, !navFocused, detailStack.isEmpty, sources == nil, !playing, picker == nil, setup == nil, search.zone == "keys" {
+        if page == .search, detailStack.isEmpty, sources == nil, !playing, picker == nil, setup == nil, menu == nil, finder == nil {
+            // enter stays what it is on the grid or a suggestion
+            if case .submit = t, navFocused || search.zone != "keys" { return false }
+            navFocused = false
             search.typed(t)
             return true
         }
@@ -598,11 +603,34 @@ final class AppModel {
     }
 
     func stopPlayback() {
+        Osd.shared?.picker = nil
+        Osd.shared?.match = nil
         player.stop()
         playing = false
         finder = nil
         for r in rails.values { r.refreshPersonal() }
         detailStack.last?.reload()
+    }
+
+    // ---- the wheel: scrolling away from a card's options closes them; home and titles move in pixels
+    private var wheelPage: PageScroll? {
+        if let d = detailStack.last { return d.scroll }
+        return rails[page]?.scroll
+    }
+    func wheel(_ e: NSEvent) -> Bool {
+        if menu != nil { menu = nil; return true }
+        guard splash == nil, !entry.isOpen, help == nil, folderPicker == nil, extSheet == nil, profileSheet == nil,
+              profileEdit == nil, trakt == nil, site == nil, setup == nil, picker == nil, exitChoice == nil, !playing,
+              finder == nil, sources == nil, let s = wheelPage else { return false }
+        if !PointerMode.shared.on { PointerMode.shared.on = true }
+        s.wheel(e, u: u)
+        return true
+    }
+    /// a key after the wheel: the rows and the focus take over, from the row at the top
+    func leaveWheel() {
+        guard let s = wheelPage, s.y != nil else { return }
+        if detailStack.isEmpty, let r = rails[page] { r.current = s.topRow }
+        withAnimation(Theme.slide) { s.y = nil }
     }
 
     // ---- keys
@@ -759,6 +787,7 @@ final class GridModel {
         case .left: index = max(0, index - 1)
         case .right: index = min(max(0, items.count - 1), index + 1)
         case .ok: if items.indices.contains(index) { app.open(items[index]) }
+        case .menu: if items.indices.contains(index) { app.menu = CardMenu(item: items[index], row: nil, at: app.focusedArt) }
         case .back: return false
         default: break
         }
@@ -770,7 +799,10 @@ final class GridModel {
 /// glass keyboard; the focus is in one of three zones
 @MainActor @Observable
 final class SearchModel {
-    var query = ""
+    var query = "" {
+        // busy from the first letter: the wait isn't "no results"
+        didSet { if query != oldValue { busy = typing } }
+    }
     var typing: Bool { query.trimmingCharacters(in: .whitespaces).count > 1 }
     var busy = false
     /// keys | suggestions | grid
@@ -849,7 +881,7 @@ final class SearchModel {
 
     func typed(_ t: Typed) {
         switch t {
-        case .text(let s): query += s
+        case .text(let s): zone = "keys"; query += s
         case .erase: if !query.isEmpty { query.removeLast() }
         case .submit: if !grid.items.isEmpty { zone = "grid" }
         }

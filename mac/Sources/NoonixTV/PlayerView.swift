@@ -279,7 +279,13 @@ final class Osd {
         player.seek(to: seg.kind == "outro" ? max(0, player.duration - 1) : seg.end)
     }
 
+    /// any picker down (a click beside it, another control)
+    func closePickers() { picker = nil; match = nil; show() }
+
     func act(_ b: Button) {
+        // one picker at a time, its own button closes it, anything else takes it down
+        let same = (b == .subs && picker == "sub") || (b == .audio && picker == "audio") || (b == .match && match != nil)
+        if picker != nil || match != nil { picker = nil; match = nil; if same { show(); return } }
         switch b {
         case .subs, .audio:
             picker = b == .subs ? "sub" : "audio"
@@ -295,10 +301,13 @@ final class Osd {
         show()
     }
 
-    /// ok on a line: that track (the picker stays up, back closes it), or the search
+    /// ok on a line: that track and the picker goes, or the search
     func pick(_ i: Int) {
         guard let l = pickerLines[safe: i], !l.header else { return }
-        if l.kind == "search" { searchSubs() } else { player.select(l.kind, l.id) }
+        if l.kind == "search" { searchSubs(); return }
+        player.select(l.kind, l.id)
+        picker = nil
+        show()
     }
 
     func movePicker(_ d: Int) {
@@ -660,7 +669,10 @@ struct PlayerView: View {
         .contentShape(.rect)
         .onContinuousHover { _ in if Input.pointerLive { osd?.show() } }
         .onTapGesture(count: 2) { NSApp.keyWindow?.toggleFullScreen(nil) }
-        .onTapGesture { if osd?.shown == true { player.togglePause() } else { osd?.show() } }
+        .onTapGesture {
+            if osd?.picker != nil || osd?.match != nil { osd?.closePickers() }
+            else if osd?.shown == true { player.togglePause() } else { osd?.show() }
+        }
         .onAppear { osd = Osd(player: player, app: app) }
         // paused: up for good; playing again: down soon
         .onChange(of: player.paused) {
@@ -902,6 +914,7 @@ struct SeekBar: View {
             .overlay(alignment: .topLeading) { chip(w: w, frac: frac) }
             .contentShape(.rect.inset(by: -24 * u))
             .gesture(DragGesture(minimumDistance: 0).onChanged { v in
+                if osd.picker != nil || osd.match != nil { osd.closePickers() }
                 if p.duration > 0 { p.seek(to: max(0, min(1, v.location.x / w)) * p.duration) }
                 osd.show(5, .bar)
             })
