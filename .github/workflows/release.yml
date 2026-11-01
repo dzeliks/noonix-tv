@@ -5,7 +5,8 @@ name: release
 # updater reads it). the files travel between jobs on a draft release. workflow_dispatch builds the same things into a
 # draft "ci-<run>" release (only the newest one is kept), never published
 # the appimage's base is ubuntu 22.04 (glibc 2.35): it runs on ubuntu 22.04, debian 12 and newer.
-# windows is cross-built on linux (llvm-mingw, tools/windows)
+# windows is cross-built on linux (llvm-mingw, tools/windows). "[linux]" in the tagged commit's message
+# (tools/release.sh <version> --linux): a hotfix, only the appimages
 on:
   push:
     tags: ['v*']
@@ -26,11 +27,13 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
+      linux: ${{ steps.tag.outputs.linux }}
     steps:
       - id: tag
         run: |
           if [ "$GITHUB_REF_TYPE" = tag ]; then t="$GITHUB_REF_NAME"; else t="ci-$GITHUB_RUN_ID"; fi
           echo "tag=$t" >> "$GITHUB_OUTPUT"
+          if gh api "repos/$GH_REPO/commits/$GITHUB_SHA" -q .commit.message | grep -qF '[linux]'; then echo "linux=true" >> "$GITHUB_OUTPUT"; fi
           # a rerun finds the draft from the first try
           gh release view "$t" > /dev/null 2>&1 || gh release create "$t" --draft --target "$GITHUB_SHA" --title "Noonix TV ${t#v}" --notes "building"
 
@@ -125,6 +128,7 @@ jobs:
 
   windows:
     needs: draft
+    if: needs.draft.outputs.linux != 'true'
     runs-on: ubuntu-latest
     container: ubuntu:24.04
     outputs:
@@ -194,6 +198,7 @@ jobs:
   # the mac preview: the release doesn't wait for it and the updater doesn't know it
   macos:
     needs: draft
+    if: needs.draft.outputs.linux != 'true'
     uses: ./.github/workflows/mac.yml
     with:
       tag: ${{ needs.draft.outputs.tag }}
@@ -205,6 +210,7 @@ jobs:
   # without it the apk is only a run artifact, signed with a throwaway debug key
   android:
     needs: draft
+    if: needs.draft.outputs.linux != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -276,7 +282,7 @@ jobs:
   # waits for every build; the mac and android ones may fail without holding the release back
   publish:
     needs: [draft, appimage, windows, windows-smoke, macos, android]
-    if: ${{ !cancelled() && needs.appimage.result == 'success' && needs.windows-smoke.result == 'success' && needs.macos.result == 'success' }}
+    if: ${{ !cancelled() && needs.appimage.result == 'success' && (needs.draft.outputs.linux == 'true' || (needs.windows-smoke.result == 'success' && needs.macos.result == 'success')) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -288,7 +294,7 @@ jobs:
         run: |
           # each build leaves <file>.sha256 next to its file (windows hands its lines over)
           gh release download "$TAG" --pattern '*.sha256' --dir sums
-          { cat sums/*.sha256; printf '%s\n' "${{ needs.windows.outputs.sum }}"; } > SHA256SUMS
+          { cat sums/*.sha256; printf '%s\n' "${{ needs.windows.outputs.sum }}"; } | sed '/^$/d' > SHA256SUMS
           # a rebuild keeps the sums of the files it didn't make
           if gh release download "$TAG" --pattern SHA256SUMS --dir old 2> /dev/null; then
             awk 'NR == FNR { have[$2] = 1; next } !($2 in have)' SHA256SUMS old/SHA256SUMS > kept
