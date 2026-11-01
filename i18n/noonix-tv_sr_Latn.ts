@@ -248,6 +248,10 @@
             <translation>Lični folder</translation>
         </message>
         <message>
+            <source>Internal storage</source>
+            <translation>Interna memorija</translation>
+        </message>
+        <message>
             <source>Movies folder</source>
             <translation>Folder Filmovi</translation>
         </message>
@@ -373,6 +377,10 @@
             <translation>Na ovom računaru</translation>
         </message>
         <message>
+            <source>On This Device</source>
+            <translation>Na ovom uređaju</translation>
+        </message>
+        <message>
             <source>Watchlist</source>
             <translation>Za gledanje</translation>
         </message>
@@ -403,6 +411,10 @@
         <message>
             <source>No videos from this PC yet</source>
             <translation>Još nema snimaka sa ovog računara</translation>
+        </message>
+        <message>
+            <source>No videos from this device yet</source>
+            <translation>Još nema snimaka sa ovog uređaja</translation>
         </message>
         <message>
             <source>Open a title's options and choose Add to Library</source>
@@ -1231,6 +1243,10 @@
             <translation>Ako koristiš svoj AIOStreams: nalepi ga u Formatter › Custom kad izvor kaže da format nije podržan</translation>
         </message>
         <message>
+            <source>Last time: %1 Mbit/s down, this device scored %2</source>
+            <translation>Prošli put: %1 Mbit/s, uređaj je dobio ocenu %2</translation>
+        </message>
+        <message>
             <source>Sign in</source>
             <translation>Prijavi se</translation>
         </message>
@@ -1774,6 +1790,10 @@
             <translation>Tvoji snimci</translation>
         </message>
         <message>
+            <source>This device</source>
+            <translation>Ovaj uređaj</translation>
+        </message>
+        <message>
             <source>Your own movies and shows, and the sources you add, on this TV. A few steps and you're watching.</source>
             <translation>Tvoji filmovi i serije, i izvori koje dodaš, na ovom televizoru. Par koraka i gledaš.</translation>
         </message>
@@ -1784,6 +1804,14 @@
         <message>
             <source>Noonix TV plays the videos on this PC and the sources you add yourself. Pick the folders your movies and shows are in; an addon or extension is optional.</source>
             <translation>Noonix TV pušta snimke sa ovog računara i izvore koje sam dodaš. Izaberi foldere u kojima su ti filmovi i serije; addon ili ekstenzija nisu obavezni.</translation>
+        </message>
+        <message>
+            <source>Noonix TV plays the videos on this device and the sources you add yourself. Pick the folders your movies and shows are in; an addon or extension is optional.</source>
+            <translation>Noonix TV pušta snimke sa ovog uređaja i izvore koje sam dodaš. Izaberi foldere u kojima su ti filmovi i serije; addon ili ekstenzija nisu obavezni.</translation>
+        </message>
+        <message>
+            <source>How fast this internet connection and this device are. The next step picks a picture quality from it.</source>
+            <translation>Koliko su brzi internet i ovaj uređaj. Prema tome sledeći korak bira kvalitet slike.</translation>
         </message>
         <message>
             <source>Picked from the speed check. Higher ones may stutter here, lower ones always play smoothly. Sources above it still show, last and marked. You can change it in Settings.</source>
@@ -1994,6 +2022,10 @@
             <translation>Noonix TV je samo plejer. Ne dolazi ni sa jednim snimkom ni izvorom: pušta fajlove sa tvog računara i addone ili ekstenzije koje sam dodaš.</translation>
         </message>
         <message>
+            <source>Noonix TV is only a player. It comes with no videos and no sources: it plays the files on your device and whatever addons or extensions you add yourself.</source>
+            <translation>Noonix TV je samo plejer. Ne dolazi ni sa jednim snimkom ni izvorom: pušta fajlove sa tvog uređaja i addone ili ekstenzije koje sam dodaš.</translation>
+        </message>
+        <message>
             <source>You're responsible for what you watch and download with it. Only use videos you have the right to, and follow the laws where you live.</source>
             <translation>Ti odgovaraš za ono što preko njega gledaš i preuzimaš. Koristi samo snimke na koje imaš pravo i poštuj zakone zemlje u kojoj živiš.</translation>
         </message>
@@ -2096,6 +2128,10 @@
             <translation>Kopirano</translation>
         </message>
         <message>
+            <source>This device</source>
+            <translation>Ovaj uređaj</translation>
+        </message>
+        <message>
             <source>%1 sharing</source>
             <translation>%1 deli</translation>
         </message>
@@ -2177,6 +2213,10 @@
         <message>
             <source>Remove</source>
             <translation>Ukloni</translation>
+        </message>
+        <message>
+            <source>On this device</source>
+            <translation>Na ovom uređaju</translation>
         </message>
         <message>
             <source>Press Again to Remove</source>
@@ -2467,6 +2507,10 @@
         <message>
             <source>May be too much for this PC</source>
             <translation>Možda je previše za ovaj računar</translation>
+        </message>
+        <message>
+            <source>May be too much for this device</source>
+            <translation>Možda je previše za ovaj uređaj</translation>
         </message>
         <message>
             <source>Not measured yet: may stutter here</source>

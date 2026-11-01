@@ -33,7 +33,7 @@ Item {
     // on this pc, then the addons and extensions
     readonly property var lines: {
         var out = [], l = lib || {}, on = l.on !== false, folders = l.folders || []
-        out.push({ header: true, label: qsTr("On this PC") })
+        out.push({ header: true, label: (Theme.android ? qsTr("On this device") : qsTr("On this PC")) })
         out.push({ label: qsTr("Use the library"), checkable: true, checked: on, act: "lib:on",
                    detail: !on ? qsTr("Off: only the sources below play")
                          : l.scanning ? qsTr("Looking through your folders…")
@@ -64,7 +64,9 @@ Item {
                        detail: a.address + (a.formatting === "unsupported" ? "  ·  " + qsTr("Unsupported formatting") : "") + (a.lastError ? "  ·  " + qsTr("Didn't answer last time") : "") })
         })
         out.push({ label: qsTr("Add an addon or extension"), detail: qsTr("Its address: a Stremio addon (…/manifest.json) or a Noonix TV extension. Optional"), value: "+", act: "src:url" })
-        out.push({ label: qsTr("Open an extension file"), detail: qsTr("A .noonix file on this PC"), value: "+", act: "src:file" })
+        // android lets an app read only media files on shared storage: extensions come by address there
+        if (!Theme.android)
+            out.push({ label: qsTr("Open an extension file"), detail: qsTr("A .noonix file on this PC"), value: "+", act: "src:file" })
         return out
     }
 

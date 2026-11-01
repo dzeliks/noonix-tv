@@ -57,7 +57,7 @@ FocusScope {
         spacing: 24 * library.u
         GlassButton {
             id: filesTab
-            text: qsTr("On This PC")
+            text: (Theme.android ? qsTr("On This Device") : qsTr("On This PC"))
             primary: library.files
             onClicked: library.tab("files")
             KeyNavigation.right: watchlist
@@ -160,7 +160,7 @@ FocusScope {
             anchors.horizontalCenter: parent.horizontalCenter
             text: library.failed ? qsTr("Couldn't load Library")
                 : library.history ? qsTr("Your watched movies and episodes will appear here")
-                : library.files ? qsTr("No videos from this PC yet") : qsTr("Save something for later")
+                : library.files ? (Theme.android ? qsTr("No videos from this device yet") : qsTr("No videos from this PC yet")) : qsTr("Save something for later")
             color: Theme.fg2
             font { family: Theme.display; pixelSize: 32 * library.u; weight: Font.Medium }
         }

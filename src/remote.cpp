@@ -26,6 +26,9 @@
 #include <QDBusReply>
 #endif
 #include <QJsonDocument>
+#ifdef Q_OS_ANDROID
+#include <QJniObject>
+#endif
 #include <QJsonObject>
 #include <QGuiApplication>
 #include <QHash>
@@ -297,6 +300,13 @@ void Desktop::copy(const QString &text)
 QString Desktop::paste() const
 {
     return QGuiApplication::clipboard()->text().trimmed();
+}
+
+void Desktop::askMedia()
+{
+#ifdef Q_OS_ANDROID
+    QNativeInterface::QAndroidApplication::context().callMethod<void>("askMedia");
+#endif
 }
 
 QString Desktop::wallpaper() const

@@ -19,7 +19,8 @@ Window {
 
     // dev: NOONIX_DEBUG=1 logs where the focus goes
     onActiveFocusItemChanged: if (Desktop.debug) console.log("focus:", activeFocusItem, "active:", active)
-    readonly property real u: height / 1080
+    // the 1920x1080 grid fits either way: a 4:3 or 16:10 tablet gets more height, not a narrower page
+    readonly property real u: Math.min(height / 1080, width / 1920)
     onUChanged: Theme.u = u
 
     // ---- state

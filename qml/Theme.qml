@@ -4,6 +4,8 @@ import QtQuick
 // design tokens: a 1920x1080 grid scaled to the screen (u = 2 on the 4k tv)
 QtObject {
     property real u: 1
+    // a phone, tablet or android tv: no desktop parts, a device rather than a pc
+    readonly property bool android: Qt.platform.os === "android"
     readonly property color skeleton: Qt.rgba(1, 1, 1, 0.1)
     // sf pro where the pc has it (apple's licence: it can't ship with us), else the bundled inter
     readonly property var families: Qt.fontFamilies()
@@ -92,7 +94,7 @@ QtObject {
         return q.levels.map(function (l, i) {
             var warn = i <= rec ? ""
                 : !l.netOk ? qsTr("May stutter: wants about %1 Mbit/s, this connection has %2").arg(l.needMbps).arg(q.mbps)
-                : !l.deviceOk ? qsTr("May be too much for this PC")
+                : !l.deviceOk ? (Theme.android ? qsTr("May be too much for this device") : qsTr("May be too much for this PC"))
                 : qsTr("Not measured yet: may stutter here")
             return { label: l.id === q.recommended ? qsTr("%1 (Recommended)").arg(names[l.id]) : names[l.id],
                      detail: about[l.id] + (warn ? "  ·  " + warn : ""), checkable: true, checked: l.id === cur, act: "quality:" + l.id }

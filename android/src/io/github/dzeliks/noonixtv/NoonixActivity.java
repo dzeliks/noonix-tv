@@ -1,6 +1,9 @@
 package io.github.dzeliks.noonixtv;
 
+import android.Manifest;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.system.Os;
 import android.view.InputDevice;
@@ -14,6 +17,13 @@ import org.qtproject.qt.android.bindings.QtActivity;
 // (src/input.cpp), by position like sdl names them on the desktop
 public class NoonixActivity extends QtActivity {
     private static native void padButton(String name, boolean down, String kind);
+
+    // the library's folders: videos on shared storage (android 13 asks per media type)
+    public void askMedia() {
+        final String p = Build.VERSION.SDK_INT >= 33 ? Manifest.permission.READ_MEDIA_VIDEO : Manifest.permission.READ_EXTERNAL_STORAGE;
+        if (checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED)
+            runOnUiThread(() -> requestPermissions(new String[] { p }, 1));
+    }
 
     private static String name(int code) {
         switch (code) {

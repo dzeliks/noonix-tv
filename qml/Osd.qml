@@ -16,7 +16,8 @@ FocusScope {
     property int rowIndex: 3
     property string exitArmed: ""        // back once more exits
     readonly property bool nextButton: nextReady && Player.state !== "ended"
-    readonly property var buttons: nextButton ? ["subs", "audio", "match", "rew", "play", "fwd", "next", "hz", "exit"] : ["subs", "audio", "match", "rew", "play", "fwd", "hz", "exit"]
+    // no refresh switching on android
+    readonly property var buttons: ["subs", "audio", "match", "rew", "play", "fwd"].concat(nextButton ? ["next"] : [], Theme.android ? [] : ["hz"], ["exit"])
     property bool pickerOpen: false          // a track picker covers the left side
     readonly property bool chromeShown: shown || Player.state === "ended"
     onChromeShownChanged: Player.setSubtitleLift(chromeShown)
@@ -493,7 +494,7 @@ FocusScope {
             y: parent.height - 86 * osd.u - height / 2
             spacing: 18 * osd.u
             RowButton { key: "next"; icon: "next"; text: qsTr("Next Episode"); visible: osd.nextButton }
-            RowButton { key: "hz"; icon: Player.refreshMatch ? "check" : "tv"; text: qsTr("Match Hz") }
+            RowButton { key: "hz"; icon: Player.refreshMatch ? "check" : "tv"; text: qsTr("Match Hz"); visible: !Theme.android }
             RowButton { key: "exit"; icon: "xmark" }
         }
     }

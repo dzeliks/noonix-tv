@@ -81,12 +81,20 @@ Player::Player(bool nativeVideo, QObject *parent)
     }
     // d3d11va / dxva2, copied back where the opengl interop is missing
     opt("hwdec", "auto-safe");
+#elif defined(Q_OS_ANDROID)
+    Q_UNUSED(nativeVideo)
+    opt("vo", "libmpv");
+    // mediacodec's frames copied back for the gl render (the direct one wants its own surface);
+    // phones and tv boxes keep the default scalers, high-quality is too much for most of them
+    opt("hwdec", "mediacodec-copy");
 #else
     Q_UNUSED(nativeVideo)
     opt("vo", "libmpv");
     opt("hwdec", "vaapi");
 #endif
+#ifndef Q_OS_ANDROID
     opt("profile", "high-quality");
+#endif
     opt("video-sync", "display-resample");
     opt("keep-open", "yes");
     opt("volume", "95");   // remote volume is the pc's, mpv stays at 95 like the other players

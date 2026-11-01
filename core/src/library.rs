@@ -113,6 +113,10 @@ pub async fn status() -> Value {
 
 /// a folder as people read it: the home folder as ~
 fn label(path: &str) -> String {
+    #[cfg(target_os = "android")]
+    if let Some(rest) = path.strip_prefix("/storage/emulated/0") {
+        return format!("Internal storage{rest}");
+    }
     let home = std::env::var(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).unwrap_or_default();
     match path.strip_prefix(home.trim_end_matches(['/', '\\'])) {
         Some(rest) if !home.is_empty() && (rest.is_empty() || rest.starts_with(['/', '\\'])) => format!("~{rest}"),
@@ -158,7 +162,28 @@ pub fn browse(path: &str, files: &[String]) -> Result<Value> {
     }))
 }
 
+/// android: the shared storage and its movies folder, then sd cards and usb drives
+#[cfg(target_os = "android")]
+fn places(_files: bool) -> Vec<Value> {
+    let shared = Path::new("/storage/emulated/0");
+    let mut out = vec![json!({ "name": "Internal storage", "path": shared.to_string_lossy(), "label": "", "place": "storage" })];
+    for v in ["Movies", "Download"] {
+        let p = shared.join(v);
+        if p.is_dir() {
+            out.push(json!({ "name": v, "path": p.to_string_lossy(), "label": label(&p.to_string_lossy()), "place": if v == "Movies" { "videos" } else { "downloads" } }));
+        }
+    }
+    let mut drives: Vec<PathBuf> = std::fs::read_dir("/storage").into_iter().flatten().flatten().map(|e| e.path()).filter(|p| p.is_dir() && !p.ends_with("emulated") && !p.ends_with("self")).collect();
+    drives.sort();
+    for d in drives {
+        let name = d.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        out.push(json!({ "name": name, "path": d.to_string_lossy(), "label": d.to_string_lossy(), "place": "drive" }));
+    }
+    out
+}
+
 /// where looking starts: home and its video folder (files: its downloads), then the drives
+#[cfg(not(target_os = "android"))]
 fn places(files: bool) -> Vec<Value> {
     let mut out = Vec::new();
     let home = std::env::var(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).unwrap_or_default();

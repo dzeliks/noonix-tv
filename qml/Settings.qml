@@ -177,7 +177,7 @@ FocusScope {
                 var q = quality
                 out.push({ label: qsTr("Speed check"), checkable: false, act: "bench", value: settings.benchBusy ? "…" : qsTr("Run"),
                            detail: settings.benchBusy ? qsTr("Measuring…")
-                                 : q.mbps !== null && q.mbps !== undefined ? qsTr("Last time: %1 Mbit/s down, this PC scored %2").arg(q.mbps).arg(q.device !== null && q.device !== undefined ? q.device : "–")
+                                 : q.mbps !== null && q.mbps !== undefined ? (Theme.android ? qsTr("Last time: %1 Mbit/s down, this device scored %2") : qsTr("Last time: %1 Mbit/s down, this PC scored %2")).arg(q.mbps).arg(q.device !== null && q.device !== undefined ? q.device : "–")
                                  : qsTr("Not measured yet: the recommendation is a guess") })
             }
         } else if (sectionId === "accounts") {
@@ -231,16 +231,19 @@ FocusScope {
             var dk = desktop || {}
             // the language's own name, whichever one is on
             out.push({ label: qsTr("Language"), checkable: false, value: Desktop.language === "sr" ? "Srpski" : "English", act: "uilang" })
-            out.push(dk.menuFixed ? { label: qsTr("In the app menu"), detail: qsTr("Installed with Noonix TV"), checkable: false }
-                                  : { label: qsTr("Add to the app menu"), detail: qsTr("Find Noonix TV with your other apps"), checkable: true, checked: !!dk.menu, act: "desk:menu" })
-            out.push({ label: qsTr("Open at login"), detail: qsTr("Starts Noonix TV when you sign in to this PC"), checkable: true, checked: !!dk.login, act: "desk:login" })
-            out.push({ label: qsTr("Match the TV's refresh rate"), detail: qsTr("Switches the TV to 24 / 25 / 50 / 60 Hz for each video (never the resolution or HDR)"), checkable: true, checked: app.refresh_match === true, act: "app:refresh_match" })
+            if (!Theme.android) {
+                out.push(dk.menuFixed ? { label: qsTr("In the app menu"), detail: qsTr("Installed with Noonix TV"), checkable: false }
+                                      : { label: qsTr("Add to the app menu"), detail: qsTr("Find Noonix TV with your other apps"), checkable: true, checked: !!dk.menu, act: "desk:menu" })
+                out.push({ label: qsTr("Open at login"), detail: qsTr("Starts Noonix TV when you sign in to this PC"), checkable: true, checked: !!dk.login, act: "desk:login" })
+                out.push({ label: qsTr("Match the TV's refresh rate"), detail: qsTr("Switches the TV to 24 / 25 / 50 / 60 Hz for each video (never the resolution or HDR)"), checkable: true, checked: app.refresh_match === true, act: "app:refresh_match" })
+            }
             out.push({ label: qsTr("Find extra subtitles"), detail: qsTr("From OpenSubtitles, for your subtitle languages the file doesn't have"), checkable: true, checked: appOn("extra_subs"), act: "app:extra_subs" })
             var hs = app.hdr_screen || "auto"
             var found = screen.hdr === true ? qsTr("HDR") : screen.hdr === false ? qsTr("no HDR") : ""
             out.push({ label: qsTr("HDR on this screen"), detail: qsTr("Picks the sources that suit it best. Set it yourself if the screen is guessed wrong"), checkable: false,
                        value: hs === "on" ? qsTr("On") : hs === "off" ? qsTr("Off") : found ? qsTr("Automatic (%1)").arg(found) : qsTr("Automatic"), act: "hdrscreen" })
-            out.push({ label: qsTr("Dim the controllers while playing"), detail: qsTr("Lightbar off, player light low"), checkable: true, checked: appOn("pad_leds"), act: "app:pad_leds" })
+            if (!Theme.android)
+                out.push({ label: qsTr("Dim the controllers while playing"), detail: qsTr("Lightbar off, player light low"), checkable: true, checked: appOn("pad_leds"), act: "app:pad_leds" })
         } else if (sectionId === "controls") {
             var b = Input.bindings, kind = Input.padKind
             var pos = { south: qsTr("Button 1"), east: qsTr("Button 2"), west: qsTr("Button 3"), north: qsTr("Button 4") }

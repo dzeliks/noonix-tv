@@ -16,7 +16,7 @@ FocusScope {
     opacity: 0
     Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
-    function open() { go(""); opacity = 1; forceActiveFocus() }
+    function open() { if (!files.length) Desktop.askMedia(); go(""); opacity = 1; forceActiveFocus() }
     function close() { opacity = 0; closed() }
     function go(path) {
         busy = true
@@ -35,6 +35,7 @@ FocusScope {
 
     function placeName(f) {
         if (f.place === "home") return qsTr("Home folder")
+        if (f.place === "storage") return qsTr("Internal storage")
         if (f.place === "videos") return f.name === "Movies" ? qsTr("Movies folder") : qsTr("Videos folder")
         if (f.place === "downloads") return qsTr("Downloads folder")
         return f.name

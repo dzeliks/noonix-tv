@@ -23,7 +23,7 @@ FocusScope {
     property var quality: null               // quality.options
     // termsOnly: set up before, the terms are new (or changed): just them
     property bool termsOnly: false
-    readonly property var steps: termsOnly ? ["terms"] : ["language", "welcome", "terms", "profiles", "videos", "trakt", "audio", "subtitles", "background", "playback", "benchmark", "quality", "done"]
+    readonly property var steps: termsOnly ? ["terms"] : ["language", "welcome", "terms", "profiles", "videos", "trakt", "audio", "subtitles"].concat(Theme.android ? [] : ["background", "playback"], ["benchmark", "quality", "done"])
     readonly property var acc: (info && info.accounts) || ({})
     // what still keeps the app from working (the done step says it instead of "all set")
     readonly property var gaps: {
@@ -95,20 +95,20 @@ FocusScope {
         language: qsTr("Choose your language"),
         welcome: qsTr("Welcome to Noonix TV"), profiles: qsTr("Who watches here?"),
         terms: qsTr("Before you start"), videos: qsTr("Your videos"), trakt: qsTr("Trakt"), audio: qsTr("Audio languages"), subtitles: qsTr("Subtitles"), background: qsTr("Stay signed in"),
-        playback: qsTr("This PC"), benchmark: qsTr("Speed check"), quality: qsTr("Picture quality"), done: qsTr("You're all set")
+        playback: (Theme.android ? qsTr("This device") : qsTr("This PC")), benchmark: qsTr("Speed check"), quality: qsTr("Picture quality"), done: qsTr("You're all set")
     })
     readonly property var blurb: ({
         language: qsTr("You can change it any time in Settings."),
         welcome: qsTr("Your own movies and shows, and the sources you add, on this TV. A few steps and you're watching."),
         terms: qsTr("Please read this, then agree to go on."),
         profiles: qsTr("Everyone gets their own Up Next, progress and language choices."),
-        videos: qsTr("Noonix TV plays the videos on this PC and the sources you add yourself. Pick the folders your movies and shows are in; an addon or extension is optional."),
+        videos: (Theme.android ? qsTr("Noonix TV plays the videos on this device and the sources you add yourself. Pick the folders your movies and shows are in; an addon or extension is optional.") : qsTr("Noonix TV plays the videos on this PC and the sources you add yourself. Pick the folders your movies and shows are in; an addon or extension is optional.")),
         trakt: qsTr("Optional: Trakt keeps what you watched in sync. OK on a profile signs it in or out, or skip it for now."),
         audio: qsTr("The languages you like to hear, best first. Noonix TV picks the audio track in this order. Right jumps to Continue."),
         subtitles: qsTr("Subtitle languages, best first. Noonix TV turns on the first one a video has and can find the ones it doesn't. Right jumps to Continue."),
         background: qsTr("Logins expire when nothing uses them for a while. Noonix TV can check them once a day."),
         playback: qsTr("These can be changed any time in Settings."),
-        benchmark: qsTr("How fast this internet connection and this PC are. The next step picks a picture quality from it."),
+        benchmark: (Theme.android ? qsTr("How fast this internet connection and this device are. The next step picks a picture quality from it.") : qsTr("How fast this internet connection and this PC are. The next step picks a picture quality from it.")),
         quality: qsTr("Picked from the speed check. Higher ones may stutter here, lower ones always play smoothly. Sources above it still show, last and marked. You can change it in Settings."),
         done: gaps.length ? qsTr("Almost there. You can start now and add the rest later in Settings.") : qsTr("That's everything. You can change any of it later in Settings.")
     })
@@ -171,7 +171,7 @@ FocusScope {
             out.push({ label: qsTr("Internet"), checkable: false, act: "bench",
                        detail: bn === null ? qsTr("Measuring…") : !bn ? qsTr("Not measured yet") : bn.error ? bn.error : qsTr("%1 Mbit/s down").arg(bn.mbps),
                        value: bn && bn.score !== undefined ? qsTr("Score %1").arg(bn.score) : bn === null ? "…" : qsTr("Test") })
-            out.push({ label: qsTr("This PC"), checkable: false, act: "bench",
+            out.push({ label: (Theme.android ? qsTr("This device") : qsTr("This PC")), checkable: false, act: "bench",
                        detail: bd === null ? qsTr("Measuring…") : bd === "next" ? qsTr("Right after the internet") : !bd ? qsTr("Not measured yet") : bd.error ? bd.error : qsTr("%1 threads").arg(bd.threads),
                        value: bd && bd.score !== undefined ? qsTr("Score %1").arg(bd.score) : bd === null || bd === "next" ? "…" : qsTr("Test") })
         } else if (name === "quality") {
@@ -512,7 +512,7 @@ FocusScope {
                 spacing: 24 * setup.u
                 Repeater {
                     model: [
-                        qsTr("Noonix TV is only a player. It comes with no videos and no sources: it plays the files on your PC and whatever addons or extensions you add yourself."),
+                        (Theme.android ? qsTr("Noonix TV is only a player. It comes with no videos and no sources: it plays the files on your device and whatever addons or extensions you add yourself.") : qsTr("Noonix TV is only a player. It comes with no videos and no sources: it plays the files on your PC and whatever addons or extensions you add yourself.")),
                         qsTr("You're responsible for what you watch and download with it. Only use videos you have the right to, and follow the laws where you live."),
                         qsTr("Noonix TV is free software (GNU GPL 3.0) and comes with no warranty. Full terms: github.com/dzeliks/noonix-tv › TERMS.md")
                     ]

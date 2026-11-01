@@ -87,6 +87,8 @@ public:
     double splashSlow() const { return qEnvironmentVariableIsSet("NOONIX_SPLASH_SLOW") ? qEnvironmentVariable("NOONIX_SPLASH_SLOW").toDouble() : 1.0; }
     Q_INVOKABLE void copy(const QString &text);
     Q_INVOKABLE QString paste() const;
+    // android: asks once for the videos on shared storage (the library's folders); elsewhere nothing
+    Q_INVOKABLE void askMedia();
     // the desktop's wallpaper picture as a url, "" when there's none (windows only for now)
     Q_INVOKABLE QString wallpaper() const;
     // dev (NOONIX_FPS): "mark <name> at <ms since the process started>" on stderr
