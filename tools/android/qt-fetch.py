@@ -33,9 +33,16 @@ def fetch(repo, want, dest):
             # the linux host's icu comes flat: its libraries belong in lib/ (the tools' rpath)
             to = os.path.join(dest, "lib") if a.startswith("icu-") else dest
             os.makedirs(to, exist_ok=True)
-            # bsdtar (macos, libarchive) reads 7z; elsewhere 7z
-            cmd = ["tar", "-xf", path, "-C", to] if sys.platform == "darwin" else ["7z", "x", "-y", "-bso0", f"-o{to}", path]
-            subprocess.run(cmd, check=True)
+            # bsdtar (macos, libarchive) reads 7z; elsewhere 7z (7-zip 25+ wants -snld20 for qt's
+            # links to links, the older p7zip doesn't know it: exit 7 = a bad switch)
+            if sys.platform == "darwin":
+                subprocess.run(["tar", "-xf", path, "-C", to], check=True)
+            else:
+                r = subprocess.run(["7z", "x", "-y", "-bso0", "-snld20", f"-o{to}", path])
+                if r.returncode == 7:
+                    subprocess.run(["7z", "x", "-y", "-bso0", f"-o{to}", path], check=True)
+                else:
+                    r.check_returncode()
             os.remove(path)
     missing = want - found
     if missing:
@@ -72,6 +79,13 @@ def link_host(dest, host):
     for k, v in keys.items():
         text = re.sub(rf"^{k}=.*$", f"{k}={v}", text, flags=re.M) if re.search(rf"^{k}=", text, re.M) else text + f"{k}={v}\n"
     open(conf, "w").write(text)
+    # its qmake and qtpaths are scripts calling the host's tools by the path qt was built at
+    rel = os.path.relpath(os.path.join(host, "bin"), os.path.join(dest, "bin"))
+    for name in ("qmake", "qmake6", "qtpaths", "qtpaths6"):
+        path = os.path.join(dest, "bin", name)
+        if os.path.isfile(path) and not os.path.islink(path):
+            text = re.sub(r"^\S*/(qmake6|qtpaths6) -qtconf", rf'"$script_dir_path/{rel}/\1" -qtconf', open(path).read(), flags=re.M)
+            open(path, "w").write(text)
 
 
 if __name__ == "__main__":
