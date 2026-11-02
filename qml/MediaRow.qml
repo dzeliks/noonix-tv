@@ -145,7 +145,8 @@ FocusScope {
         cacheBuffer: 1200 * row.u
         keyNavigationEnabled: true
         onCurrentIndexChanged: row.remember()
-        highlightRangeMode: Input.pointing ? ListView.NoHighlightRange : ListView.ApplyRange
+        // the range would chase the current card through its slide
+        highlightRangeMode: Input.pointing || row.sliding ? ListView.NoHighlightRange : ListView.ApplyRange
         preferredHighlightBegin: wheel.heldAt >= 0 ? wheel.heldAt : wheel.restX
         preferredHighlightEnd: preferredHighlightBegin + row.cardW
         highlightMoveDuration: 380
