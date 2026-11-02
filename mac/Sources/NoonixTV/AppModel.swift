@@ -128,7 +128,21 @@ final class AppModel {
     /// width and just gets more room below
     var u: CGFloat { max(0.4, min(size.height / 1080, size.width / 1920)) }
 
-    var page: Page = .home
+    var page: Page = .home {
+        didSet {
+            guard page != oldValue else { return }
+            // the page it left stays whole under the fade
+            pageBehind = oldValue
+            fading?.cancel()
+            fading = Task {
+                try? await Task.sleep(for: .seconds(AppModel.pageFade + 0.02))
+                if !Task.isCancelled { pageBehind = nil }
+            }
+        }
+    }
+    static let pageFade = 0.22
+    var pageBehind: Page?
+    @ObservationIgnored private var fading: Task<Void, Never>?
     var navFocused = false {
         // leaving the bar from the avatar puts the capsule back on the page's tab
         didSet { if !navFocused && navIndex < 0 { navIndex = Page.allCases.firstIndex(of: page) ?? 1 } }

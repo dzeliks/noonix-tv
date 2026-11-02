@@ -38,13 +38,16 @@ struct RootView: View {
                 // a page stays built once shown or warmed, a switch only shows another one
                 // (settings is made each time: it starts over on its first section)
                 ZStack(alignment: .topLeading) {
-                    ForEach(Page.allCases.filter { $0 == app.page || ($0 != .settings && app.built.contains($0)) }) { p in
+                    ForEach(Page.allCases.filter { $0 == app.page || $0 == app.pageBehind || ($0 != .settings && app.built.contains($0)) }) { p in
                         page(p)
-                            .opacity(p == app.page ? 1 : 0)
+                            // one layer: a fade would thin its shading along with the rest
+                            .compositingGroup()
+                            .opacity(p == app.page || p == app.pageBehind ? 1 : 0)
                             .allowsHitTesting(p == app.page)
-                            .zIndex(p == app.page ? 1 : 0)
+                            .zIndex(p == app.page ? 1 : p == app.pageBehind ? 0.5 : 0)
                     }
                 }
+                .animation(.easeInOut(duration: AppModel.pageFade), value: app.page)
 
                 if app.detailStack.isEmpty {
                     TopNav().transition(.opacity)
@@ -52,7 +55,9 @@ struct RootView: View {
 
                 ForEach(app.detailStack) { d in
                     if d === app.detailStack.last {
+                        // one layer: a fade would thin its shading along with the rest
                         DetailsView(model: d)
+                            .compositingGroup()
                             .transition(.opacity)
                             .zIndex(1)
                     }
@@ -121,7 +126,6 @@ struct RootView: View {
                     .zIndex(7.6)
             }
         }
-        .animation(.easeInOut(duration: 0.22), value: app.page)
         .animation(.easeInOut(duration: 0.26), value: app.detailStack.count)
         .animation(.easeOut(duration: 0.22), value: app.sources == nil)
         .animation(.easeOut(duration: 0.22), value: app.finder == nil)
@@ -164,7 +168,8 @@ private struct SetupWindow: ViewModifier {
 /// the glass tab pill (tvos 26) with the profile on the left and the clock on the right (qml TopNav)
 struct TopNav: View {
     @Environment(AppModel.self) private var app
-    @Namespace private var ns
+    /// where each tab sits in the pill: the capsule goes there
+    @State private var tabs: [Int: CGRect] = [:]
     /// what the mouse is over: it lights up, only a click switches or opens (-1 the avatar)
     @State private var hover: Int?
 
@@ -206,40 +211,37 @@ struct TopNav: View {
 
     private func pill(_ u: CGFloat) -> some View {
         let focus = app.navFocused
-        return HStack(spacing: 0) {
-            ForEach(Array(Page.allCases.enumerated()), id: \.element) { i, p in
-                // on the avatar no tab is on and the capsule fades out where it was
-                let sel = app.navIndex < 0 ? (Page.allCases.firstIndex(of: app.page) ?? 1) : app.navIndex
-                let on = app.navIndex == i
-                let ink = focus && app.navIndex == i
-                let lit = hover == i && Input.pointing && !on
-                Group {
-                    if let icon = p.icon {
-                        Image(systemName: icon).font(.system(size: 26 * u, weight: .medium))
-                    } else {
-                        Text(L(p.title)).font(Theme.display(28 * u, .medium))
+        // on the avatar no tab is on and the capsule fades out where it was
+        let sel = app.navIndex < 0 ? (Page.allCases.firstIndex(of: app.page) ?? 1) : app.navIndex
+        let spot = tabs[sel] ?? .zero
+        return ZStack(alignment: .topLeading) {
+            // the focus capsule glides between tabs, under the letters
+            Capsule()
+                .fill(focus ? Color.white : Color.white.opacity(0.16))
+                .frame(width: spot.width, height: spot.height)
+                .offset(x: spot.minX, y: spot.minY)
+                .opacity(app.navIndex < 0 ? 0 : 1)
+            tabRow { i, p in
+                let lit = hover == i && Input.pointing && app.navIndex != i
+                label(i, p, u, ink: false)
+                    .background { Capsule().fill(Color.white.opacity(lit ? 0.1 : 0)).animation(.easeOut(duration: 0.14), value: lit) }
+                    .contentShape(.capsule)
+                    .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("pill")) } action: { tabs[i] = $0 }
+                    .onHover { inside in hover = inside ? i : hover == i ? nil : hover }
+                    .onTapGesture {
+                        app.navFocused = true
+                        if app.navIndex != i { app.choose(p) } else { app.navFocused = false }
                     }
-                }
-                .foregroundStyle(ink ? Theme.focusFg : on || lit ? Theme.fg : Theme.fg2)
-                .modifier(TabWidth(icon: p.icon != nil, u: u))
-                .background { Capsule().fill(Color.white.opacity(lit ? 0.1 : 0)).animation(.easeOut(duration: 0.14), value: lit) }
-                .background {
-                    // the focus capsule glides between tabs
-                    if sel == i {
-                        Capsule()
-                            .fill(focus ? Color.white : Color.white.opacity(0.16))
-                            .opacity(app.navIndex < 0 ? 0 : 1)
-                            .matchedGeometryEffect(id: "capsule", in: ns)
-                    }
-                }
-                .contentShape(.capsule)
-                .onHover { inside in hover = inside ? i : hover == i ? nil : hover }
-                .onTapGesture {
-                    app.navFocused = true
-                    if app.navIndex != i { app.choose(p) } else { app.navFocused = false }
-                }
             }
+            // a black copy of the tabs seen only through the capsule, so letters ink as it passes
+            tabRow { i, p in label(i, p, u, ink: true) }
+                .mask(alignment: .topLeading) {
+                    Capsule().frame(width: spot.width, height: spot.height).offset(x: spot.minX, y: spot.minY)
+                }
+                .opacity(focus && app.navIndex >= 0 ? 1 : 0)
+                .allowsHitTesting(false)
         }
+        .coordinateSpace(.named("pill"))
         // qml dims the whole pill to 0.86 off focus; glass can't take opacity, so only its tabs
         .opacity(focus ? 1 : 0.86)
         .padding(7 * u)
@@ -249,6 +251,26 @@ struct TopNav: View {
         // a small bounce as the capsule lands on the tab (qml's spring, ~6 % past it)
         .animation(.spring(response: 0.36, dampingFraction: 0.68), value: app.navIndex)
         .animation(.easeOut(duration: 0.16), value: focus)
+    }
+
+    private func tabRow<Tab: View>(@ViewBuilder _ tab: @escaping (Int, Page) -> Tab) -> some View {
+        HStack(spacing: 0) {
+            ForEach(Array(Page.allCases.enumerated()), id: \.element) { i, p in tab(i, p) }
+        }
+    }
+
+    private func label(_ i: Int, _ p: Page, _ u: CGFloat, ink: Bool) -> some View {
+        let on = app.navIndex == i
+        let lit = hover == i && Input.pointing && !on
+        return Group {
+            if let icon = p.icon {
+                Image(systemName: icon).font(.system(size: 26 * u, weight: .medium))
+            } else {
+                Text(L(p.title)).font(Theme.display(28 * u, .medium))
+            }
+        }
+        .foregroundStyle(ink ? Theme.focusFg : on || lit ? Theme.fg : Theme.fg2)
+        .modifier(TabWidth(icon: p.icon != nil, u: u))
     }
 }
 

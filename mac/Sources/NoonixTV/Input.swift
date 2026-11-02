@@ -88,21 +88,27 @@ enum Input {
     private static var escDown = Date.distantFuture
     private static var escFired = false
 
-    /// the pointer really moved just now (a list sliding under a resting cursor doesn't count)
-    static var pointerLive: Bool { Date().timeIntervalSince(lastMove) < 0.15 }
+    /// the pointer really moved just now (a list sliding under a resting cursor doesn't count, unless
+    /// the wheel slid it: then the hover is the mouse's)
+    static var pointerLive: Bool { Date().timeIntervalSince(lastMove) < 0.15 || Date().timeIntervalSince(lastWheel) < 0.4 }
+    private static var lastWheel = Date.distantPast
     /// the row of cards under the mouse: sideways, the wheel moves it
     static var row: PageScroll?
     /// the page moved under a resting mouse: a move of nothing, so what's under it now takes the hover
     private static var rehoverTask: Task<Void, Never>?
     private static func rehover() {
+        lastWheel = Date()
         rehoverTask?.cancel()
         rehoverTask = Task {
-            try? await Task.sleep(for: .milliseconds(40))
-            guard !Task.isCancelled, let w = NSApp.keyWindow,
-                  let e = NSEvent.mouseEvent(with: .mouseMoved, location: w.mouseLocationOutsideOfEventStream, modifierFlags: [],
-                                             timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: w.windowNumber,
-                                             context: nil, eventNumber: 0, clickCount: 0, pressure: 0) else { return }
-            NSApp.postEvent(e, atStart: false)
+            // once as it moves, once when the glide has landed
+            for wait in [40, 300] {
+                try? await Task.sleep(for: .milliseconds(wait))
+                guard !Task.isCancelled, let w = NSApp.keyWindow,
+                      let e = NSEvent.mouseEvent(with: .mouseMoved, location: w.mouseLocationOutsideOfEventStream, modifierFlags: [],
+                                                 timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: w.windowNumber,
+                                                 context: nil, eventNumber: 0, clickCount: 0, pressure: 0) else { return }
+                NSApp.postEvent(e, atStart: false)
+            }
         }
     }
     /// the mouse moved last (no key since): lists don't scroll for it, the wheel and keys do
