@@ -55,6 +55,14 @@ FocusScope {
     }
     function remember() { if (!restoring && items.length) { keepIndex = list.currentIndex; keepKey = keyOf(items[list.currentIndex]) } }
     signal activated(var item)
+    // a removal ran out: the home page takes the title out of its list
+    signal take(var item)
+    function activate() {
+        if (!row.current) return
+        var rec = win.removalOf(row.current)
+        if (rec) { if (!rec.done) win.undoRemoval(row.current); return }
+        row.activated(row.current)
+    }
     signal menu(var item, int index, rect at)
 
     // the focused card grows 10 %: leave it room under the title
@@ -115,20 +123,68 @@ FocusScope {
             required property int index
             media: row.items[index] || ({})
             style: row.style
+            onGone: row.finishLeave(media)
             focused: ListView.isCurrentItem && (list.activeFocus || row.menuItem === media)
             z: focused ? 1 : 0
             // cards scrolled into the margin leave instead of peeking
             opacity: index < row.firstShown ? 0 : 1
             Behavior on opacity { NumberAnimation { duration: 220 } }
         }
-        Keys.onReturnPressed: if (row.current) row.activated(row.current)
-        Keys.onEnterPressed: if (row.current) row.activated(row.current)
+        Keys.onReturnPressed: row.activate()
+        Keys.onEnterPressed: row.activate()
         Keys.onMenuPressed: function (event) {
+            if (row.current && win.removalOf(row.current)) { row.activate(); return }
             if (!row.optionsEnabled || !row.current || !list.currentItem) { event.accepted = false; return }
             var card = list.currentItem
             var p = card.mapToItem(null, -card.width * 0.05, -card.artH * 0.05)
             row.menu(row.current, list.currentIndex, Qt.rect(p.x, p.y, card.width * 1.1, card.artH * 1.1))
         }
+    }
+
+    // ---- a removal's end: the card fades out to the side and the rest slide up to fill the gap; off
+    // screen nothing moves, the title is simply gone when you come back
+    function indexOfKey(k) {
+        for (var i = 0; i < items.length; ++i) if (keyOf(items[i]) === k) return i
+        return -1
+    }
+    function onScreen(c) {
+        for (var d = c; d; d = d.parent) if (!d.visible) return false
+        var p = c.mapToItem(null, 0, 0)
+        return p.x + c.width > 0 && p.x < win.width && p.y + c.height > 0 && p.y < win.height
+    }
+    function leave(item) {
+        var i = indexOfKey(keyOf(item))
+        if (i < 0) return
+        var c = list.itemAtIndex(i)
+        if (c && onScreen(c)) c.startLeave()
+        else cut(item, false)
+    }
+    function finishLeave(item) { cut(item, true) }
+    function cut(item, seen) {
+        var before = {}, kids = list.contentItem.children, k
+        for (k = 0; k < kids.length; ++k) {
+            var c = kids[k]
+            if (c.media !== undefined && c.visible) before[keyOf(c.media)] = c.mapToItem(row, 0, 0).x
+        }
+        row.take(item)
+        if (!list) return
+        list.forceLayout()
+        var moved = []
+        kids = list.contentItem.children
+        for (k = 0; k < kids.length; ++k) {
+            c = kids[k]
+            if (c.media === undefined || !c.visible) continue
+            var was = before[keyOf(c.media)]
+            if (was === undefined) continue
+            var d = was - c.mapToItem(row, 0, 0).x
+            if (Math.abs(d) > 0.5) moved.push({ c: c, d: d })
+        }
+        // gone from off screen on the left with the mouse about: the view holds, nothing slides
+        if (!seen && Input.pointing && moved.length && list.contentX - list.originX > 1) {
+            list.contentX -= moved[0].d
+            return
+        }
+        moved.forEach(function (m) { m.c.flip(m.d) })
     }
 
     ListWheel { view: list; across: true; cards: true }

@@ -417,8 +417,8 @@ Window {
         return { profile: profile ? profile.id : 0, kind: it.kind === "movie" ? "movie" : "show", tmdb: it.kind === "episode" ? it.show : it.id }
     }
     function rowMenu(it, rowId, home, at) {
-        if (toast.trigger()) return
         if (!it) return
+        if (removalOf(it)) { undoRemoval(it); return }
         menuItem = it; menuRow = rowId; menuHome = home; menuAt = at || Qt.rect(Theme.margin, height / 2, 440 * u, 0)
         if (menuHome) menuHome.menuItem = it
         loadMenuLibrary()
@@ -473,25 +473,72 @@ Window {
         refreshRows()
         if (libraryL.item) libraryL.item.load()
     }
+    // menu > remove: the tile stays and waits out its undo time (cards draw it), then it goes
+    property var removals: ({})
+    property int removalsVersion: 0
+    readonly property int removeMs: 6000
+    function itemKey(it) { return it ? [it.kind, it.id, it.show, it.season, it.episode].join(":") : "" }
+    function removalOf(it) { return it ? (removals[itemKey(it)] || null) : null }
+    function setRemovals(r) { removals = r; removalsVersion++ }
     function dismiss() {
-        var it = menuItem, rowId = menuRow, home = menuHome, p = profile.id
+        var it = menuItem
         menuPopup.visible = false
         focusPage()
-        home.removeLocal(rowId, it)
+        var r = removals, k = itemKey(it)
+        if (r[k]) return
+        r[k] = { item: it, profile: profile.id, total: removeMs, until: Date.now() + removeMs, done: false }
+        setRemovals(r)
+        armRemovals()
+    }
+    function undoRemoval(it) {
+        var r = removals, k = itemKey(it)
+        if (!r[k] || r[k].done) return
+        delete r[k]
+        setRemovals(r)
+        armRemovals()
+    }
+    function armRemovals() {
+        var next = -1
+        for (var k in removals) if (!removals[k].done && (next < 0 || removals[k].until < next)) next = removals[k].until
+        if (next < 0) { removalTimer.stop(); return }
+        removalTimer.interval = Math.max(1, next - Date.now())
+        removalTimer.restart()
+    }
+    Timer {
+        id: removalTimer
+        onTriggered: {
+            var now = Date.now()
+            for (var k in win.removals) if (!win.removals[k].done && win.removals[k].until <= now + 20) win.commitRemoval(k)
+            win.armRemovals()
+        }
+    }
+    // the line ran out: the title leaves its rows, the core drops it (and trakt)
+    function commitRemoval(k) {
+        var rec = removals[k], it = rec.item, p = rec.profile
+        rec.done = true
+        ;[homeL, moviesL, showsL].forEach(function (l) { if (l.item) l.item.leave(it) })
         Api.call("home.dismiss", { item: it, profile: p, sync: false }, function (ok) {
-            if (!ok) { toast.show(qsTr("Couldn't remove it")); home.loadRow(rowId); return }
-            refreshRows()
-            toast.show(qsTr("Removed"), qsTr("Undo"), function () {
-                Api.call("home.dismiss", { item: it, profile: p, undo: true, sync: false }, function (ok) {
-                    if (!ok) toast.show(qsTr("Couldn't undo that change"))
-                    refreshRows()
-                })
-            }, 6, function () {
-                Api.call("home.dismiss", { item: it, profile: p }, function (ok) {
-                    if (!ok) toast.show(qsTr("Removed here · couldn't update Trakt"))
-                })
+            if (!ok) {
+                toast.show(qsTr("Couldn't remove it"))
+                var r = win.removals; delete r[k]; win.setRemovals(r)
+                refreshRows()
+                return
+            }
+            Api.call("home.dismiss", { item: it, profile: p }, function (ok2) {
+                if (!ok2) toast.show(qsTr("Removed here · couldn't update Trakt"))
             })
         })
+        forgetLater.start()
+    }
+    // every row has had time to animate it out
+    Timer {
+        id: forgetLater
+        interval: 900
+        onTriggered: {
+            var r = win.removals, any = false
+            for (var k in r) if (r[k].done) { delete r[k]; any = true }
+            if (any) { win.setRemovals(r); win.refreshRows() }
+        }
     }
 
     // ---- sources sheet
@@ -1129,7 +1176,7 @@ Window {
     readonly property bool watchingNow: setupDone && !!profile && !splash.visible && !profilePicker.visible
     property bool watching: false
     onWatchingNowChanged: if (watchingNow) { watching = true; reloginCheck() }
-    onProfileChanged: if (watching) reloginCheck()
+    onProfileChanged: { removalTimer.stop(); setRemovals({}); if (watching) reloginCheck() }
     function reloginCheck() {
         reloginHint.stop()
         if (profile && profile.traktRelogin) reloginHint.start()

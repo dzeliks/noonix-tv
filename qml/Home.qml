@@ -129,6 +129,16 @@ FocusScope {
         version++
         updateShown()
     }
+    // a removal's end, in every row it sits in: seen rows animate it, the rest drop it
+    readonly property var dismissable: ["upnext", "continue", "continue-movie", "recent"]
+    function leave(item) {
+        for (var i = 0; i < shown.length; ++i) {
+            if (dismissable.indexOf(shown[i].id) < 0) continue
+            var r = rows.itemAtIndex(i)
+            if (r) r.leave(item); else removeLocal(shown[i].id, item)
+        }
+        for (var id in cache) if (dismissable.indexOf(id) >= 0 && !shown.some(function (s) { return s.id === id })) removeLocal(id, item)
+    }
     Component.onCompleted: { free = Input.pointing; load() }
 
     // ---- ahead of the focus: details, logo and backdrop of the 3 next items in every direction
@@ -259,6 +269,7 @@ FocusScope {
                 if (home.cache[modelData.id] === undefined) home.loadRow(modelData.id)
             }
             onActivated: function (item) { home.open(item) }
+            onTake: function (item) { home.removeLocal(modelData.id, item) }
             onMenu: function (item, index, at) { home.menu(item, modelData.id, at) }
         }
     }

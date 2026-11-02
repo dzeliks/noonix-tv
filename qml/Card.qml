@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import QtQuick.Shapes
 
 // one tile in a row: poster (2:3) or landscape (16:9, episodes and continue watching).
 // focus = tvos lift: a spring scale, a deeper shadow and the sheen
@@ -16,6 +17,7 @@ Item {
     readonly property real artW: wide ? 400 * u : posterW
     readonly property real artH: wide ? artW * 9 / 16 : artW * 1.5
     readonly property real progress: media.progress || 0
+    readonly property real inset: 16 * u * shrink
     // media.label / media.sublabel override the defaults (season pages)
     readonly property string label: media.label !== undefined ? media.label
         : media.kind === "episode" ? (media.showTitle || "") : (media.title || "")
@@ -23,11 +25,48 @@ Item {
         : media.kind === "episode" ? "S" + media.season + " · E" + media.episode + (media.episodeTitle ? "  " + media.episodeTitle : "")
         : ""
 
+    // a removal waiting out its undo time: the cover pulls in, a line round the border drains
+    readonly property var removal: (win.removalsVersion, win.removalOf(media))
+    readonly property bool removing: removal !== null
+    property real shrink: 0
+    property real drain: 1
+    property real flipX: 0
+    property bool leaving: false
+    property real leaveT: 0
+    signal gone()
+    function syncDrain() {
+        drainAnim.stop()
+        if (!removal) { drain = 1; return }
+        var rest = Math.max(0, removal.until - Date.now())
+        drain = rest / removal.total
+        drainAnim.duration = rest
+        if (rest > 0 && !removal.done) drainAnim.start()
+    }
+    onRemovalChanged: syncDrain()
+    onRemovingChanged: shrink = removing ? 1 : 0
+    // a reused delegate starts from its own state
+    onMediaChanged: {
+        shrinkBehavior.enabled = false
+        shrink = removing ? 1 : 0
+        shrinkBehavior.enabled = true
+        flipAnim.stop(); flipX = 0
+        leaveAnim.stop(); leaving = false; leaveT = 0
+    }
+    Component.onCompleted: { shrinkBehavior.enabled = false; shrink = removing ? 1 : 0; shrinkBehavior.enabled = true; syncDrain() }
+    Behavior on shrink { id: shrinkBehavior; NumberAnimation { duration: 420; easing.type: Easing.InOutCubic } }
+    NumberAnimation { id: drainAnim; target: card; property: "drain"; to: 0 }
+    NumberAnimation { id: flipAnim; target: card; property: "flipX"; to: 0; duration: 340; easing.type: Easing.OutCubic }
+    NumberAnimation { id: leaveAnim; target: card; property: "leaveT"; from: 0; to: 1; duration: 200; easing.type: Easing.InQuad; onFinished: card.gone() }
+    function flip(d) { flipX = d; flipAnim.restart() }
+    function startLeave() { leaving = true; leaveAnim.restart() }
+    transform: [Translate { x: card.flipX - card.leaveT * 36 * card.u }]
+
     width: artW
     height: artH + (wide ? 92 * u : 0)
 
     Item {
         id: lift
+        opacity: 1 - card.leaveT
         width: card.artW; height: card.artH
         scale: card.lifted ? 1.1 : 1.0
         transformOrigin: Item.Center
@@ -35,6 +74,7 @@ Item {
         z: 1
 
         RectangularShadow {
+            opacity: 1 - 0.6 * card.shrink
             anchors.fill: art
             radius: art.radius
             offset.y: (card.lifted ? 26 : 8) * card.u
@@ -47,10 +87,17 @@ Item {
             anchors.fill: parent
             source: card.wide ? (card.media.still || card.media.backdrop || "") : (card.media.poster || "")
             placeholder: card.label
+            opacity: 1 - 0.45 * card.shrink
+            transform: Scale {
+                origin.x: art.width / 2; origin.y: art.height / 2
+                xScale: 1 - 2 * card.inset / art.width
+                yScale: 1 - 2 * card.inset / art.height
+            }
         }
         // resume bar inside the artwork, like apple tv
         Rectangle {
-            visible: card.progress > 0.01 && card.progress < 0.97
+            opacity: 1 - card.shrink
+            visible: card.progress > 0.01 && card.progress < 0.97 && card.shrink < 1
             anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: 16 * card.u }
             height: 7 * card.u
             radius: height / 2
@@ -62,10 +109,69 @@ Item {
                 color: "white"
             }
         }
+        // the border and the line draining inside it, counter-clockwise from the top
+        Rectangle {
+            anchors.fill: parent
+            radius: art.radius
+            color: "transparent"
+            border { width: 2 * card.u; color: Qt.rgba(1, 1, 1, 0.22) }
+            opacity: card.shrink
+            visible: opacity > 0
+        }
+        Shape {
+            id: ring
+            anchors.fill: parent
+            opacity: card.shrink
+            visible: opacity > 0
+            preferredRendererType: Shape.CurveRenderer
+            readonly property real i: 8 * card.u
+            readonly property real w: width - 2 * i
+            readonly property real h: height - 2 * i
+            readonly property real r: Math.max(4, art.radius - i)
+            readonly property real perimeter: 2 * (w - 2 * r) + 2 * (h - 2 * r) + 2 * Math.PI * r
+            readonly property real sw: 4 * card.u
+            ShapePath {
+                strokeColor: "white"
+                strokeWidth: ring.sw
+                fillColor: "transparent"
+                capStyle: ShapePath.RoundCap
+                // one dash as long as what's left, starting at the top and running clockwise: its end
+                // backs off counter-clockwise
+                strokeStyle: ShapePath.DashLine
+                dashPattern: [Math.max(0.001, card.drain * ring.perimeter / ring.sw - 0.01), ring.perimeter / ring.sw + 4]
+                startX: ring.i + ring.w / 2; startY: ring.i
+                PathLine { x: ring.i + ring.w - ring.r; y: ring.i }
+                PathArc { x: ring.i + ring.w; y: ring.i + ring.r; radiusX: ring.r; radiusY: ring.r }
+                PathLine { x: ring.i + ring.w; y: ring.i + ring.h - ring.r }
+                PathArc { x: ring.i + ring.w - ring.r; y: ring.i + ring.h; radiusX: ring.r; radiusY: ring.r }
+                PathLine { x: ring.i + ring.r; y: ring.i + ring.h }
+                PathArc { x: ring.i; y: ring.i + ring.h - ring.r; radiusX: ring.r; radiusY: ring.r }
+                PathLine { x: ring.i; y: ring.i + ring.r }
+                PathArc { x: ring.i + ring.r; y: ring.i; radiusX: ring.r; radiusY: ring.r }
+                PathLine { x: ring.i + ring.w / 2; y: ring.i }
+            }
+        }
+        Column {
+            anchors.centerIn: parent
+            spacing: 10 * card.u
+            width: parent.width - 2 * card.inset - 24 * card.u
+            opacity: Math.max(0, (card.shrink - 0.55) / 0.45)
+            visible: opacity > 0
+            Symbol { anchors.horizontalCenter: parent.horizontalCenter; name: "undo"; width: 38 * card.u; height: width; color: "white"; weight: 2.2 }
+            Text {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                text: Input.pointing ? (Qt.platform.os === "android" ? qsTr("Tap to undo") : qsTr("Click to undo")) : qsTr("Press OK to undo")
+                color: "white"
+                font { family: Theme.display; pixelSize: 22 * card.u; weight: Font.DemiBold }
+            }
+        }
     }
 
     Column {
         visible: card.wide
+        opacity: 1 - card.leaveT
         anchors { top: lift.bottom; topMargin: (card.lifted ? 30 : 16) * card.u; left: parent.left; right: parent.right }
         Behavior on anchors.topMargin { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
         spacing: 4 * card.u
@@ -73,6 +179,7 @@ Item {
             width: parent.width
             text: card.label
             color: card.lifted ? Theme.fg : Theme.fg2
+            opacity: 1 - 0.5 * card.shrink
             font { family: Theme.display; pixelSize: 25 * card.u; weight: Font.DemiBold }
             elide: Text.ElideRight
         }
