@@ -75,6 +75,7 @@ pub async fn options() -> Value {
             json!({
                 "id": l.id,
                 "needMbps": l.net,
+                "needDevice": l.device,
                 "netOk": mbps.is_none_or(|m| m >= l.net),
                 "deviceOk": device.is_none_or(|d| d >= l.device),
             })

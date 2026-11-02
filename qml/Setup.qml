@@ -167,13 +167,11 @@ FocusScope {
             else
                 out.push({ label: qsTr("Check logins once a day (Recommended)"), detail: qsTr("Trakt, OpenSubtitles and your debrid keys, even on days Noonix TV stays closed"), checkable: true, checked: kOn, act: "keepalive" })
         } else if (name === "benchmark") {
-            var bn = bench.internet, bd = bench.device
-            out.push({ label: qsTr("Internet"), checkable: false, act: "bench",
-                       detail: bn === null ? qsTr("Measuring…") : !bn ? qsTr("Not measured yet") : bn.error ? bn.error : qsTr("%1 Mbit/s down").arg(bn.mbps),
-                       value: bn && bn.score !== undefined ? qsTr("Score %1").arg(bn.score) : bn === null ? "…" : qsTr("Test") })
-            out.push({ label: (Theme.android ? qsTr("This device") : qsTr("This PC")), checkable: false, act: "bench",
-                       detail: bd === null ? qsTr("Measuring…") : bd === "next" ? qsTr("Right after the internet") : !bd ? qsTr("Not measured yet") : bd.error ? bd.error : qsTr("%1 threads").arg(bd.threads),
-                       value: bd && bd.score !== undefined ? qsTr("Score %1").arg(bd.score) : bd === null || bd === "next" ? "…" : qsTr("Test") })
+            var bn = speed.net, bd = speed.dev
+            out.push({ label: qsTr("Speed check"), checkable: false, act: "bench", value: speed.running ? "…" : qsTr("Run"),
+                       detail: speed.running ? qsTr("Measuring…") : speed.headline ? qsTr("You can watch up to %1").arg(speed.headline) + "  ·  " + speed.why : qsTr("Not measured yet") })
+            if (speed.netDone) out.push({ label: qsTr("Internet"), checkable: false, act: "bench", detail: qsTr("%1 Mbit/s down").arg(bn.mbps), value: speed.label(speed.netZones, bn.mbps) })
+            if (speed.devDone) out.push({ label: speed.deviceName, checkable: false, act: "bench", detail: qsTr("%1 points").arg(bd.score), value: speed.label(speed.devZones, bd.score) })
         } else if (name === "quality") {
             out = Theme.qualityLines(quality, true)
         } else if (name === "done") {
@@ -216,7 +214,7 @@ FocusScope {
             if (mode === "own") Api.call("profiles.setTrakt", { id: id, mode: "none" }, function () { setup.refresh() })
             else startCode(id)
         } else if (a === "bench") {
-            runBench()
+            speed.open(!speed.netDone || !speed.devDone)
         } else if (a.indexOf("quality:") === 0) {
             Api.call("quality.set", { id: a.slice(8) }, function (ok, d) { if (ok) setup.quality = d })
         } else if (a.indexOf("lang:") === 0) {
@@ -329,23 +327,11 @@ FocusScope {
 
     // steps slide: out to the side they came from, in from the other
     property int target: 0
-    // speed check: undefined = not run, null = running, else the answer or {error}
-    property var bench: ({ internet: undefined, device: undefined })
-    function runBench() {
-        if (bench.internet === null || bench.device === null || bench.device === "next") return
-        bench = { internet: null, device: "next" }
-        // one after the other: the cpu test would slow the download down
-        Api.call("bench.internet", {}, function (ok, d) {
-            setup.bench = { internet: ok ? d : { error: (d && d.error) || qsTr("Couldn't measure") }, device: null }
-            Api.call("bench.device", {}, function (ok2, d2) {
-                setup.bench = { internet: setup.bench.internet, device: ok2 ? d2 : { error: qsTr("Couldn't measure") } }
-                setup.loadQuality()
-            })
-        })
-    }
+    property bool benchAsked: false
     function loadQuality() { Api.call("quality.options", {}, function (ok, d) { if (ok) setup.quality = d }) }
     onNameChanged: {
-        if (name === "benchmark" && bench.internet === undefined) runBench()
+        // comes up by itself once, while the step slides in
+        if (name === "benchmark" && !benchAsked) { benchAsked = true; speed.open(true) }
         if (name === "quality") loadQuality()
     }
     function go(n) {
@@ -604,6 +590,13 @@ FocusScope {
         enterKey: setup.enter
         onChanged: setup.refresh()
         onBack: list.forceActiveFocus()
+    }
+    SpeedCheck {
+        id: speed
+        parent: win.sheetLayer
+        anchors.fill: parent
+        onMeasured: setup.loadQuality()
+        onClosed: continueBtn.forceActiveFocus()
     }
     ProfileAdd {
         id: add

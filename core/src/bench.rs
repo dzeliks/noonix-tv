@@ -47,6 +47,13 @@ pub async fn internet() -> Result<Value> {
     // the first second is tcp warming up: measure after it
     tokio::time::sleep(Duration::from_secs(1)).await;
     let (from, from_bytes) = (Instant::now(), got.load(Ordering::Relaxed));
+    // the gauge follows along
+    while !workers.iter().all(|w| w.is_finished()) {
+        tokio::time::sleep(Duration::from_millis(250)).await;
+        let bytes = got.load(Ordering::Relaxed) - from_bytes;
+        let mbps = bytes as f64 * 8.0 / from.elapsed().as_secs_f64().max(0.001) / 1e6;
+        crate::app::emit("bench", json!({ "mbps": mbps.round() }));
+    }
     let mut errors = Vec::new();
     for w in workers {
         if let Ok(Err(e)) = w.await {

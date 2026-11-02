@@ -23,7 +23,6 @@ FocusScope {
     onPrefsChanged: if (!langSnap) takeSnap()
     property var langOptions: null
     property var quality: null
-    property bool benchBusy: false
     property var app: ({})
     // what the screen was found to show (display.state)
     property var screen: ({})
@@ -151,9 +150,8 @@ FocusScope {
                 out.push({ label: qsTr("Picture quality"), checkable: false, header: true })
                 out = out.concat(Theme.qualityLines(quality))
                 var q = quality
-                out.push({ label: qsTr("Speed check"), checkable: false, act: "bench", value: settings.benchBusy ? "…" : qsTr("Run"),
-                           detail: settings.benchBusy ? qsTr("Measuring…")
-                                 : q.mbps !== null && q.mbps !== undefined ? (Theme.android ? qsTr("Last time: %1 Mbit/s down, this device scored %2") : qsTr("Last time: %1 Mbit/s down, this PC scored %2")).arg(q.mbps).arg(q.device !== null && q.device !== undefined ? q.device : "–")
+                out.push({ label: qsTr("Speed check"), checkable: false, act: "bench", value: qsTr("Run"),
+                           detail: q.mbps !== null && q.mbps !== undefined ? (Theme.android ? qsTr("Last time: %1 Mbit/s down, this device scored %2") : qsTr("Last time: %1 Mbit/s down, this PC scored %2")).arg(q.mbps).arg(q.device !== null && q.device !== undefined ? q.device : "–")
                                  : qsTr("Not measured yet: the recommendation is a guess") })
             }
         } else if (sectionId === "accounts") {
@@ -289,15 +287,7 @@ FocusScope {
         } else if (a.indexOf("quality:") === 0) {
             Api.call("quality.set", { id: a.slice(8) }, function (ok, d) { if (ok) settings.quality = d })
         } else if (a === "bench") {
-            if (benchBusy) return
-            benchBusy = true
-            // one after the other: the cpu test would slow the download down
-            Api.call("bench.internet", {}, function () {
-                Api.call("bench.device", {}, function () {
-                    settings.benchBusy = false
-                    Api.call("quality.options", {}, function (ok, d) { if (ok) settings.quality = d })
-                })
-            })
+            speedCheck.open(true)
         } else if (a === "hdrscreen") {
             var seen = screen.hdr === true ? qsTr("HDR") : screen.hdr === false ? qsTr("no HDR") : ""
             choices.open({ title: qsTr("HDR on this screen"), detail: qsTr("Picks the sources that suit it best. Set it yourself if the screen is guessed wrong"),
@@ -577,6 +567,14 @@ FocusScope {
                 }
             }
         }
+    }
+
+    SpeedCheck {
+        id: speedCheck
+        parent: win.sheetLayer
+        anchors.fill: parent
+        onMeasured: Api.call("quality.options", {}, function (ok, d) { if (ok) settings.quality = d })
+        onClosed: page.forceActiveFocus()
     }
 
     Choices {
