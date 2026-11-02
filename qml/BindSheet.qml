@@ -138,7 +138,7 @@ FocusScope {
                         required property int index
                         readonly property bool foc: bs.activeFocus && bs.zone === 0 && bs.slot === index
                         readonly property bool wait: bs.waiting === index
-                        readonly property string name: bs.bound[index] ? bs.nameOf(bs.bound[index]) : ""
+                        readonly property string name: (bs.bound[index] ? bs.nameOf(bs.bound[index]) : "") || ""
                         width: (body.width - 40 * bs.u) / 3
                         height: 150 * bs.u
                         radius: 30 * bs.u

@@ -232,6 +232,21 @@ void Remote::Grab(const QString &path)
     std::thread([img = w->grabWindow(), path] { img.save(path, nullptr, 90); }).detach();
 }
 
+// dev: a press that stays
+void Remote::Hold(double x, double y, int ms)
+{
+    if (!m_window || qgetenv("NOONIX_TEST") != "1")
+        return;
+#ifdef NOONIX_DESKTOP_LINUX
+    const QPointF at(x, y);
+    const QPointF global = m_window->mapToGlobal(at);
+    QWindowSystemInterface::handleMouseEvent(m_window, at, global, Qt::LeftButton, Qt::LeftButton, QEvent::MouseButtonPress);
+    QTimer::singleShot(ms, this, [this, at, global] {
+        QWindowSystemInterface::handleMouseEvent(m_window, at, global, Qt::NoButton, Qt::LeftButton, QEvent::MouseButtonRelease);
+    });
+#endif
+}
+
 void Remote::Pointer(double x, double y)
 {
     if (!m_window || qgetenv("NOONIX_TEST") != "1")
