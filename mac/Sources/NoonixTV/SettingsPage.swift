@@ -46,7 +46,8 @@ final class SettingsModel {
     var template: [String: Any]?
     var update: [String: Any]?
     var version = ""
-    var benchBusy = false
+    var copied = false
+    @ObservationIgnored private var copiedTask: Task<Void, Never>?
     /// the user's own release patterns (preferred, excluded)
     var patterns: [String: Any]?
     var updateState = ""
@@ -141,7 +142,7 @@ final class SettingsModel {
                             value: "›", act: "patterns:excluded"))
             out.append(Line(label: L("Advanced"), header: true))
             out.append(Line(label: L("Noonix formatter for AIOStreams"), detail: L("If you run your own AIOStreams: paste it into its Formatter › Custom when a source says Unsupported formatting"),
-                            value: L("Copy"), act: "copy-template"))
+                            value: copied ? L("Copied") : L("Copy"), act: "copy-template"))
             if let p = prefs {
                 out.append(Line(label: L("Show sources that need downloading"), checkable: true, checked: p["showUncached"] as? Bool == true, act: "pref:showUncached"))
             }
@@ -150,9 +151,9 @@ final class SettingsModel {
                 out += Self.qualityLines(q, setup: false)
                 let mbps = q["mbps"].flatMap { $0 is NSNull ? nil : $0 }
                 out.append(Line(label: L("Speed check"),
-                                detail: benchBusy ? L("Measuring…") : mbps != nil ? L("Last time: %1 Mbit/s down, this Mac scored %2", "\(mbps!)", "\(q["device"].flatMap { $0 is NSNull ? nil : $0 } ?? "–")")
+                                detail: mbps != nil ? L("Last time: %1 Mbit/s down, this Mac scored %2", "\(mbps!)", "\(q["device"].flatMap { $0 is NSNull ? nil : $0 } ?? "–")")
                                     : L("Not measured yet: the recommendation is a guess"),
-                                value: benchBusy ? "…" : L("Run"), act: "bench"))
+                                value: L("Run"), act: "bench"))
             }
         case "accounts":
             let os = accounts["opensubtitles"] as? [String: Any] ?? [:]
@@ -230,17 +231,15 @@ final class SettingsModel {
                           "FF": L("Fast-forward"), "CH_DOWN": L("Back 30 seconds"), "CH_UP": L("Forward 30 seconds"), "HOME": L("Home")]
             out.append(Line(label: L("Controller"), header: true))
             for a in Bindings.actions {
-                let cap = bd.capturing == "pad:" + a
                 let v = (all["pad"]?[a] ?? []).map(bd.padText).joined(separator: "  ·  ")
-                out.append(Line(label: labels[a] ?? a, value: cap ? L("Press a button…") : v.isEmpty ? "–" : v, act: "bind:pad:" + a))
+                out.append(Line(label: labels[a] ?? a, value: v.isEmpty ? "–" : v, act: "bind:pad:" + a))
             }
             out.append(Line(label: L("Keyboard"), header: true))
             for a in Bindings.actions {
-                let cap = bd.capturing == "keys:" + a
                 let v = (all["keys"]?[a] ?? []).map(Bindings.keyText).joined(separator: "  ·  ")
-                out.append(Line(label: labels[a] ?? a, value: cap ? L("Press a key…") : v.isEmpty ? "–" : v, act: "bind:keys:" + a))
+                out.append(Line(label: labels[a] ?? a, value: v.isEmpty ? "–" : v, act: "bind:keys:" + a))
             }
-            out.append(Line(label: L("Always"), header: true))
+            out.append(Line(label: L("Built in"), header: true))
             out.append(Line(label: L("Moving around"), detail: L("The d-pad, the left stick and the arrow keys")))
             out.append(Line(label: L("Mouse"), detail: L("Point to move, click to select, right click goes back, the wheel scrolls")))
             out.append(Line(label: L("Reset controls"), detail: L("The controller and keyboard as they came"), value: L("Reset"), act: "bind-reset"))
@@ -302,12 +301,10 @@ final class SettingsModel {
                 quality = await json("quality.set", ["id": String(a.dropFirst(8))]) as? [String: Any] ?? quality
                 return
             } else if a == "bench" {
-                guard !benchBusy else { return }
-                benchBusy = true
-                // one after the other: the cpu test would slow the download down
-                _ = await json("bench.internet")
-                _ = await json("bench.device")
-                benchBusy = false
+                let sc = SpeedCheckModel()
+                sc.measured = { [weak self] in Task { await self?.load() } }
+                sc.open(auto: true, app: app)
+                return
             } else if a == "trakt" {
                 guard let p = app.currentProfile else { return }
                 if p.trakt == "own" {
@@ -325,6 +322,12 @@ final class SettingsModel {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString("\(t["name"] ?? "")\n\n\(t["description"] ?? "")", forType: .string)
                 app.toast(L("Copied"))
+                copied = true
+                copiedTask?.cancel()
+                copiedTask = Task { [weak self] in
+                    try? await Task.sleep(for: .seconds(2.5))
+                    if !Task.isCancelled { self?.copied = false }
+                }
                 return
             } else if a.hasPrefix("pref:"), var p = prefs {
                 let k = String(a.dropFirst(5))
@@ -346,15 +349,19 @@ final class SettingsModel {
                     return
                 }
             } else if a == "hdrscreen" {
-                let order = ["auto", "on", "off"]
-                let now = order.firstIndex(of: appSettings["hdr_screen"] as? String ?? "auto") ?? 0
-                let v = order[(now + 1) % order.count]
-                appSettings["hdr_screen"] = v
-                _ = await json("settings.setApp", ["key": "hdr_screen", "value": v])
+                let found = (screen["hdr"] as? Bool).map { $0 ? L("HDR") : L("no HDR") }
+                app.choices = ChoicesModel(title: L("HDR on this screen"),
+                                           detail: L("Picks the sources that suit it best. Set it yourself if the screen is guessed wrong"),
+                                           options: [.init(id: "auto", label: found.map { L("Automatic (%1)", $0) } ?? L("Automatic")),
+                                                     .init(id: "on", label: L("On")), .init(id: "off", label: L("Off"))],
+                                           current: appSettings["hdr_screen"] as? String ?? "auto") { [weak self] v in
+                    self?.appSettings["hdr_screen"] = v
+                    Task { _ = await self?.json("settings.setApp", ["key": "hdr_screen", "value": v]) }
+                }
                 return
             } else if a.hasPrefix("bind:") {
                 let p = a.split(separator: ":").map(String.init)
-                if Bindings.shared.capturing.isEmpty { Bindings.shared.capture(p[1], p[2]) } else { Bindings.shared.stopCapture() }
+                app.bindSheet = BindSheetModel(side: p[1], action: p[2], title: l.label)
                 return
             } else if a == "bind-reset" {
                 Bindings.shared.reset()
@@ -644,6 +651,8 @@ struct SettingsRow: View {
                     .animation(.spring(response: 0.3, dampingFraction: 0.6), value: line.checked)
             } else if !line.value.isEmpty {
                 Text(line.value).font(Theme.text(24 * u)).foregroundStyle(focused ? Theme.focusFg : Theme.fg2)
+                    // copy turning into copied can't push the text next to it onto a new line
+                    .frame(minWidth: 100 * u, alignment: .trailing)
             }
         }
         .padding(.horizontal, 30 * u)

@@ -25,6 +25,12 @@ enum Page: String, CaseIterable, Identifiable {
     }
 }
 
+/// a title on its way out of the rows, undoable until then
+struct Removal: Equatable {
+    let item: Item
+    let until: Date
+}
+
 /// one titled row: its items load once and stay; index = the focused card
 @MainActor @Observable
 final class RowModel: Identifiable {
@@ -42,6 +48,18 @@ final class RowModel: Identifiable {
     }
 
     var current: Item? { items.isEmpty ? nil : items[min(index, items.count - 1)] }
+
+    /// a removal's time ran out: the tile fades to the side, the others slide in. one before the
+    /// focus takes the focus with it, so what's on screen stays
+    func leave(_ key: String) {
+        withAnimation(.easeOut(duration: 0.32)) {
+            for i in items.indices.reversed() where AppModel.removalKey(items[i]) == key {
+                items.remove(at: i)
+                if i < index { index -= 1 }
+            }
+            index = min(index, max(0, items.count - 1))
+        }
+    }
 
     func load(force: Bool = false) async {
         guard !loaded || force else { return }
@@ -67,6 +85,7 @@ final class Rails {
     let scroll = PageScroll()
     @ObservationIgnored private var focusedId: String?
     private static let personal: Set = ["upnext", "continue", "continue-movie", "recent", "library", "library-movie", "library-show"]
+    static let undoable: Set = ["upnext", "continue", "continue-movie", "recent"]
 
     init(_ page: Page) { self.page = page }
     static let placeholders = [RowModel(Row(id: "placeholder-0", title: "", style: "landscape")),
@@ -190,6 +209,9 @@ final class AppModel {
     var watchingNow: Bool { setup == nil && currentProfile != nil && splash == nil && picker == nil }
     var trakt: TraktCodeModel?
     var traktChoice: TraktChoiceModel?
+    var choices: ChoicesModel?
+    var bindSheet: BindSheetModel?
+    var speed: SpeedCheckModel?
     /// a website as a qr code (settings › about)
     var site: SiteCardModel?
     let player = MPVPlayer()
@@ -449,6 +471,7 @@ final class AppModel {
     }
 
     func selectProfile(_ p: Profile) async {
+        for k in removals.keys { commitRemoval(k) }
         guard (try? await Core.shared.raw("profiles.select", ["id": p.id])) != nil else { return }
         await switched()
     }
@@ -472,6 +495,60 @@ final class AppModel {
             self?.closeTrakt(ok)
             if let say { self?.toast(say) }
             if let local = t.local { self?.traktChoice = TraktChoiceModel(profile: p.id, local: local) }
+        }
+    }
+
+    // ---- removals: the tile stays and drains, undoable; when it runs out the title leaves every row
+    // it's in. local only: trakt never hears of it, playing it again brings it back
+    static let removalSecs = 6.0
+    var removals: [String: Removal] = [:]
+
+    static func removalKey(_ it: Item) -> String {
+        it.kind == "episode" ? "show:\(it.show ?? 0)" : "\(it.kind):\(it.tmdb ?? 0)"
+    }
+    func removal(_ it: Item) -> Removal? { removals[AppModel.removalKey(it)] }
+
+    func dismiss(_ it: Item) {
+        let k = AppModel.removalKey(it)
+        guard removals[k] == nil else { return }
+        let r = Removal(item: it, until: Date().addingTimeInterval(AppModel.removalSecs))
+        removals[k] = r
+        Task {
+            try? await Task.sleep(for: .seconds(AppModel.removalSecs))
+            if removals[k] == r { commitRemoval(k) }
+        }
+    }
+
+    /// true: it was waiting, now it stays
+    @discardableResult
+    func undoRemoval(_ it: Item) -> Bool { removals.removeValue(forKey: AppModel.removalKey(it)) != nil }
+
+    private func commitRemoval(_ k: String) {
+        guard let r = removals.removeValue(forKey: k) else { return }
+        for rail in rails.values {
+            for row in rail.rows where Rails.undoable.contains(row.id) { row.leave(k) }
+            rail.keepFocus()
+        }
+        let profile = profiles?.current ?? 0
+        Task {
+            if (try? await Core.shared.raw("home.dismiss", ["item": r.item.json, "profile": profile])) == nil {
+                toast(L("Couldn't remove it"))
+            }
+            try? await Task.sleep(for: .seconds(0.6))
+            refreshRows()
+        }
+    }
+
+    /// ok or a click on a tile: undo if it's leaving; next plays, the rest open the title
+    func activate(_ row: RowModel, _ it: Item) {
+        if Rails.undoable.contains(row.id), undoRemoval(it) { return }
+        if row.id == "upnext", it.isMovie, let id = it.tmdb {
+            play(PlayTarget(kind: "movie", tmdb: id, title: it.title ?? ""))
+        } else if row.id == "upnext", let show = it.show, let season = it.season, let episode = it.episode {
+            play(PlayTarget(kind: "show", tmdb: show, season: season, episode: episode,
+                            title: it.showTitle ?? it.title ?? "", episodeTitle: it.episodeTitle))
+        } else {
+            open(it)
         }
     }
 
@@ -593,6 +670,7 @@ final class AppModel {
     var playTarget: PlayTarget?
 
     func play(_ t: PlayTarget, stream: [String: Any]? = nil) {
+        removals["\(t.kind):\(t.tmdb)"] = nil
         playTarget = t
         let f = FinderModel(target: t)
         finder = f
@@ -687,6 +765,9 @@ final class AppModel {
         if let s = splash { s.skip(); return true }
         // the cards over everything first: a key, a profile, the trakt code
         if entry.isOpen { return entry.key(k) }
+        if let b = bindSheet { b.key(k, app: self); return true }
+        if let c = choices { c.key(k, app: self); return true }
+        if let s = speed { s.key(k, app: self); return true }
         if let h = help { h.key(k, app: self); return true }
         if let f = folderPicker { f.key(k, app: self); return true }
         if let e = extSheet { e.key(k, app: self); return true }
@@ -789,8 +870,11 @@ final class AppModel {
             case .down: r.move(1)
             case .left: row.index = max(0, row.index - 1)
             case .right: row.index = min(max(0, row.items.count - 1), row.index + 1)
-            case .ok: if let it = row.current { open(it) }
-            case .menu: if let it = row.current { menu = CardMenu(item: it, row: row, at: focusedArt) }
+            case .ok: if let it = row.current { activate(row, it) }
+            case .menu:
+                if let it = row.current, !(Rails.undoable.contains(row.id) && undoRemoval(it)) {
+                    menu = CardMenu(item: it, row: row, at: focusedArt)
+                }
             case .back: navFocused = true
             default: return false
             }
@@ -909,13 +993,16 @@ final class SearchModel {
         }
     }
 
-    /// up to six titles: trending before typing, then the results' own
+    /// the core's completions for what's typed (keyless)
+    var suggested: [String] = []
+
+    /// up to six titles: trending before typing, then what the core says completes the query
     var suggestions: [String] {
         var out: [String] = []
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        for i in typing ? grid.items : trending {
+        for t in typing ? suggested : trending.compactMap(\.title) {
             guard out.count < 6 else { break }
-            if let t = i.title, !out.contains(t), t.lowercased() != q { out.append(t) }
+            if !out.contains(t), t.lowercased() != q { out.append(t) }
         }
         return out
     }
@@ -939,8 +1026,12 @@ final class SearchModel {
 
     func run() async {
         let q = query.trimmingCharacters(in: .whitespaces)
-        guard q.count > 1 else { grid.items = popularItems; busy = false; return }
+        guard q.count > 1 else { grid.items = popularItems; suggested = []; busy = false; return }
         busy = true
+        Task {
+            let got = (try? await Core.shared.call("tmdb.suggest", ["query": q], as: [String].self)) ?? []
+            if q == query.trimmingCharacters(in: .whitespaces) { suggested = got }
+        }
         let found = (try? await Core.shared.call("tmdb.search", ["query": q], as: [Item].self)) ?? []
         if q == query.trimmingCharacters(in: .whitespaces) {
             grid.items = found

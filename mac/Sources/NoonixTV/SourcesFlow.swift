@@ -280,6 +280,7 @@ final class ExtensionSheetModel {
     init(info: [String: Any], mode: String) {
         self.info = info
         self.mode = mode
+        button = mode == "preview" ? 0 : 1
     }
 
     var isAddon: Bool { mode == "addon" || (mode == "preview" && info["kind"] as? String == "addon") }
@@ -327,9 +328,9 @@ final class ExtensionSheetModel {
         if mode == "preview" {
             return [(info["installed"] as? Bool == true ? L("Update") : L("Add"), "install", true), (L("Cancel"), "close", false)]
         }
-        var out: [(text: String, act: String, primary: Bool)] = []
+        var out: [(text: String, act: String, primary: Bool)] = [(L("Back"), "close", false)]
         if mode == "extension", !(info["missingKeys"] as? [[String: Any]] ?? []).isEmpty { out.append((L("Add Key"), "key", true)) }
-        out.append((info["enabled"] as? Bool == true ? L("Turn Off") : L("Turn On"), "toggle", out.isEmpty))
+        out.append((info["enabled"] as? Bool == true ? L("Turn Off") : L("Turn On"), "toggle", out.count == 1))
         if mode == "extension", info["updatable"] as? Bool == true { out.append((L("Update"), "update", false)) }
         out.append((confirmRemove ? L("Press Again to Remove") : L("Remove"), "remove", false))
         return out
@@ -450,8 +451,10 @@ struct ExtensionSheetView: View {
                 }
                 HStack(spacing: 24 * u) {
                     ForEach(Array(model.buttons.enumerated()), id: \.offset) { i, b in
-                        GlassButton(text: b.text, primary: b.primary, focused: model.button == i, u: u, flat: true)
+                        GlassButton(text: b.text, icon: b.act == "close" && model.mode != "preview" ? "arrow.left" : nil, primary: b.primary,
+                                    focused: model.button == i, u: u, flat: true)
                             .opacity(model.busy ? 0.5 : 1)
+                            .contentShape(.capsule)
                             .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.button = i } }
                             .onTapGesture { model.act(b.act, app: app) }
                     }

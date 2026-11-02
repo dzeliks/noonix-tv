@@ -237,6 +237,9 @@ enum Pads {
         GCController.startWirelessControllerDiscovery {}
     }
 
+    /// the pad's ok is down (held backspace keeps deleting)
+    static var okHeld = false
+
     private static func attach(_ c: GCController) {
         guard let g = c.extendedGamepad else { return }
         Bindings.shared.padKind = Bindings.kind(c)
@@ -245,6 +248,7 @@ enum Pads {
             b?.pressedChangedHandler = { _, _, down in
                 MainActor.assumeIsolated {
                     let action = Bindings.shared.action("pad", name)
+                    if action.flatMap(Bindings.key) == .ok { okHeld = down }
                     // holding back leaves from anywhere
                     if action == "BACK" {
                         backHold?.cancel()

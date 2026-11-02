@@ -82,6 +82,7 @@ final class UILang: @unchecked Sendable {
         "How fast this internet connection and this Mac are. The next step picks a picture quality from it.":
             "Koliko su brzi internet i ovaj Mac. Prema tome sledeći korak bira kvalitet slike.",
         "This Mac": "Ovaj Mac",
+        "This Mac is the weaker of the two": "Slabija karika je ovaj Mac",
         "this Mac": "ovaj Mac",
         "On This Mac": "Na ovom Mac-u",
         "Last time: %1 Mbit/s down, this Mac scored %2": "Prošli put: %1 Mbit/s, Mac je dobio ocenu %2",

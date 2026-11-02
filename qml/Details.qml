@@ -293,31 +293,63 @@ FocusScope {
                     Item {
                         id: plot
                         width: parent.width
-                        readonly property real full: 7 * 24 * 1.16 * page.u
-                        height: seasonsRow.visible ? full : Math.min(plotText.implicitHeight, full)
+                        // whole lines, measured: the font's line is taller than its pixel size
+                        readonly property real line: plotText.lineCount ? plotText.implicitHeight / plotText.lineCount : 32 * page.u
+                        readonly property real pad: 14 * page.u
+                        readonly property real full: 7 * line + 2 * pad
+                        readonly property real tall: plotText.implicitHeight + 2 * pad
+                        height: seasonsRow.visible ? full : Math.min(tall, full)
                         clip: true
-                        readonly property real over: Math.max(0, plotText.implicitHeight - height)
-                        Text {
-                            id: plotText
-                            width: parent.width
-                            text: page.episodeShown && page.episodeShown.overview ? page.episodeShown.overview : page.details ? page.details.overview || "" : ""
-                            color: Theme.fg
-                            opacity: 0.86
-                            font { family: Theme.text; pixelSize: 24 * page.u }
-                            lineHeight: 1.16
-                            wrapMode: Text.WordWrap
+                        readonly property real over: Math.max(0, tall - height)
+                        layer.enabled: over > 1
+                        layer.effect: ShaderEffect {
+                            readonly property real edge: plot.pad / plot.height
+                            fragmentShader: "qrc:/shaders/fade.frag.qsb"
                         }
-                        SequentialAnimation {
-                            id: roll
-                            loops: Animation.Infinite
-                            running: plot.on && plot.over > 1 && page.visible
-                            PauseAnimation { duration: 3200 }
-                            YAnimator { target: plotText; to: -plot.over; duration: plot.over / page.u * 55; easing.type: Easing.InOutSine }
-                            PauseAnimation { duration: 2400 }
-                            YAnimator { target: plotText; to: 0; duration: 700; easing.type: Easing.InOutCubic }
+                        Item {
+                            id: plotRoll
+                            width: parent.width
+                            height: plotText.implicitHeight + 2 * plot.pad
+                            Text {
+                                id: plotText
+                                y: plot.pad
+                                width: parent.width
+                                text: page.episodeShown && page.episodeShown.overview ? page.episodeShown.overview : page.details ? page.details.overview || "" : ""
+                                color: Theme.fg
+                                opacity: 0.86
+                                font { family: Theme.text; pixelSize: 24 * page.u }
+                                lineHeight: 1.16
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                        // read, roll down, wait, come back: one animator at a time, the timer in between idles
+                        readonly property bool rolling: on && over > 1 && page.visible
+                        property bool atEnd: false
+                        YAnimator {
+                            id: rollAnim
+                            target: plotRoll
+                            easing.type: Easing.InOutSine
+                            onFinished: if (plot.rolling) rollWait.restart()
+                        }
+                        Timer {
+                            id: rollWait
+                            interval: plot.atEnd ? 3000 : 4500
+                            onTriggered: {
+                                rollAnim.to = plot.atEnd ? 0 : -plot.over
+                                rollAnim.duration = plot.atEnd ? 800 : plot.over / page.u * 55
+                                plot.atEnd = !plot.atEnd
+                                rollAnim.start()
+                            }
+                        }
+                        onRollingChanged: {
+                            rollAnim.stop()
+                            rollWait.stop()
+                            atEnd = false
+                            plotRoll.y = 0
+                            if (rolling) rollWait.start()
                         }
                         property bool on: true
-                        function reset() { on = false; plotText.y = 0; Qt.callLater(function () { plot.on = true }) }
+                        function reset() { on = false; Qt.callLater(function () { plot.on = true }) }
                         onOverChanged: reset()
                         Connections { target: plotText; function onTextChanged() { plot.reset() } }
                     }

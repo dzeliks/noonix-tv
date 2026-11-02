@@ -6,8 +6,13 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::time::{Duration, Instant};
 
-// cloudflare's speed test answers any size from the nearest edge
-const DOWN: &str = "https://speed.cloudflare.com/__down?bytes=25000000";
+// cloudflare's speed test answers any size from the nearest edge, but turns you away (429) after
+// a few runs in a row: then the public test files of two hosters
+const DOWNS: &[&str] = &[
+    "https://speed.cloudflare.com/__down?bytes=25000000",
+    "https://fsn1-speed.hetzner.com/100MB.bin",
+    "https://proof.ovh.net/files/100Mb.dat",
+];
 const NET_FOR: Duration = Duration::from_secs(6);
 const CPU_FOR: Duration = Duration::from_millis(1500);
 
@@ -22,6 +27,20 @@ pub fn device_score(mb_per_s: f64) -> u32 {
 }
 
 pub async fn internet() -> Result<Value> {
+    let mut last = None;
+    for url in DOWNS {
+        match measure(url).await {
+            Ok(mbps) => return Ok(json!({ "mbps": mbps.round(), "score": net_score(mbps) })),
+            Err(e) => {
+                tracing::warn!("bench.internet: {url}: {e:#}");
+                last = Some(e);
+            }
+        }
+    }
+    Err(last.unwrap_or_else(|| anyhow::anyhow!("no data"))).context("couldn't reach the speed test")
+}
+
+async fn measure(url: &'static str) -> Result<f64> {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Arc;
     // one answer is capped below 100 mb: a few parallel 25 mb downloads, again and again
@@ -32,7 +51,7 @@ pub async fn internet() -> Result<Value> {
             let got = got.clone();
             tokio::spawn(async move {
                 while start.elapsed() < NET_FOR {
-                    let mut res = CLIENT.get(DOWN).timeout(NET_FOR + Duration::from_secs(5)).send().await?.error_for_status()?;
+                    let mut res = CLIENT.get(url).timeout(NET_FOR + Duration::from_secs(5)).send().await?.error_for_status()?;
                     while let Some(c) = res.chunk().await? {
                         got.fetch_add(c.len() as u64, Ordering::Relaxed);
                         if start.elapsed() >= NET_FOR {
@@ -62,10 +81,9 @@ pub async fn internet() -> Result<Value> {
     }
     let bytes = got.load(Ordering::Relaxed) - from_bytes;
     if bytes == 0 {
-        return Err(errors.pop().unwrap_or_else(|| anyhow::anyhow!("no data"))).context("couldn't reach the speed test");
+        return Err(errors.pop().unwrap_or_else(|| anyhow::anyhow!("no data")));
     }
-    let mbps = bytes as f64 * 8.0 / from.elapsed().as_secs_f64().max(0.001) / 1e6;
-    Ok(json!({ "mbps": mbps.round(), "score": net_score(mbps) }))
+    Ok(bytes as f64 * 8.0 / from.elapsed().as_secs_f64().max(0.001) / 1e6)
 }
 
 pub async fn device() -> Result<Value> {

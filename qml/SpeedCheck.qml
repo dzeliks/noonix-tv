@@ -94,7 +94,7 @@ FocusScope {
 
     Item {
         anchors.centerIn: parent
-        width: 1300 * sc.u
+        width: 1440 * sc.u
         height: body.height + 2 * 48 * sc.u
         scale: sc.opacity > 0.5 ? 1 : 0.96
         Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }

@@ -68,7 +68,8 @@ Item {
     Item {
         id: side
         anchors { right: parent.right; rightMargin: 30 * t.u; verticalCenter: parent.verticalCenter }
-        width: Math.max(sw.visible ? sw.width : 0, val.visible ? val.implicitWidth : 0, rank.visible ? rank.width : 0)
+        // a short value keeps some room: copy turning into copied can't push the detail onto a new line
+        width: Math.max(sw.visible ? sw.width : 0, val.visible ? Math.max(val.implicitWidth, 100 * t.u) : 0, rank.visible ? rank.width : 0)
         height: parent.height
         Text {
             id: val

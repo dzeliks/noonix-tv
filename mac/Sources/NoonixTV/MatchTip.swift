@@ -11,6 +11,7 @@ struct MatchTipView: View {
         let u = app.u
         ZStack {
             Color.black.opacity(0.32).ignoresSafeArea()
+                .onTapGesture { app.closeTip(forever: false) }
             VStack(spacing: 0) {
                 // the button it's about, as it looks when focused
                 Image(systemName: "text.bubble")

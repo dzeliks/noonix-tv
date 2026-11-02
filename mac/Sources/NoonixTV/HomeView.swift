@@ -37,7 +37,7 @@ struct RailsPage: View {
                                  rails.point(row, idx)
                              },
                              activate: { idx in
-                                 if row.items.indices.contains(idx) { app.open(row.items[idx]) }
+                                 if row.items.indices.contains(idx) { app.activate(row, row.items[idx]) }
                              })
                     // rows above the focus hide behind the hero: gone at once, back with a fade
                     // (only the fade: the move stays on the page's slide like every other row)
@@ -46,13 +46,19 @@ struct RailsPage: View {
                     .geometryGroup()
                     .offset(y: y)
             }
-            // scrolled: the page fades into the black before it gets to the bar and the profile
-            LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black, location: 0.46),
-                                   .init(color: .black.opacity(0.8), location: 0.62), .init(color: .black.opacity(0.32), location: 0.8),
-                                   .init(color: .black.opacity(0), location: 1)], startPoint: .top, endPoint: .bottom)
-                .frame(width: size.width, height: 300 * u)
-                .opacity(min(1, (wheelY ?? 0) / (120 * u)))
-                .allowsHitTesting(false)
+            // scrolled: the page goes blurrier and darker all the way up, the screen's top row is black
+            let amount = min(1, max(0, (wheelY ?? 0) / (560 * u)))
+            ZStack {
+                Rectangle().fill(.ultraThinMaterial)
+                    .mask(LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black.opacity(0.75), location: 0.4),
+                                                 .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
+                LinearGradient(stops: [.init(color: .black, location: 0), .init(color: .black.opacity(0.61), location: 0.25),
+                                       .init(color: .black.opacity(0.31), location: 0.5), .init(color: .black.opacity(0.1), location: 0.75),
+                                       .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom)
+            }
+            .frame(width: size.width, height: 340 * u)
+            .opacity(amount * amount * (3 - 2 * amount))
+            .allowsHitTesting(false)
             // the rows before the page has them: placeholders where they'll be
             if !rails.known {
                 ForEach(Array(Rails.placeholders.enumerated()), id: \.offset) { i, row in

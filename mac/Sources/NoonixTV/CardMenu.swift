@@ -106,34 +106,7 @@ final class CardMenu {
                 })
             }
         case .dismiss:
-            guard let row else { return }
-            row.items.removeAll { $0.id == it.id }
-            row.index = min(row.index, max(0, row.items.count - 1))
-            // gone here at once; trakt hears of it once the undo has passed
-            let profile = app.profiles?.current ?? 0
-            Task {
-                if (try? await Core.shared.raw("home.dismiss", ["item": it.json, "profile": profile, "sync": false])) != nil {
-                    // the same title can sit in rows on the other pages
-                    app.refreshRows()
-                    app.toast(L("Removed"), action: L("Undo"), secs: 6, run: {
-                        Task {
-                            if (try? await Core.shared.raw("home.dismiss", ["item": it.json, "profile": profile, "undo": true, "sync": false])) == nil {
-                                app.toast(L("Couldn't undo that change"))
-                            }
-                            app.refreshRows()
-                        }
-                    }, commit: {
-                        Task {
-                            if (try? await Core.shared.raw("home.dismiss", ["item": it.json, "profile": profile])) == nil {
-                                app.toast(L("Removed here · couldn't update Trakt"))
-                            }
-                        }
-                    })
-                } else {
-                    app.toast(L("Couldn't remove it"))
-                    await row.load(force: true)
-                }
-            }
+            app.dismiss(it)
         }
     }
 }

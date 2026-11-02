@@ -316,12 +316,10 @@ struct DetailsView: View {
                         .font(Theme.display(26 * u, .semibold)).foregroundStyle(Theme.fg).lineLimit(1)
                 } else if let t = d?.tagline, !t.isEmpty {
                     Text(t).font(Theme.display(26 * u, .semibold)).foregroundStyle(Theme.fg)
+                } else if !model.isMovie {
+                    Text(" ").font(Theme.display(26 * u, .semibold))
                 }
-                Text((ep?.overview).flatMap { $0.isEmpty ? nil : $0 } ?? d?.item.overview ?? "")
-                    .font(Theme.text(24 * u))
-                    .foregroundStyle(Theme.fg.opacity(0.86))
-                    .lineSpacing(24 * u * 0.19)
-                    .lineLimit(8)
+                PlotBox(text: (ep?.overview).flatMap { $0.isEmpty ? nil : $0 } ?? d?.item.overview ?? "", fixed: !model.isMovie, u: u)
                 let cast = (d?.cast ?? []).prefix(4).compactMap(\.name)
                 if !cast.isEmpty {
                     Text(L("Starring %1", cast.joined(separator: ", "))).font(Theme.text(21 * u)).foregroundStyle(Theme.fg2).lineLimit(1)
@@ -438,6 +436,59 @@ struct DetailsView: View {
 }
 
 /// a tvos button (qml GlassButton): liquid glass at rest, white and lifted when focused
+/// a plot in a box of at most seven lines. a show's box has one height whatever episode is on: a
+/// longer plot scrolls slowly inside it and comes back, nothing around it moves
+struct PlotBox: View {
+    let text: String
+    let fixed: Bool
+    let u: CGFloat
+    @State private var tall: CGFloat = 0
+    @State private var seven: CGFloat = 0
+    @State private var y: CGFloat = 0
+
+    private func line(_ t: String) -> some View {
+        Text(t).font(Theme.text(24 * u)).lineSpacing(24 * u * 0.19).fixedSize(horizontal: false, vertical: true)
+    }
+
+    var body: some View {
+        let pad = 14 * u
+        let full = seven + 2 * pad, need = tall + 2 * pad
+        let h = fixed ? full : min(need, full)
+        let over = max(0, need - h)
+        line(text)
+            .foregroundStyle(Theme.fg.opacity(0.86))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { tall = $0 }
+            .padding(.vertical, pad)
+            .offset(y: y)
+            .frame(height: h, alignment: .top)
+            .clipped()
+            .mask {
+                let e = over > 1 ? min(0.5, pad / max(1, h)) : 0
+                LinearGradient(stops: [.init(color: e > 0 ? .clear : .black, location: 0), .init(color: .black, location: e),
+                                       .init(color: .black, location: 1 - e), .init(color: e > 0 ? .clear : .black, location: 1)],
+                               startPoint: .top, endPoint: .bottom)
+            }
+            .background(alignment: .topLeading) {
+                line("x\nx\nx\nx\nx\nx\nx").hidden()
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { seven = $0 }
+            }
+            .padding(.vertical, -pad)
+            .task(id: "\(text)|\(Int(over))") {
+                y = 0
+                guard over > 1 else { return }
+                let down = Double(over / u) * 0.055
+                while !Task.isCancelled {
+                    guard (try? await Task.sleep(for: .seconds(4.5))) != nil else { return }
+                    withAnimation(.easeInOut(duration: down)) { y = -over }
+                    guard (try? await Task.sleep(for: .seconds(down + 3))) != nil else { return }
+                    withAnimation(.easeInOut(duration: 0.8)) { y = 0 }
+                    guard (try? await Task.sleep(for: .seconds(0.8))) != nil else { return }
+                }
+            }
+    }
+}
+
 struct GlassButton: View {
     let text: String
     var icon: String?

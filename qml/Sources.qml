@@ -53,6 +53,8 @@ FocusScope {
     property int hoverChip: -1
     // several addons: an All tab first, and it's the one on
     readonly property var tabs: addons.length > 1 ? [{ name: "", all: true, state: "done", count: streams.length }].concat(addons) : addons
+    // what the list holds, not what the addon sent: the same number you can scroll through
+    function countOf(tab) { return tab.all ? streams.length : streams.filter(function (x) { return x.addon === tab.name }).length }
     signal pick(var stream)
     signal closed()
 
@@ -162,8 +164,11 @@ FocusScope {
                         anchors.centerIn: parent
                         spacing: 10 * sheet.u
                         Text {
+                            // a very long addon name stays inside the sheet
+                            width: Math.min(implicitWidth, chips.width - 120 * sheet.u)
+                            elide: Text.ElideRight
                             anchors.verticalCenter: parent.verticalCenter
-                            text: (modelData.all ? qsTr("All") : modelData.name) + (modelData.state === "loading" ? "" : "  " + (modelData.state === "error" ? qsTr("no answer") : modelData.count))
+                            text: (modelData.all ? qsTr("All") : modelData.name) + (modelData.state === "loading" ? "" : "  " + (modelData.state === "error" ? qsTr("no answer") : sheet.countOf(modelData)))
                             color: chipItem.foc ? Theme.focusFg : chipItem.on ? Theme.fg : Theme.fg2
                             font { family: Theme.text; pixelSize: 20 * sheet.u; weight: Font.Medium }
                         }
@@ -333,9 +338,10 @@ FocusScope {
                         color: rowItem.foc ? Theme.focusFg : Theme.fg
                         font { family: Theme.text; pixelSize: 23 * sheet.u; weight: Font.Medium }
                     }
-                    Text {
+                    // too long for the row: reads through once it's the selected one
+                    Marquee {
                         width: parent.width
-                        elide: Text.ElideRight
+                        active: rowItem.foc
                         color: rowItem.foc ? Qt.rgba(0.1, 0.1, 0.12, 0.7) : Theme.fg3
                         font { family: Theme.text; pixelSize: 20 * sheet.u }
                         text: [rowItem.s.codec, (rowItem.s.audio || []).slice(0, 2).join(" "), rowItem.s.channels, sheet.gb(rowItem.s.size),

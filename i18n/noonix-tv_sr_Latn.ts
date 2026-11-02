@@ -2,6 +2,56 @@
 <!DOCTYPE TS>
 <TS version="2.1" language="sr_Latn">
     <context>
+        <name>BindSheet</name>
+        <message>
+            <source>Select and Back always keep one</source>
+            <translation>Izaberi i Nazad uvek zadržavaju bar jedno</translation>
+        </message>
+        <message>
+            <source>Press a button on the controller</source>
+            <translation>Pritisni dugme na kontroleru</translation>
+        </message>
+        <message>
+            <source>Press a key, Esc leaves it as it is</source>
+            <translation>Pritisni taster, Esc ostavlja kako jeste</translation>
+        </message>
+        <message>
+            <source>Up to three for this action</source>
+            <translation>Do tri za ovu radnju</translation>
+        </message>
+        <message>
+            <source>Waiting…</source>
+            <translation>Čekam…</translation>
+        </message>
+        <message>
+            <source>Slot %1</source>
+            <translation>Mesto %1</translation>
+        </message>
+        <message>
+            <source>Back</source>
+            <translation>Nazad</translation>
+        </message>
+        <message>
+            <source>Clear Slot %1</source>
+            <translation>Obriši mesto %1</translation>
+        </message>
+    </context>
+    <context>
+        <name>Card</name>
+        <message>
+            <source>Tap to undo</source>
+            <translation>Dodirni da vratiš</translation>
+        </message>
+        <message>
+            <source>Click to undo</source>
+            <translation>Klikni da vratiš</translation>
+        </message>
+        <message>
+            <source>Press OK to undo</source>
+            <translation>Pritisni OK da vratiš</translation>
+        </message>
+    </context>
+    <context>
         <name>Details</name>
         <message>
             <source>Back</source>
@@ -186,6 +236,10 @@
             <translation>Otkaži</translation>
         </message>
         <message>
+            <source>Back</source>
+            <translation>Nazad</translation>
+        </message>
+        <message>
             <source>Add Key</source>
             <translation>Dodaj ključ</translation>
         </message>
@@ -330,6 +384,17 @@
         <message>
             <source>OK opens a folder, Back goes up</source>
             <translation>OK otvara folder, Nazad ide gore</translation>
+        </message>
+    </context>
+    <context>
+        <name>Gauge</name>
+        <message>
+            <source>Waiting</source>
+            <translation>Čeka</translation>
+        </message>
+        <message>
+            <source>Weakest</source>
+            <translation>Najslabije</translation>
         </message>
     </context>
     <context>
@@ -509,14 +574,6 @@
         <message>
             <source>Couldn't undo that change</source>
             <translation>Promena nije poništena</translation>
-        </message>
-        <message>
-            <source>Removed</source>
-            <translation>Uklonjeno</translation>
-        </message>
-        <message>
-            <source>Removed here · couldn't update Trakt</source>
-            <translation>Uklonjeno ovde · Trakt nije ažuriran</translation>
         </message>
         <message>
             <source>Saved · Noonix TV picks these again</source>
@@ -1130,10 +1187,6 @@
             <translation>Pokreni</translation>
         </message>
         <message>
-            <source>Measuring…</source>
-            <translation>Merim…</translation>
-        </message>
-        <message>
             <source>Last time: %1 Mbit/s down, this PC scored %2</source>
             <translation>Prošli put: %1 Mbit/s, računar je dobio ocenu %2</translation>
         </message>
@@ -1144,6 +1197,10 @@
         <message>
             <source>Other accounts</source>
             <translation>Ostali nalozi</translation>
+        </message>
+        <message>
+            <source>Built in</source>
+            <translation>Ugrađeno</translation>
         </message>
         <message>
             <source>Language, profiles, Trakt, sources, picture quality, subtitles</source>
@@ -1256,6 +1313,10 @@
         <message>
             <source>Noonix formatter for AIOStreams</source>
             <translation>Noonix formatter za AIOStreams</translation>
+        </message>
+        <message>
+            <source>Copied</source>
+            <translation>Kopirano</translation>
         </message>
         <message>
             <source>If you run your own AIOStreams: paste it into its Formatter › Custom when a source says Unsupported formatting</source>
@@ -1490,20 +1551,8 @@
             <translation>Kontroler</translation>
         </message>
         <message>
-            <source>Press a button…</source>
-            <translation>Pritisni dugme…</translation>
-        </message>
-        <message>
             <source>Keyboard</source>
             <translation>Tastatura</translation>
-        </message>
-        <message>
-            <source>Press a key…</source>
-            <translation>Pritisni taster…</translation>
-        </message>
-        <message>
-            <source>Always</source>
-            <translation>Uvek</translation>
         </message>
         <message>
             <source>Moving around</source>
@@ -1789,10 +1838,6 @@
             <translation>Čekam kod ispod</translation>
         </message>
         <message>
-            <source>Test</source>
-            <translation>Testiraj</translation>
-        </message>
-        <message>
             <source>Find extra subtitles</source>
             <translation>Nađi dodatne titlove</translation>
         </message>
@@ -1917,8 +1962,20 @@
             <translation>Trakt, OpenSubtitles i tvoji debrid ključevi, i danima kad je Noonix TV zatvoren</translation>
         </message>
         <message>
+            <source>Run</source>
+            <translation>Pokreni</translation>
+        </message>
+        <message>
+            <source>You can watch up to %1</source>
+            <translation>Možeš da gledaš do %1</translation>
+        </message>
+        <message>
             <source>Internet</source>
             <translation>Internet</translation>
+        </message>
+        <message>
+            <source>%1 points</source>
+            <translation>%1 poena</translation>
         </message>
         <message>
             <source>Measuring…</source>
@@ -1931,18 +1988,6 @@
         <message>
             <source>%1 Mbit/s down</source>
             <translation>%1 Mbit/s preuzimanje</translation>
-        </message>
-        <message>
-            <source>Score %1</source>
-            <translation>Ocena %1</translation>
-        </message>
-        <message>
-            <source>Right after the internet</source>
-            <translation>Odmah posle interneta</translation>
-        </message>
-        <message>
-            <source>%1 threads</source>
-            <translation>%1 niti</translation>
         </message>
         <message>
             <source>In the app menu</source>
@@ -2045,10 +2090,6 @@
             <translation>Taj kod nije prošao</translation>
         </message>
         <message>
-            <source>Couldn't measure</source>
-            <translation>Merenje nije uspelo</translation>
-        </message>
-        <message>
             <source>Step %1 of %2</source>
             <translation>Korak %1 od %2</translation>
         </message>
@@ -2130,6 +2171,10 @@
             <source>no answer</source>
             <translation>ne javlja se</translation>
         </message>
+        <message>
+            <source>All</source>
+            <translation>Sve</translation>
+        </message>
         <message numerus="yes">
             <source>%n torrent source(s) hidden</source>
             <translation>
@@ -2187,12 +2232,12 @@
             <translation>Nema izvora</translation>
         </message>
         <message>
-            <source>Best %1 of %2</source>
-            <translation>Najboljih %1 od %2</translation>
+            <source>%1 shown</source>
+            <translation>Prikazano: %1</translation>
         </message>
         <message>
-            <source>%1 hidden (cam, 3D, too big, your hidden patterns)</source>
-            <translation>%1 skriveno (cam, 3D, preveliko, tvoje skrivene reči)</translation>
+            <source>%1 filtered out (lower ranked, cam, 3D, too big or your hidden patterns)</source>
+            <translation>Filtrirano: %1 (slabije rangirani, cam, 3D, preveliki ili tvoje skrivene reči)</translation>
         </message>
         <message>
             <source>%1 torrents (off in Settings › Sources)</source>
@@ -2459,6 +2504,89 @@
         <message>
             <source>Not Now</source>
             <translation>Ne sad</translation>
+        </message>
+    </context>
+    <context>
+        <name>SpeedCheck</name>
+        <message>
+            <source>Light</source>
+            <translation>Štedljivo</translation>
+        </message>
+        <message>
+            <source>Full HD</source>
+            <translation>Full HD</translation>
+        </message>
+        <message>
+            <source>4K</source>
+            <translation>4K</translation>
+        </message>
+        <message>
+            <source>Maximum</source>
+            <translation>Maksimalno</translation>
+        </message>
+        <message>
+            <source>This device</source>
+            <translation>Ovaj uređaj</translation>
+        </message>
+        <message>
+            <source>This PC</source>
+            <translation>Ovaj računar</translation>
+        </message>
+        <message>
+            <source>Your internet is the weaker of the two</source>
+            <translation>Slabija karika je internet</translation>
+        </message>
+        <message>
+            <source>This device is the weaker of the two</source>
+            <translation>Slabija karika je ovaj uređaj</translation>
+        </message>
+        <message>
+            <source>This PC is the weaker of the two</source>
+            <translation>Slabija karika je ovaj računar</translation>
+        </message>
+        <message>
+            <source>Both reach the same zone</source>
+            <translation>Oba su u istoj zoni</translation>
+        </message>
+        <message>
+            <source>Only one of the two could be measured</source>
+            <translation>Izmereno je samo jedno od dva</translation>
+        </message>
+        <message>
+            <source>Couldn't measure</source>
+            <translation>Merenje nije uspelo</translation>
+        </message>
+        <message>
+            <source>Speed check</source>
+            <translation>Provera brzine</translation>
+        </message>
+        <message>
+            <source>Internet</source>
+            <translation>Internet</translation>
+        </message>
+        <message>
+            <source>Mbit/s</source>
+            <translation>Mbit/s</translation>
+        </message>
+        <message>
+            <source>points</source>
+            <translation>poena</translation>
+        </message>
+        <message>
+            <source>You can watch up to %1</source>
+            <translation>Možeš da gledaš do %1</translation>
+        </message>
+        <message>
+            <source>Measuring…</source>
+            <translation>Merim…</translation>
+        </message>
+        <message>
+            <source>Run Again</source>
+            <translation>Pokreni ponovo</translation>
+        </message>
+        <message>
+            <source>Done</source>
+            <translation>Gotovo</translation>
         </message>
     </context>
     <context>

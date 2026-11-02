@@ -87,7 +87,10 @@ final class KeyboardModel {
             if r < 0 || r >= rows.count { leave(k == .up ? "up" : "down"); return true }
             col = nearest(r, centre)
             row = r
-        case .ok: press(rows[row][focusIndex], at: (row, focusIndex))
+        case .ok:
+            let cap = rows[row][focusIndex]
+            press(cap, at: (row, focusIndex))
+            if cap.v == "backspace" { holdBackspace { Pads.okHeld } }
         default: return false
         }
         return true
@@ -96,6 +99,22 @@ final class KeyboardModel {
     func point(_ r: Int, _ i: Int) {
         row = r
         col = max(0, keys(r).firstIndex { $0.i == i } ?? 0)
+    }
+
+    /// backspace held down: it keeps deleting, faster and faster
+    @ObservationIgnored private var holdTask: Task<Void, Never>?
+    @ObservationIgnored var mouseHeld = false
+    func holdBackspace(while still: @escaping () -> Bool) {
+        holdTask?.cancel()
+        holdTask = Task {
+            var wait = 420.0
+            while true {
+                try? await Task.sleep(for: .milliseconds(Int(wait)))
+                guard !Task.isCancelled, still() else { return }
+                special("backspace")
+                wait = max(45, wait * 0.8)
+            }
+        }
     }
 
     func press(_ k: Cap, at: (Int, Int)) {
@@ -153,7 +172,17 @@ struct KeyboardView: View {
                             .offset(x: pad + start * (unit + gap), y: pad + CGFloat(r) * (keyH + gap))
                             .zIndex(active && model.row == r && model.focusIndex == i ? 1 : 0)
                             .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.point(r, i) } }
-                            .onTapGesture { model.point(r, i); model.press(k, at: (r, i)) }
+                            .gesture(k.v == "backspace" ? nil : TapGesture().onEnded { model.point(r, i); model.press(k, at: (r, i)) })
+                            // no tap here: it would hold the press back for about a second
+                            .gesture(k.v == "backspace" ? DragGesture(minimumDistance: 0)
+                                .onChanged { _ in
+                                    guard !model.mouseHeld else { return }
+                                    model.mouseHeld = true
+                                    model.point(r, i)
+                                    model.press(k, at: (r, i))
+                                    model.holdBackspace { model.mouseHeld }
+                                }
+                                .onEnded { _ in model.mouseHeld = false } : nil)
                     }
                 }
             }

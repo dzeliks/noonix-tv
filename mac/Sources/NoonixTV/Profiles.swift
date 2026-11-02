@@ -272,7 +272,7 @@ struct ProfileEditView: View {
         .panelGlass(56 * u, u: u, lift: -0.22)
         // in the middle of the app, over whatever asked for it; nothing behind it takes the mouse
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background { Color.black.opacity(0.001).contentShape(.rect).onTapGesture {} }
+        .background { Color.black.opacity(0.001).contentShape(.rect).onTapGesture { model.cancel() } }
     }
 }
 
@@ -409,7 +409,7 @@ struct TraktChoiceView: View {
     var body: some View {
         let u = app.u
         ZStack {
-            Color.black.opacity(0.4).contentShape(.rect).onTapGesture {}
+            Color.black.opacity(0.4).contentShape(.rect).onTapGesture { model.key(.back, app: app) }
             VStack(alignment: .leading, spacing: 14 * u) {
                 Text(L("This profile already has a history")).font(Theme.display(42 * u, .bold)).foregroundStyle(Theme.fg)
                 Text(model.summary).font(Theme.text(27 * u, .medium)).foregroundStyle(Theme.fg2).padding(.bottom, 10 * u)
@@ -439,7 +439,7 @@ struct TraktCodeView: View {
     var body: some View {
         let u = app.u
         ZStack {
-            Color.black.opacity(0.4).contentShape(.rect).onTapGesture {}
+            Color.black.opacity(0.4).contentShape(.rect).onTapGesture { app.closeTrakt(false) }
             VStack(spacing: 14 * u) {
                 Text(model.name.isEmpty ? L("Trakt") : L("Trakt for %1", model.name)).font(Theme.display(46 * u, .bold)).foregroundStyle(Theme.fg)
                 Text(model.userCode == nil ? L("Asking Trakt for a code…") : L("On your phone, open %1 and enter", model.url))

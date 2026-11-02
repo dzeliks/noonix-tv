@@ -18,7 +18,6 @@ final class SetupModel {
         "playback": L("This Mac"), "benchmark": L("Speed check"), "quality": L("Picture quality"), "done": L("You're all set"),
     ] }
 
-    enum Bench { case notRun, running, next, done([String: Any]), failed(String) }
 
     var step = 0 { didSet { if step != oldValue { langSnap = nil } } }
     /// the languages' order as the step opened (the chosen ones first): a line doesn't jump away
@@ -34,8 +33,8 @@ final class SetupModel {
     var subtitles: [String] = ["en"]
     var langOptions: [String: Any]?
     var quality: [String: Any]?
-    var internet: Bench = .notRun
-    var device: Bench = .notRun
+    let speed = SpeedCheckModel()
+    @ObservationIgnored private var benchAsked = false
     var busy = false
     var code: TraktCodeModel?
     var codeProfile = 0
@@ -178,19 +177,16 @@ final class SetupModel {
             out.append(Line(label: L("Match the screen's refresh rate"), detail: L("24 / 25 / 50 / 60 Hz for each video, never the resolution or HDR"),
                             checkable: true, checked: appS["refresh_match"] as? Bool == true, act: "refresh"))
         case "benchmark":
-            func line(_ label: String, _ b: Bench, what: String) -> Line {
-                switch b {
-                case .running: return Line(label: label, detail: L("Measuring…"), value: "…", act: "bench")
-                case .next: return Line(label: label, detail: L("Right after the internet"), value: "…", act: "bench")
-                case .notRun: return Line(label: label, detail: L("Not measured yet"), value: L("Test"), act: "bench")
-                case .failed(let e): return Line(label: label, detail: e, value: L("Test"), act: "bench")
-                case .done(let d):
-                    return Line(label: label, detail: what == "net" ? L("%1 Mbit/s down", "\(d["mbps"] ?? "?")") : L("%1 threads", "\(d["threads"] ?? "?")"),
-                                value: d["score"].map { L("Score %1", "\($0)") } ?? L("Test"), act: "bench")
-                }
+            let sp = speed
+            out.append(Line(label: L("Speed check"),
+                            detail: sp.running ? L("Measuring…") : !sp.headline.isEmpty ? L("You can watch up to %1", sp.headline) + "  ·  " + sp.why : L("Not measured yet"),
+                            value: sp.running ? "…" : L("Run"), act: "bench"))
+            if let m = sp.netValue {
+                out.append(Line(label: L("Internet"), detail: L("%1 Mbit/s down", String(Int(m.rounded()))), value: sp.netZones[safe: sp.netZone]?.label ?? "", act: "bench"))
             }
-            out.append(line(L("Internet"), internet, what: "net"))
-            out.append(line(L("This Mac"), device, what: "device"))
+            if let p = sp.devValue {
+                out.append(Line(label: L("This Mac"), detail: L("%1 points", String(Int(p.rounded()))), value: sp.devZones[safe: sp.devZone]?.label ?? "", act: "bench"))
+            }
         case "quality":
             out = SettingsModel.qualityLines(quality, setup: true)
         case "done":
@@ -239,21 +235,6 @@ final class SetupModel {
         }
     }
 
-    private func runBench() {
-        if case .running = internet { return }
-        if case .running = device { return }
-        if case .next = device { return }
-        internet = .running
-        device = .next
-        // one after the other: the cpu test would slow the download down
-        Task {
-            if let d = await json("bench.internet") as? [String: Any] { internet = .done(d) } else { internet = .failed(L("Couldn't measure")) }
-            device = .running
-            if let d = await json("bench.device") as? [String: Any] { device = .done(d) } else { device = .failed(L("Couldn't measure")) }
-            quality = await json("quality.options") as? [String: Any] ?? quality
-        }
-    }
-
     func run(_ l: Line, app: AppModel) {
         keepIndex = index
         let a = l.act
@@ -291,7 +272,8 @@ final class SetupModel {
                 }
             }
         } else if a == "bench" {
-            runBench()
+            speed.measured = { [weak self] in Task { self?.quality = await self?.json("quality.options") as? [String: Any] ?? self?.quality } }
+            speed.open(auto: speed.netValue == nil || speed.devValue == nil, app: app)
         } else if a.hasPrefix("quality:") {
             Task { quality = await json("quality.set", ["id": String(a.dropFirst(8))]) as? [String: Any] ?? quality }
         } else if a.hasPrefix("lang:") {
@@ -401,7 +383,11 @@ final class SetupModel {
     }
 
     private func entered() {
-        if name == "benchmark", case .notRun = internet { runBench() }
+        if name == "benchmark", !benchAsked, let app = AppModel.current {
+            benchAsked = true
+            speed.measured = { [weak self] in Task { self?.quality = await self?.json("quality.options") as? [String: Any] ?? self?.quality } }
+            speed.open(auto: true, app: app)
+        }
         if name == "quality" { Task { quality = await json("quality.options") as? [String: Any] ?? quality } }
         if name == "trakt" || name == "profiles" { Task { await refresh() } }
     }

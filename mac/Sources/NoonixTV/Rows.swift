@@ -10,6 +10,8 @@ struct Card: View {
     var label: String?
     var sublabel: String?
     var posterW: CGFloat?
+    /// waiting out its undo time: the cover pulls in, a line round the border drains
+    var removal: Removal?
     @State private var me = UUID()
     private var lifted: Bool { focused && (!PointerMode.shared.on || PointerMode.shared.onCard) }
 
@@ -27,11 +29,19 @@ struct Card: View {
     }
 
     var body: some View {
+        let removing = removal != nil
+        let inset = removing ? 16 * u : 0
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .bottom) {
                 Art(url: wide ? (media.still ?? media.backdrop) : media.poster, radius: 18 * u,
                     px: wide ? 900 : 700, placeholder: title, u: u)
-                if let p = media.progress, p > 0.01, p < 0.97 {
+                    .scaleEffect(x: 1 - 2 * inset / artW, y: 1 - 2 * inset / artH)
+                    .opacity(removing ? 0.55 : 1)
+                if let removal {
+                    UndoFace(removal: removal, radius: 18 * u, u: u, width: artW)
+                        .transition(.opacity)
+                }
+                if !removing, let p = media.progress, p > 0.01, p < 0.97 {
                     Capsule().fill(Color.white.opacity(0.28))
                         .frame(height: 7 * u)
                         .overlay(alignment: .leading) {
@@ -41,6 +51,7 @@ struct Card: View {
                 }
             }
             .frame(width: artW, height: artH)
+            .animation(.easeInOut(duration: 0.42), value: removing)
             // where the focused card's art is, for the card menu
             .background {
                 if focused {
@@ -76,6 +87,55 @@ struct Card: View {
     }
 }
 
+/// the line runs clockwise from the top centre, so trimming its end drains it back counter clockwise
+struct DrainLine: Shape {
+    var radius: CGFloat
+
+    func path(in r: CGRect) -> Path {
+        var p = Path()
+        p.move(to: CGPoint(x: r.midX, y: r.minY))
+        p.addArc(tangent1End: CGPoint(x: r.maxX, y: r.minY), tangent2End: CGPoint(x: r.maxX, y: r.maxY), radius: radius)
+        p.addArc(tangent1End: CGPoint(x: r.maxX, y: r.maxY), tangent2End: CGPoint(x: r.minX, y: r.maxY), radius: radius)
+        p.addArc(tangent1End: CGPoint(x: r.minX, y: r.maxY), tangent2End: CGPoint(x: r.minX, y: r.minY), radius: radius)
+        p.addArc(tangent1End: CGPoint(x: r.minX, y: r.minY), tangent2End: CGPoint(x: r.midX, y: r.minY), radius: radius)
+        p.addLine(to: CGPoint(x: r.midX, y: r.minY))
+        return p
+    }
+}
+
+/// what shows on a tile that's on its way out (qml Card's removal)
+struct UndoFace: View {
+    let removal: Removal
+    let radius: CGFloat
+    let u: CGFloat
+    let width: CGFloat
+    @State private var left: CGFloat = 1
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: radius).strokeBorder(.white.opacity(0.16), lineWidth: 2 * u)
+            DrainLine(radius: max(4, radius - 8 * u))
+                .trim(from: 0, to: left)
+                .stroke(.white, style: StrokeStyle(lineWidth: 4 * u, lineCap: .round))
+                .padding(8 * u)
+            VStack(spacing: 10 * u) {
+                Image(systemName: "arrow.uturn.backward").font(.system(size: 34 * u, weight: .semibold))
+                Text(PointerMode.shared.on ? L("Click to undo") : L("Press OK to undo"))
+                    .font(Theme.display(24 * u, .semibold))
+                    .multilineTextAlignment(.center)
+            }
+            .foregroundStyle(.white)
+            .frame(width: width - 56 * u)
+            .shadow(color: .black.opacity(0.6), radius: 10 * u)
+        }
+        .onAppear {
+            let rest = max(0, removal.until.timeIntervalSinceNow)
+            left = rest / AppModel.removalSecs
+            withAnimation(.linear(duration: rest)) { left = 0 }
+        }
+    }
+}
+
 /// a horizontal strip of cards that slides under the focus (qml MediaRow's list): the focus rests
 /// on the row's rest slot, cards that scroll into the margin leave instead of peeking
 struct CardStrip: View {
@@ -89,6 +149,8 @@ struct CardStrip: View {
     var spacing: CGFloat
     var labels: ((Item) -> (String?, String?))?
     var badge: ((Item) -> Bool)?
+    /// the rows a removal is for: the same title elsewhere (library, search) isn't leaving
+    var undoable = false
     let point: (Int) -> Void
     let activate: (Int) -> Void
 
@@ -151,10 +213,10 @@ struct CardStrip: View {
         let visible = Int((width / step).rounded(.up)) + 1
         let range = max(0, first - 3)..<min(items.count, first + visible + 3)
         ZStack(alignment: .topLeading) {
-            ForEach(Array(range), id: \.self) { i in
-                let it = items[i]
+            ForEach(range.map { ($0, items[$0]) }, id: \.1.id) { i, it in
                 let l = labels?(it)
-                Card(media: it, style: style, focused: focused && i == index, u: u, label: l?.0, sublabel: l?.1)
+                Card(media: it, style: style, focused: focused && i == index, u: u, label: l?.0, sublabel: l?.1,
+                     removal: undoable ? AppModel.current?.removal(it) : nil)
                     .overlay(alignment: .topTrailing) {
                         if badge?(it) == true {
                             Circle().fill(Color.black.opacity(0.55))
@@ -175,6 +237,7 @@ struct CardStrip: View {
                     .zIndex(focused && i == index ? 1 : 0)
                     .geometryGroup()
                     .offset(x: margin + CGFloat(i) * step - px)
+                    .transition(.asymmetric(insertion: .opacity, removal: .opacity.combined(with: .offset(x: -36 * u))))
             }
         }
         .frame(width: width, height: cardH + 30 * u, alignment: .topLeading)
@@ -186,6 +249,13 @@ struct CardStrip: View {
         .onDisappear { if Input.row === side { Input.row = nil } }
         .animation(side.y == nil ? Theme.slide : nil, value: first)
         .onChange(of: first, initial: true) { side.start = CGFloat(first) * step; side.end = CGFloat(lastFirst) * step }
+        // one gone left of the view: the view stays on its cards, nothing moves
+        .onChange(of: items.map(\.id)) { old, new in
+            let gone = old.prefix(first).filter { !new.contains($0) }.count
+            guard gone > 0 else { return }
+            if let y = side.y { side.y = max(0, y - CGFloat(gone) * step) }
+            if let h = held { held = max(0, h - gone) }
+        }
         .onChange(of: index) { old, new in
             held = Input.pointerHolds ? (side.y == nil ? held.map { min($0, lastFirst) } ?? firstShown(old) : held) : nil
         }
@@ -254,7 +324,8 @@ struct MediaRowView: View {
                         .padding(.top, 40 * u)
                 } else {
                     CardStrip(items: model.items, style: style, index: model.index, focused: active, u: u, width: width,
-                              restSlot: model.restSlot, spacing: spacing, point: point, activate: activate)
+                              restSlot: model.restSlot, spacing: spacing, undoable: Rails.undoable.contains(model.id),
+                              point: point, activate: activate)
                 }
             }
             .frame(width: width, height: MediaRowView.height(style, u: u) - 31 * u * 1.2 - 40 * u, alignment: .topLeading)

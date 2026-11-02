@@ -25,8 +25,8 @@ Item {
     readonly property real sweep: 240
     readonly property real seg: zones.length ? sweep / zones.length : sweep
     readonly property real cx: width / 2
-    readonly property real cy: 262 * u
-    readonly property real r: 196 * u
+    readonly property real cy: 306 * u
+    readonly property real r: 170 * u
     function fraction(v) {
         var n = zones.length
         if (!n) return 0
@@ -96,7 +96,8 @@ Item {
             }
             Text {
                 readonly property real a: section.mid * Math.PI / 180
-                x: g.cx + Math.cos(a) * (g.r + 42 * g.u) - width / 2 + Math.cos(a) * width * 0.34
+                // the side labels grow away from the arc, so they end inside the card
+                x: g.cx + Math.cos(a) * (g.r + 28 * g.u) - width / 2 + Math.cos(a) * width / 2
                 y: g.cy + Math.sin(a) * (g.r + 42 * g.u) - height / 2
                 text: section.info.label || ""
                 color: section.here ? Theme.fg : Theme.fg3
@@ -123,7 +124,7 @@ Item {
             id: needle
             width: 0; height: 0
             rotation: g.startAngle + g.sweep * g.fraction(g.value) + 90
-            opacity: g.waiting ? 0.35 : 1
+            opacity: g.waiting || g.note ? 0.35 : 1
             Behavior on rotation { RotationAnimator { duration: 520; easing.type: Easing.OutCubic } }
             Rectangle {
                 x: -3 * g.u; y: -(g.r - 30 * g.u)
@@ -145,15 +146,16 @@ Item {
 
     Column {
         x: 0
-        y: g.cy + 62 * g.u
+        // an error is wide: below the needle at rest
+        y: g.cy + (g.note ? 90 : 44) * g.u
         width: parent.width
         spacing: 2 * g.u
         Text {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: g.note || g.number || (g.waiting ? qsTr("Next") : "…")
-            color: Theme.fg
-            font { family: Theme.display; pixelSize: (g.note ? 30 : 66) * g.u; weight: Font.Bold }
+            text: g.note || g.number || (g.waiting ? qsTr("Waiting") : "…")
+            color: g.waiting && !g.number ? Theme.fg3 : Theme.fg
+            font { family: Theme.display; pixelSize: (g.note || (g.waiting && !g.number) ? 30 : 66) * g.u; weight: Font.Bold }
             SequentialAnimation on opacity {
                 running: g.busy
                 loops: Animation.Infinite
@@ -165,7 +167,7 @@ Item {
         Text {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: g.unit
+            text: g.note || (g.waiting && !g.number) ? "" : g.unit
             color: Theme.fg2
             font { family: Theme.text; pixelSize: 23 * g.u }
         }

@@ -34,6 +34,16 @@ final class SourcesModel {
     var copied = false
 
     var shown: [Source] { only.isEmpty ? streams : streams.filter { $0.addon == only } }
+    /// several addons: an All tab first, and it's the one on
+    var tabs: [AddonState] {
+        addons.count > 1 ? [AddonState(id: -1, name: "", state: "ok", count: streams.count)] + addons : addons
+    }
+    /// what the list holds, not what the addon sent: the same number you can scroll through
+    func count(_ tab: AddonState) -> Int { tab.id == -1 ? streams.count : streams.filter { $0.addon == tab.name }.count }
+    /// found but not in the list: past the best ones, or left out by the rules
+    var filteredOut: Int { max(0, total - streams.count) + max(0, hidden - torrents) }
+    /// the tab under the mouse: with the mouse in use only that one lights up
+    var hoverChip: Int?
     var unsupported: [AddonState] { addons.filter { $0.formatting == "unsupported" } }
     /// a source of the user's answered with torrents and they were never asked: ask once
     var askTorrents: Bool { torrents > 0 && torrentsAllowed == nil }
@@ -48,7 +58,7 @@ final class SourcesModel {
     /// (again, once torrents were answered)
     func start() {
         req = "src-\(Int(Date().timeIntervalSince1970 * 1000))"
-        streams = []; raw = [:]; addons = []; total = 0; hidden = 0; torrents = 0; done = false; only = ""; zone = .list; index = 0
+        streams = []; raw = [:]; addons = []; total = 0; hidden = 0; torrents = 0; done = false; only = ""; zone = .list; index = 0; chip = 0
         let r = req
         Task {
             if let data = try? await Core.shared.raw("streams.list", target.args(req: r)) { apply(data) } else { done = true }
@@ -76,7 +86,12 @@ final class SourcesModel {
             got.append(s)
             raws[s.id] = d
         }
-        streams = got
+        // the selection stays on its source as better ones come in; the top stays the top
+        let held = index > 0 ? shown[safe: index]?.id : nil
+        withAnimation(.easeOut(duration: 0.26)) {
+            streams = got
+            if let held, let i = shown.firstIndex(where: { $0.id == held }) { index = i }
+        }
         raw = raws
         if let a = o["addons"], let json = try? JSONSerialization.data(withJSONObject: a) {
             addons = (try? JSONDecoder().decode([AddonState].self, from: json)) ?? addons
@@ -95,7 +110,7 @@ final class SourcesModel {
         case .chips:
             switch k {
             case .left: chip = max(0, chip - 1)
-            case .right: chip = min(addons.count - 1, chip + 1)
+            case .right: chip = min(tabs.count - 1, chip + 1)
             case .down: zone = askTorrents ? .torrents : unsupported.isEmpty ? .list : .advanced
             case .ok: toggleChip(chip)
             default: break
@@ -158,11 +173,13 @@ final class SourcesModel {
         copied = true
     }
 
+    /// picking a tab leaves the focus on the tabs: the first source lights up when you go down to it
     func toggleChip(_ i: Int) {
-        guard let a = addons[safe: i] else { return }
-        only = only == a.name ? "" : a.name
+        guard let a = tabs[safe: i], addons.count > 1 else { return }
+        chip = i
+        zone = .chips
+        withAnimation(.easeOut(duration: 0.26)) { only = a.id == -1 ? "" : a.name }
         index = 0
-        zone = .list
     }
 
     func pick(_ i: Int) -> [String: Any]? {
@@ -199,10 +216,12 @@ struct SourcesView: View {
             Text(L("Sources")).font(Theme.display(46 * u, .bold)).foregroundStyle(Theme.fg)
             Text(title).font(Theme.text(25 * u)).foregroundStyle(Theme.fg2).lineLimit(1)
             FlowLayout(spacing: 12 * u) {
-                ForEach(Array(model.addons.enumerated()), id: \.offset) { i, a in
-                    AddonChip(addon: a, on: model.only == a.name, focused: model.zone == .chips && model.chip == i, u: u)
+                ForEach(Array(model.tabs.enumerated()), id: \.offset) { i, a in
+                    AddonChip(addon: a, count: model.count(a), spin: model.addons.count > 1, on: model.only == a.name && model.addons.count > 1,
+                              focused: model.zone == .chips && model.chip == i && (!PointerMode.shared.on || model.hoverChip == i), u: u)
                         .onContinuousHover { phase in
-                            if case .active = phase, Input.pointerLive { model.zone = .chips; model.chip = i }
+                            if case .active = phase, Input.pointerLive { model.zone = .chips; model.chip = i; model.hoverChip = i }
+                            else if case .ended = phase, model.hoverChip == i { model.hoverChip = nil }
                         }
                         .onTapGesture { model.toggleChip(i) }
                 }
@@ -267,14 +286,16 @@ struct SourcesView: View {
         return "\(t.title)  ·  S\(s) · E\(e)"
     }
 
-    private func list(u: CGFloat) -> some View {
+    @ViewBuilder private func list(u: CGFloat) -> some View {
         let shown = model.shown
-        return ScrollViewReader { proxy in
+        if shown.isEmpty && !model.done {
+            Spinner(size: 56 * u, color: Theme.fg2).frame(maxWidth: .infinity, maxHeight: .infinity).transition(.opacity)
+        } else {
+        ScrollViewReader { proxy in
             ScrollView(.vertical) {
                 LazyVStack(spacing: 10 * u) {
                     ForEach(Array(shown.enumerated()), id: \.element.id) { i, s in
                         SourceRow(s: s, focused: model.zone == .list && model.index == i, u: u)
-                            .id(i)
                             .contentShape(.rect)
                             .onContinuousHover { phase in
                                 if case .active = phase, Input.pointerLive { model.zone = .list; model.index = i }
@@ -287,15 +308,23 @@ struct SourcesView: View {
                                     if let raw = s.url, let url = URL(string: raw) { HandOff.open(url) }
                                 }
                             }
+                            .transition(.opacity)
                     }
                     footer(u: u)
                 }
+                // the focused line's lift stays inside the scroll view
+                .padding(.top, 8 * u)
                 .padding(.bottom, 30 * u)
             }
             .scrollIndicators(.hidden)
             .onChange(of: model.index) { _, i in
-                withAnimation(.easeOut(duration: 0.26)) { proxy.scrollTo(i, anchor: UnitPoint(x: 0, y: 0.4)) }
+                guard let id = model.shown[safe: i]?.id else { return }
+                withAnimation(.easeOut(duration: 0.26)) { proxy.scrollTo(id, anchor: UnitPoint(x: 0, y: 0.4)) }
             }
+            // a list of its own per tab: rows added above would keep the old scroll position
+            .id(model.only)
+            .transition(.opacity)
+        }
         }
     }
 
@@ -304,9 +333,9 @@ struct SourcesView: View {
             if !model.done { return L("Looking for more sources") }
             if model.streams.isEmpty && model.addons.isEmpty { return L("Nothing here yet: add a video folder or a source in Settings › Sources") }
             if model.streams.isEmpty && model.torrents == 0 { return L("No sources found") }
-            var t = model.total > model.streams.count ? L("Best %1 of %2", model.streams.count, model.total) : ""
-            func add(_ s: String) { t += (t.isEmpty ? "" : "  ·  ") + s }
-            if model.hidden > model.torrents { add(L("%1 hidden (cam, 3D, too big, your hidden patterns)", model.hidden - model.torrents)) }
+            var t = L("%1 shown", model.shown.count)
+            func add(_ s: String) { t += "  ·  " + s }
+            if model.filteredOut > 0, model.only.isEmpty { add(L("%1 filtered out (lower ranked, cam, 3D, too big or your hidden patterns)", model.filteredOut)) }
             if model.torrents > 0, model.torrentsAllowed == false { add(L("%1 torrents (off in Settings › Sources)", model.torrents)) }
             return t
         }()
@@ -322,16 +351,21 @@ struct SourcesView: View {
 /// one addon: answering / count / error
 private struct AddonChip: View {
     let addon: AddonState
+    let count: Int
+    let spin: Bool
     let on: Bool
     let focused: Bool
     let u: CGFloat
 
     var body: some View {
         HStack(spacing: 10 * u) {
-            Text(UILang.addonName(addon.name) + (addon.state == "loading" ? "" : "  " + (addon.state == "error" ? L("no answer") : String(addon.count))))
+            Text((addon.id == -1 ? L("All") : UILang.addonName(addon.name)) + (addon.state == "loading" ? "" : "  " + (addon.state == "error" ? L("no answer") : String(count))))
                 .font(Theme.text(20 * u, .medium))
+                .lineLimit(1)
+                // a very long addon name stays inside the sheet
+                .frame(maxWidth: 760 * u)
                 .foregroundStyle(focused ? Theme.focusFg : on ? Theme.fg : Theme.fg2)
-            if addon.state == "loading" { Spinner(size: 20 * u, color: focused ? Theme.focusFg : Theme.fg2) }
+            if addon.state == "loading" && spin { Spinner(size: 20 * u, color: focused ? Theme.focusFg : Theme.fg2) }
         }
         .padding(.horizontal, 16 * u)
         .frame(height: 44 * u)
@@ -394,10 +428,9 @@ struct SourceRow: View {
                     .foregroundStyle(focused ? Theme.focusFg : Theme.fg)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                Text(s.detailLine)
-                    .font(Theme.text(20 * u))
+                // too long for the row: reads through once it's the selected one
+                Marquee(text: s.detailLine, font: Theme.text(20 * u), active: focused, u: u)
                     .foregroundStyle(focused ? Color(red: 0.1, green: 0.1, blue: 0.12).opacity(0.7) : Theme.fg3)
-                    .lineLimit(1)
             }
             Spacer(minLength: 16 * u)
             HStack(spacing: 8 * u) {

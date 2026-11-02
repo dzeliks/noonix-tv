@@ -17,6 +17,8 @@ final class Bindings {
     /// "pad:OK" / "keys:BACK" while the next button or key is taken for it
     var capturing = ""
     @ObservationIgnored private var timeout: Task<Void, Never>?
+    @ObservationIgnored private var waitingSlot = 0
+    @ObservationIgnored private var finished: (() -> Void)?
 
     var defaults: [String: [String: [String]]] {
         // nintendo confirms with a on the right, everyone else with the bottom button
@@ -60,19 +62,31 @@ final class Bindings {
         custom = c.compactMapValues { ($0 as? [String: Any])?.compactMapValues { $0 as? [String] } }
     }
 
-    /// waits for the next button or key for this action; the press that asked isn't it
-    func capture(_ side: String, _ action: String) {
+    /// waits for the next button or key for this slot of the action; the press that asked isn't it
+    func capture(_ side: String, _ action: String, slot: Int, done: @escaping () -> Void) {
         timeout?.cancel()
+        waitingSlot = slot
+        finished = done
         DispatchQueue.main.async { self.capturing = side + ":" + action }
         timeout = Task {
             try? await Task.sleep(for: .seconds(8))
-            if !Task.isCancelled { capturing = "" }
+            if !Task.isCancelled { stopCapture() }
         }
     }
 
     func stopCapture() {
         timeout?.cancel()
         capturing = ""
+        finished?()
+        finished = nil
+    }
+
+    func clear(_ side: String, _ action: String, slot: Int) {
+        var l = all[side]?[action] ?? []
+        guard l.indices.contains(slot) else { return }
+        l.remove(at: slot)
+        custom[side, default: [:]][action] = l
+        save()
     }
 
     /// a button or key came in while capturing: one button, one action (it leaves whatever had it)
@@ -82,11 +96,15 @@ final class Bindings {
         guard parts.count == 2, parts[0] == side else { return false }
         stopCapture()
         let action = parts[1]
+        var mine = (all[side]?[action] ?? []).filter { $0 != name }
+        let had = all[side]?[action]?.count ?? 0
+        mine.insert(name, at: min(waitingSlot, mine.count))
+        if waitingSlot < had, mine.count > waitingSlot + 1 { mine.remove(at: waitingSlot + 1) }
         var c = custom
         for (a, l) in all[side] ?? [:] where a != action && l.contains(name) {
             c[side, default: [:]][a] = l.filter { $0 != name }
         }
-        c[side, default: [:]][action] = [name]
+        c[side, default: [:]][action] = Array(mine.prefix(3))
         custom = c
         save()
         return true

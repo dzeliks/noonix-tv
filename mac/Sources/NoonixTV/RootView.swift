@@ -118,10 +118,19 @@ struct RootView: View {
             if let h = app.help {
                 SourcesHelpView(model: h).transition(.opacity).zIndex(9)
             }
+            if let c = app.choices {
+                ChoicesView(model: c).transition(.opacity).zIndex(9.2)
+            }
+            if let b = app.bindSheet {
+                BindSheetView(model: b).transition(.opacity).zIndex(9.2)
+            }
+            if let s = app.speed {
+                SpeedCheckView(model: s).transition(.opacity).zIndex(9.2)
+            }
             // the key card slides up into place and drops away, the page dims behind it
             if app.entry.isOpen {
                 Color.black.opacity(0.35).ignoresSafeArea().transition(.opacity).zIndex(7.5)
-                    .onTapGesture {}
+                    .onTapGesture { app.entry.cancel() }
                 KeyEntryView(model: app.entry)
                     .transition(.asymmetric(
                         insertion: .offset(y: 280 * app.u).combined(with: .opacity).animation(.timingCurve(0.33, 1, 0.68, 1, duration: 0.44)),
@@ -134,6 +143,9 @@ struct RootView: View {
         .animation(.easeOut(duration: 0.22), value: app.finder == nil)
         .animation(.easeInOut(duration: 0.3), value: app.playing)
         .animation(.easeOut(duration: 0.22), value: app.picker == nil)
+        .animation(.easeOut(duration: 0.18), value: app.choices == nil)
+        .animation(.easeOut(duration: 0.18), value: app.bindSheet == nil)
+        .animation(.easeOut(duration: 0.2), value: app.speed == nil)
         .animation(.easeOut(duration: 0.18), value: app.menu == nil)
         .animation(.easeOut(duration: 0.22), value: app.toastText)
         .animation(.easeOut(duration: 0.22), value: app.trakt == nil)
