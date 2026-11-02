@@ -61,7 +61,7 @@ Item {
         Item {
             id: section
             required property int index
-            readonly property var z: g.zones[index] || ({ color: "white" })
+            readonly property var info: g.zones[index] || ({ color: "white" })
             readonly property bool here: g.measured && g.zone === index
             readonly property bool reached: g.measured && g.zone >= index
             readonly property real mid: g.startAngle + (index + 0.5) * g.seg
@@ -74,7 +74,7 @@ Item {
                 preferredRendererType: Shape.CurveRenderer
                 Behavior on opacity { NumberAnimation { duration: 420 } }
                 ShapePath {
-                    strokeColor: section.z.color
+                    strokeColor: section.info.color
                     strokeWidth: 44 * g.u
                     fillColor: "transparent"
                     capStyle: ShapePath.RoundCap
@@ -87,7 +87,7 @@ Item {
                 preferredRendererType: Shape.CurveRenderer
                 Behavior on opacity { NumberAnimation { duration: 420 } }
                 ShapePath {
-                    strokeColor: section.z.color
+                    strokeColor: section.info.color
                     strokeWidth: 20 * g.u
                     fillColor: "transparent"
                     capStyle: ShapePath.RoundCap
@@ -98,7 +98,7 @@ Item {
                 readonly property real a: section.mid * Math.PI / 180
                 x: g.cx + Math.cos(a) * (g.r + 42 * g.u) - width / 2 + Math.cos(a) * width * 0.34
                 y: g.cy + Math.sin(a) * (g.r + 42 * g.u) - height / 2
-                text: section.z.label || ""
+                text: section.info.label || ""
                 color: section.here ? Theme.fg : Theme.fg3
                 font { family: Theme.text; pixelSize: 20 * g.u; weight: section.here ? Font.Bold : Font.Medium }
                 Behavior on color { ColorAnimation { duration: 300 } }

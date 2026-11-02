@@ -90,7 +90,7 @@ protected:
 private:
     void applyDescription();
 
-    QQuickWindow *m_window = nullptr;
+    QPointer<QQuickWindow> m_window;  // the engine may have taken the window down first (quit)
     mpv_handle *m_mpv = nullptr;
     QVariantMap m_colour;
     QVariantMap m_params;
