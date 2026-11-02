@@ -15,12 +15,7 @@ FocusScope {
     function pick(forever) { close(); done(forever) }
 
     Rectangle { anchors.fill: parent; color: "black"; opacity: 0.32 }
-    // a click beside it stays
-    MouseArea {
-        anchors.fill: parent
-        hoverEnabled: true
-        acceptedButtons: Qt.AllButtons
-    }
+    Shield { onOutside: tip.pick(false) }
 
     Item {
         id: card

@@ -562,6 +562,10 @@ pub async fn tick(args: &Value) -> Result<Value> {
 
     let state_changed = !s.started || paused != s.paused;
     s.paused = paused;
+    if !s.started {
+        let (profile, kind, tmdb) = (s.profile, s.item.kind.clone(), s.item.tmdb);
+        app::RUNTIME.spawn(async move { crate::home::played_again(profile, &kind, tmdb).await.ok(); });
+    }
     if state_changed {
         scrobble(s.profile, &s.item, if paused { "pause" } else { "start" }, frac);
         s.started = true;

@@ -20,7 +20,7 @@ FocusScope {
 
     function preview(d) { info = d; mode = "preview"; show() }
     function manage(d, kind) { info = d; mode = kind; show() }
-    function show() { busy = false; confirmRemove = false; row.currentIndex = 0; opacity = 1; forceActiveFocus() }
+    function show() { busy = false; confirmRemove = false; row.currentIndex = mode === "preview" ? 0 : 1; opacity = 1; forceActiveFocus() }
     function close() { opacity = 0; closed() }
 
     readonly property bool isAddon: mode === "addon" || (mode === "preview" && info && info.kind === "addon")
@@ -62,9 +62,9 @@ FocusScope {
         var d = info || {}
         if (mode === "preview")
             return [{ text: d.installed ? qsTr("Update") : qsTr("Add"), act: "install", primary: true }, { text: qsTr("Cancel"), act: "close" }]
-        var out = []
+        var out = [{ text: qsTr("Back"), act: "close", icon: "arrowleft" }]
         if (mode === "extension" && (d.missingKeys || []).length) out.push({ text: qsTr("Add Key"), act: "key", primary: true })
-        out.push({ text: d.enabled ? qsTr("Turn Off") : qsTr("Turn On"), act: "toggle", primary: !out.length })
+        out.push({ text: d.enabled ? qsTr("Turn Off") : qsTr("Turn On"), act: "toggle", primary: out.length === 1 })
         if (mode === "extension" && d.updatable) out.push({ text: qsTr("Update"), act: "update" })
         out.push({ text: confirmRemove ? qsTr("Press Again to Remove") : qsTr("Remove"), act: "remove" })
         return out
@@ -160,6 +160,8 @@ FocusScope {
                 GlassButton {
                     primary: !!modelData.primary
                     text: modelData.text
+                    icon: modelData.icon || ""
+                    onPointed: row.currentIndex = index
                     focused: sheet.activeFocus && row.currentIndex === index
                     pointerFocus: false
                     opacity: sheet.busy ? 0.5 : 1

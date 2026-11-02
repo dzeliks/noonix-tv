@@ -1,3 +1,5 @@
+#include <QQuickWindow>
+#include <thread>
 #include "remote.h"
 
 // qt says linux on android too: this is the desktop's (wayland, kwin, the session bus)
@@ -219,6 +221,15 @@ void Remote::pointerKey(const QString &button)
     m_keyFromPointer = true;
     Key(button);
     m_keyFromPointer = false;
+}
+
+// dev: the window's own frame, no compositor involved (never hitches what else is on screen)
+void Remote::Grab(const QString &path)
+{
+    auto *w = qobject_cast<QQuickWindow *>(m_window.data());
+    if (!w || qgetenv("NOONIX_TEST") != "1")
+        return;
+    std::thread([img = w->grabWindow(), path] { img.save(path, nullptr, 90); }).detach();
 }
 
 void Remote::Pointer(double x, double y)

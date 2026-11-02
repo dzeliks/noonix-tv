@@ -275,33 +275,51 @@ FocusScope {
                     anchors { right: parent.right; rightMargin: Theme.margin; bottom: parent.bottom }
                     width: page.width * 0.36
                     spacing: 14 * page.u
+                    // a show keeps this line's place whether an episode is on or not
                     Text {
-                        visible: !!page.episodeShown
+                        visible: seasonsRow.visible || text !== ""
                         width: parent.width
+                        height: seasonsRow.visible ? 34 * page.u : implicitHeight
                         elide: Text.ElideRight
+                        wrapMode: seasonsRow.visible ? Text.NoWrap : Text.WordWrap
                         text: page.episodeShown ? qsTr("Season %1, Episode %2").arg(page.episodeShown.season).arg(page.episodeShown.episode)
-                                                  + (page.episodeShown.episodeTitle ? "  ·  " + page.episodeShown.episodeTitle : "") : ""
+                                                  + (page.episodeShown.episodeTitle ? "  ·  " + page.episodeShown.episodeTitle : "")
+                                                : page.details ? page.details.tagline || "" : ""
                         color: Theme.fg
                         font { family: Theme.display; pixelSize: 26 * page.u; weight: Font.DemiBold }
                     }
-                    Text {
-                        visible: !page.episodeShown && !!(page.details && page.details.tagline)
+                    // a show's plot sits in a box of one fixed height, whatever episode is on: a longer one
+                    // scrolls slowly inside it and comes back, nothing around it moves
+                    Item {
+                        id: plot
                         width: parent.width
-                        text: page.details ? page.details.tagline || "" : ""
-                        color: Theme.fg
-                        wrapMode: Text.WordWrap
-                        font { family: Theme.display; pixelSize: 26 * page.u; weight: Font.DemiBold }
-                    }
-                    Text {
-                        width: parent.width
-                        text: page.episodeShown && page.episodeShown.overview ? page.episodeShown.overview : page.details ? page.details.overview || "" : ""
-                        color: Theme.fg
-                        opacity: 0.86
-                        font { family: Theme.text; pixelSize: 24 * page.u }
-                        lineHeight: 1.16
-                        wrapMode: Text.WordWrap
-                        maximumLineCount: 8
-                        elide: Text.ElideRight
+                        readonly property real full: 7 * 24 * 1.16 * page.u
+                        height: seasonsRow.visible ? full : Math.min(plotText.implicitHeight, full)
+                        clip: true
+                        readonly property real over: Math.max(0, plotText.implicitHeight - height)
+                        Text {
+                            id: plotText
+                            width: parent.width
+                            text: page.episodeShown && page.episodeShown.overview ? page.episodeShown.overview : page.details ? page.details.overview || "" : ""
+                            color: Theme.fg
+                            opacity: 0.86
+                            font { family: Theme.text; pixelSize: 24 * page.u }
+                            lineHeight: 1.16
+                            wrapMode: Text.WordWrap
+                        }
+                        SequentialAnimation {
+                            id: roll
+                            loops: Animation.Infinite
+                            running: plot.on && plot.over > 1 && page.visible
+                            PauseAnimation { duration: 3200 }
+                            YAnimator { target: plotText; to: -plot.over; duration: plot.over / page.u * 55; easing.type: Easing.InOutSine }
+                            PauseAnimation { duration: 2400 }
+                            YAnimator { target: plotText; to: 0; duration: 700; easing.type: Easing.InOutCubic }
+                        }
+                        property bool on: true
+                        function reset() { on = false; plotText.y = 0; Qt.callLater(function () { plot.on = true }) }
+                        onOverChanged: reset()
+                        Connections { target: plotText; function onTextChanged() { plot.reset() } }
                     }
                     Text {
                         width: parent.width
@@ -430,15 +448,17 @@ FocusScope {
                     readonly property var modelData: seasonsRow.seasons[index] || ({})
                     readonly property bool sel: modelData.number === page.seasonNo
                     readonly property bool foc: ListView.isCurrentItem && seasonsRow.activeFocus
+                    readonly property bool lit: foc && (!Input.pointing || sp.containsMouse)
                     height: 56 * page.u
                     width: sLabel.implicitWidth + 44 * page.u
                     radius: height / 2
-                    color: foc ? "white" : sel ? Qt.rgba(1, 1, 1, 0.22) : "transparent"
+                    color: lit ? "white" : sel ? Qt.rgba(1, 1, 1, 0.22) : "transparent"
+                    Pointer { id: sp }
                     Text {
                         id: sLabel
                         anchors.centerIn: parent
                         text: !modelData.name || /^Season \d+$/.test(modelData.name) ? qsTr("Season %1").arg(modelData.number) : modelData.name
-                        color: parent.foc ? Theme.focusFg : parent.sel ? Theme.fg : Theme.fg2
+                        color: parent.lit ? Theme.focusFg : parent.sel ? Theme.fg : Theme.fg2
                         font { family: Theme.display; pixelSize: 25 * page.u; weight: Font.DemiBold }
                     }
                 }
@@ -448,7 +468,7 @@ FocusScope {
             }
 
             ListWheel { view: seasonsRow; across: true }
-            ListWheel { view: episodes; across: true; cards: true }
+            ListWheel { id: epWheel; view: episodes; across: true; cards: true; restX: Theme.margin + (400 + 44) * page.u; cardW: 400 * page.u }
             ListView {
                 id: episodes
                 visible: seasonsRow.visible
@@ -464,7 +484,7 @@ FocusScope {
                 keyNavigationEnabled: true
                 // the focus rests on the second card, so the one before stays in view
                 highlightRangeMode: Input.pointing ? ListView.NoHighlightRange : ListView.ApplyRange
-                preferredHighlightBegin: Theme.margin + (400 + 44) * page.u
+                preferredHighlightBegin: epWheel.heldAt >= 0 ? epWheel.heldAt : epWheel.restX
                 preferredHighlightEnd: preferredHighlightBegin + 400 * page.u
                 highlightMoveDuration: 380
                 highlightMoveVelocity: -1

@@ -1,6 +1,5 @@
 import QtQuick
 import QtQuick.Effects
-import QtQuick.Shapes
 
 // one tile in a row: poster (2:3) or landscape (16:9, episodes and continue watching).
 // focus = tvos lift: a spring scale, a deeper shadow and the sheen
@@ -25,41 +24,33 @@ Item {
         : media.kind === "episode" ? "S" + media.season + " · E" + media.episode + (media.episodeTitle ? "  " + media.episodeTitle : "")
         : ""
 
-    // a removal waiting out its undo time: the cover pulls in, a line round the border drains
-    readonly property var removal: (win.removalsVersion, win.removalOf(media))
+    // a removal waiting out its undo time: the cover pulls in, a line round the border drains. only
+    // in the rows a removal is for: the same title elsewhere (library, search) isn't leaving
+    property bool undoable: false
+    readonly property var removal: undoable ? (win.removalsVersion, win.removalOf(media)) : null
     readonly property bool removing: removal !== null
     property real shrink: 0
-    property real drain: 1
-    property real flipX: 0
-    property bool leaving: false
-    property real leaveT: 0
-    signal gone()
+    property real leaveT: 0              // the row's remove transition runs this
     function syncDrain() {
         drainAnim.stop()
-        if (!removal) { drain = 1; return }
+        if (!removal) return
         var rest = Math.max(0, removal.until - Date.now())
-        drain = rest / removal.total
-        drainAnim.duration = rest
-        if (rest > 0 && !removal.done) drainAnim.start()
+        drainAnim.from = rest / removal.total
+        drainAnim.duration = Math.max(1, rest)
+        drainAnim.start()
     }
     onRemovalChanged: syncDrain()
     onRemovingChanged: shrink = removing ? 1 : 0
     // a reused delegate starts from its own state
-    onMediaChanged: {
+    function snapState() {
         shrinkBehavior.enabled = false
         shrink = removing ? 1 : 0
         shrinkBehavior.enabled = true
-        flipAnim.stop(); flipX = 0
-        leaveAnim.stop(); leaving = false; leaveT = 0
     }
-    Component.onCompleted: { shrinkBehavior.enabled = false; shrink = removing ? 1 : 0; shrinkBehavior.enabled = true; syncDrain() }
+    onMediaChanged: snapState()
+    Component.onCompleted: { snapState(); syncDrain() }
     Behavior on shrink { id: shrinkBehavior; NumberAnimation { duration: 420; easing.type: Easing.InOutCubic } }
-    NumberAnimation { id: drainAnim; target: card; property: "drain"; to: 0 }
-    NumberAnimation { id: flipAnim; target: card; property: "flipX"; to: 0; duration: 340; easing.type: Easing.OutCubic }
-    NumberAnimation { id: leaveAnim; target: card; property: "leaveT"; from: 0; to: 1; duration: 200; easing.type: Easing.InQuad; onFinished: card.gone() }
-    function flip(d) { flipX = d; flipAnim.restart() }
-    function startLeave() { leaving = true; leaveAnim.restart() }
-    transform: [Translate { x: card.flipX - card.leaveT * 36 * card.u }]
+    transform: Translate { x: -card.leaveT * 36 * card.u }
 
     width: artW
     height: artH + (wide ? 92 * u : 0)
@@ -118,38 +109,19 @@ Item {
             opacity: card.shrink
             visible: opacity > 0
         }
-        Shape {
+        ShaderEffect {
             id: ring
             anchors.fill: parent
             opacity: card.shrink
             visible: opacity > 0
-            preferredRendererType: Shape.CurveRenderer
-            readonly property real i: 8 * card.u
-            readonly property real w: width - 2 * i
-            readonly property real h: height - 2 * i
-            readonly property real r: Math.max(4, art.radius - i)
-            readonly property real perimeter: 2 * (w - 2 * r) + 2 * (h - 2 * r) + 2 * Math.PI * r
-            readonly property real sw: 4 * card.u
-            ShapePath {
-                strokeColor: "white"
-                strokeWidth: ring.sw
-                fillColor: "transparent"
-                capStyle: ShapePath.RoundCap
-                // one dash as long as what's left, starting at the top and running clockwise: its end
-                // backs off counter-clockwise
-                strokeStyle: ShapePath.DashLine
-                dashPattern: [Math.max(0.001, card.drain * ring.perimeter / ring.sw - 0.01), ring.perimeter / ring.sw + 4]
-                startX: ring.i + ring.w / 2; startY: ring.i
-                PathLine { x: ring.i + ring.w - ring.r; y: ring.i }
-                PathArc { x: ring.i + ring.w; y: ring.i + ring.r; radiusX: ring.r; radiusY: ring.r }
-                PathLine { x: ring.i + ring.w; y: ring.i + ring.h - ring.r }
-                PathArc { x: ring.i + ring.w - ring.r; y: ring.i + ring.h; radiusX: ring.r; radiusY: ring.r }
-                PathLine { x: ring.i + ring.r; y: ring.i + ring.h }
-                PathArc { x: ring.i; y: ring.i + ring.h - ring.r; radiusX: ring.r; radiusY: ring.r }
-                PathLine { x: ring.i; y: ring.i + ring.r }
-                PathArc { x: ring.i + ring.r; y: ring.i; radiusX: ring.r; radiusY: ring.r }
-                PathLine { x: ring.i + ring.w / 2; y: ring.i }
-            }
+            property size size: Qt.size(width, height)
+            property real inset: 8 * card.u
+            property real radius: Math.max(4, art.radius - inset)
+            property real stroke: 4 * card.u
+            property real drain: 1
+            fragmentShader: "qrc:/shaders/ring.frag.qsb"
+            // on the render thread: six seconds of it must not wake the scene
+            UniformAnimator { id: drainAnim; target: ring; uniform: "drain"; to: 0 }
         }
         Column {
             anchors.centerIn: parent
@@ -195,6 +167,7 @@ Item {
 
     Pointer {
         id: point
+        menuOnHold: true
         onContainsMouseChanged: {
             if (containsMouse) win.pointedCard = point
             else if (win.pointedCard === point) win.pointedCard = null

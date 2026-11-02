@@ -202,6 +202,7 @@ Window {
                     page: "home"
                     profileId: win.profile ? win.profile.id : 0
                     onOpen: function (it) { win.openItem(it) }
+                    onPlay: function (it) { win.playNext(it) }
                     onMenu: function (it, rowId, at) { win.rowMenu(it, rowId, homeL.item, at) }
                     onUpFromTop: nav.forceActiveFocus()
                 }
@@ -218,6 +219,7 @@ Window {
                     page: "movies"
                     profileId: win.profile ? win.profile.id : 0
                     onOpen: function (it) { win.openItem(it) }
+                    onPlay: function (it) { win.playNext(it) }
                     onMenu: function (it, rowId, at) { win.rowMenu(it, rowId, moviesL.item, at) }
                     onUpFromTop: nav.forceActiveFocus()
                 }
@@ -234,6 +236,7 @@ Window {
                     page: "shows"
                     profileId: win.profile ? win.profile.id : 0
                     onOpen: function (it) { win.openItem(it) }
+                    onPlay: function (it) { win.playNext(it) }
                     onMenu: function (it, rowId, at) { win.rowMenu(it, rowId, showsL.item, at) }
                     onUpFromTop: nav.forceActiveFocus()
                 }
@@ -417,8 +420,8 @@ Window {
         return { profile: profile ? profile.id : 0, kind: it.kind === "movie" ? "movie" : "show", tmdb: it.kind === "episode" ? it.show : it.id }
     }
     function rowMenu(it, rowId, home, at) {
+        if (toast.trigger()) return
         if (!it) return
-        if (removalOf(it)) { undoRemoval(it); return }
         menuItem = it; menuRow = rowId; menuHome = home; menuAt = at || Qt.rect(Theme.margin, height / 2, 440 * u, 0)
         if (menuHome) menuHome.menuItem = it
         loadMenuLibrary()
@@ -477,7 +480,8 @@ Window {
     property var removals: ({})
     property int removalsVersion: 0
     readonly property int removeMs: 6000
-    function itemKey(it) { return it ? [it.kind, it.id, it.show, it.season, it.episode].join(":") : "" }
+    // as the core hides it: an episode stands for its show, in every row at once
+    function itemKey(it) { return !it ? "" : it.kind === "episode" ? "show:" + it.show : it.kind + ":" + it.id }
     function removalOf(it) { return it ? (removals[itemKey(it)] || null) : null }
     function setRemovals(r) { removals = r; removalsVersion++ }
     function dismiss() {
@@ -512,21 +516,16 @@ Window {
             win.armRemovals()
         }
     }
-    // the line ran out: the title leaves its rows, the core drops it (and trakt)
+    // the line ran out: the title leaves its rows and is hidden here (trakt keeps it) until it's played
     function commitRemoval(k) {
-        var rec = removals[k], it = rec.item, p = rec.profile
+        var rec = removals[k], it = rec.item
         rec.done = true
         ;[homeL, moviesL, showsL].forEach(function (l) { if (l.item) l.item.leave(it) })
-        Api.call("home.dismiss", { item: it, profile: p, sync: false }, function (ok) {
-            if (!ok) {
-                toast.show(qsTr("Couldn't remove it"))
-                var r = win.removals; delete r[k]; win.setRemovals(r)
-                refreshRows()
-                return
-            }
-            Api.call("home.dismiss", { item: it, profile: p }, function (ok2) {
-                if (!ok2) toast.show(qsTr("Removed here · couldn't update Trakt"))
-            })
+        Api.call("home.dismiss", { item: it, profile: rec.profile }, function (ok) {
+            if (ok) return
+            toast.show(qsTr("Couldn't remove it"))
+            var r = win.removals; delete r[k]; win.setRemovals(r)
+            refreshRows()
         })
         forgetLater.start()
     }
@@ -604,8 +603,16 @@ Window {
     }
 
     // ---- playback
+    // up next: the next episode on the source that was playing, or the ranked best
+    function playNext(it) {
+        if (it.kind === "movie") startPlay({ kind: "movie", tmdb: it.id }, null, it)
+        else startPlay({ kind: "show", tmdb: it.show, season: it.season, episode: it.episode }, null, it)
+    }
     function startPlay(t, stream, from) {
         playTarget = t
+        // played before its line ran out: it isn't going anywhere
+        var pending = removals[(t.kind === "movie" ? "movie:" : "show:") + t.tmdb]
+        if (pending) undoRemoval(pending.item)
         retried = false
         sourceAddon = ""
         if (stream) { fallbacks = []; begin(stream); return }

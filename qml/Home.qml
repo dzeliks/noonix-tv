@@ -19,6 +19,7 @@ FocusScope {
     onCurrentChanged: if (wheel.running) settleLater.restart(); else settle()
     Timer { id: settleLater; interval: 160; onTriggered: if (wheel.running) restart(); else home.settle() }
     signal open(var item)
+    signal play(var item)               // up next: straight into the next episode
     signal menu(var item, string rowId, rect at)
     signal upFromTop()
 
@@ -123,21 +124,23 @@ FocusScope {
     }
     function removeLocal(rowId, item) {
         // by what it is: the item came through a signal, it isn't the same object any more
-        var c = cache, key = [item.kind, item.id, item.show, item.season, item.episode].join(":")
-        c[rowId] = (c[rowId] || []).filter(function (x) { return [x.kind, x.id, x.show, x.season, x.episode].join(":") !== key })
+        var c = cache, key = rowId.indexOf("library") === 0 ? null : win.itemKey(item), same = [item.kind, item.id, item.show, item.season, item.episode].join(":")
+        c[rowId] = (c[rowId] || []).filter(function (x) {
+            return key ? win.itemKey(x) !== key : [x.kind, x.id, x.show, x.season, x.episode].join(":") !== same
+        })
         cache = c
         version++
-        updateShown()
+        // the row's last title first plays out its exit
+        if (c[rowId].length) updateShown(); else emptied.restart()
     }
-    // a removal's end, in every row it sits in: seen rows animate it, the rest drop it
-    readonly property var dismissable: ["upnext", "continue", "continue-movie", "recent"]
+    Timer { id: emptied; interval: 280; onTriggered: home.updateShown() }
+    // a removal's end, in every row it sits in
     function leave(item) {
-        for (var i = 0; i < shown.length; ++i) {
-            if (dismissable.indexOf(shown[i].id) < 0) continue
-            var r = rows.itemAtIndex(i)
-            if (r) r.leave(item); else removeLocal(shown[i].id, item)
-        }
-        for (var id in cache) if (dismissable.indexOf(id) >= 0 && !shown.some(function (s) { return s.id === id })) removeLocal(id, item)
+        ["upnext", "continue", "continue-movie", "recent"].forEach(function (id) {
+            var i = shown.findIndex(function (s) { return s.id === id }), r = i >= 0 ? rows.itemAtIndex(i) : null
+            if (r) r.slide()
+            removeLocal(id, item)
+        })
     }
     Component.onCompleted: { free = Input.pointing; load() }
 
@@ -268,8 +271,7 @@ FocusScope {
                 opacity = above ? 0 : 1
                 if (home.cache[modelData.id] === undefined) home.loadRow(modelData.id)
             }
-            onActivated: function (item) { home.open(item) }
-            onTake: function (item) { home.removeLocal(modelData.id, item) }
+            onActivated: function (item) { if (modelData.id === "upnext") home.play(item); else home.open(item) }
             onMenu: function (item, index, at) { home.menu(item, modelData.id, at) }
         }
     }

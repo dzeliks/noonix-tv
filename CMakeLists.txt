@@ -140,8 +140,8 @@ qt_add_shaders(noonix-tv "shaders"
     PREFIX "/"
     BATCHABLE
     GLSL "100es,300es,120,150"
-    FILES qml/shaders/glass.vert qml/shaders/glass.frag qml/shaders/blur.frag qml/shaders/art.frag qml/shaders/vidtone.frag qml/shaders/scrim.frag qml/shaders/splash.frag
-    OUTPUTS shaders/glass.vert.qsb shaders/glass.frag.qsb shaders/blur.frag.qsb shaders/art.frag.qsb shaders/vidtone.frag.qsb shaders/scrim.frag.qsb shaders/splash.frag.qsb)
+    FILES qml/shaders/glass.vert qml/shaders/glass.frag qml/shaders/blur.frag qml/shaders/art.frag qml/shaders/ring.frag qml/shaders/vidtone.frag qml/shaders/scrim.frag qml/shaders/splash.frag
+    OUTPUTS shaders/glass.vert.qsb shaders/glass.frag.qsb shaders/blur.frag.qsb shaders/art.frag.qsb shaders/ring.frag.qsb shaders/vidtone.frag.qsb shaders/scrim.frag.qsb shaders/splash.frag.qsb)
 
 # serbian (latin): i18n/*.ts, refreshed by tools/update-translations.sh, built into :/i18n
 # immediate: the deferred call loses the quotes around a build dir with spaces

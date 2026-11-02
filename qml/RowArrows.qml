@@ -23,11 +23,16 @@ Item {
     HoverHandler { id: hover; parent: ra.view }
 
     function go(dir) {
-        var first = Math.round((view.contentX - startX) / step)
+        // a click during the slide goes on from where that one was heading, and at speed: restarting
+        // from the ease-in would slow the row down with every click
+        var moving = slide.running
+        var first = moving ? slide.page : Math.round((view.contentX - startX) / step)
         var last = Math.round((endX - startX) / step)
         var f = Math.max(0, Math.min(last, first + dir * page))
+        slide.page = f
         slide.to = Math.max(startX, Math.min(endX, startX + f * step))
         slide.index = Math.min(view.count - 1, f + restSlot)
+        slide.easing.type = moving ? Easing.OutQuad : Easing.InOutQuad
         slide.restart()
         view.forceActiveFocus()
     }
@@ -35,6 +40,7 @@ Item {
     NumberAnimation {
         id: slide
         property int index: 0
+        property int page: 0
         target: ra.view; property: "contentX"; duration: 380; easing.type: Easing.InOutQuad
         onFinished: ra.view.currentIndex = index
     }

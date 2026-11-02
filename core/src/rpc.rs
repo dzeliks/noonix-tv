@@ -315,8 +315,7 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
         "home.dismiss" => {
             let item = args.get("item").cloned().context("missing item")?;
             let undo = args.get("undo").and_then(Value::as_bool).unwrap_or(false);
-            let sync = args.get("sync").and_then(Value::as_bool).unwrap_or(true);
-            home::dismiss(request_profile(&args).await?, &item, undo, sync).await?;
+            home::dismiss(request_profile(&args).await?, &item, undo).await?;
             Ok(json!({ "ok": true }))
         }
 

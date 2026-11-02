@@ -442,30 +442,6 @@ impl Account {
         }
     }
 
-    /// up next / recently played: hide the show from progress (kodi reads the same list)
-    pub async fn hide_show(&self, show_tmdb: i64, hide: bool) -> Result<()> {
-        let body = json!({ "shows": [{ "ids": { "tmdb": show_tmdb } }] });
-        let path = if hide { "/users/hidden/progress_watched" } else { "/users/hidden/progress_watched/remove" };
-        self.post(path, body).await?;
-        self.invalidate().await;
-        Ok(())
-    }
-
-    /// continue watching: drop a paused movie/episode
-    pub async fn remove_playback(&self, playback_id: i64) -> Result<()> {
-        if dry_run() {
-            tracing::info!("trakt dry run: DELETE /sync/playback/{playback_id}");
-            return Ok(());
-        }
-        let req = self.req(reqwest::Method::DELETE, &format!("/sync/playback/{playback_id}"), None)?;
-        let (status, _) = http::send(&req).await?;
-        if !status.is_success() && status.as_u16() != 404 {
-            bail!("trakt answered {status}");
-        }
-        self.invalidate().await;
-        Ok(())
-    }
-
     /// what's only here goes up. a title trakt already has as watched stays out: a second post
     /// would be a second play
     pub async fn merge(&self, seen: &[store::Seen], watchlist: &[(String, i64)]) -> Result<()> {

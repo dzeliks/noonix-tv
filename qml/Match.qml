@@ -47,6 +47,7 @@ FocusScope {
     Keys.onEscapePressed: close()
     Keys.onBackPressed: close()
 
+    MouseArea { anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.LeftButton; onClicked: sheet.close() }
     Glass {
         id: panel
         kind: "panel"

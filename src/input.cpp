@@ -142,6 +142,17 @@ Input::Input(Remote *remote, QObject *parent)
             m_repeat.start(repeatMs);
     });
     connect(remote, &Remote::padKey, this, &Input::padKey);
+    // a release lost on the way must not leave a backspace running
+    m_okLost.setSingleShot(true);
+    m_okLost.setInterval(8000);
+    connect(&m_okLost, &QTimer::timeout, this, [this] { setOkHeld(false); });
+    connect(remote, &Remote::okHeld, this, [this](bool down) {
+        setOkHeld(down);
+        if (down)
+            m_okLost.start();
+        else
+            m_okLost.stop();
+    });
     m_hold.setSingleShot(true);
     m_hold.setInterval(holdMs);
     connect(&m_hold, &QTimer::timeout, this, &Input::holdBack);
@@ -442,6 +453,9 @@ void Input::press(const QString &button, int source)
     } else if (button == QLatin1String("BACK")) {
         m_holdSource = source;
         m_hold.start();
+    } else if (button == QLatin1String("OK")) {
+        m_okSource = source;
+        setOkHeld(true);
     }
 }
 
@@ -450,6 +464,10 @@ void Input::release(int source)
     m_held.remove(source);
     if (m_held.isEmpty())
         m_repeat.stop();
+    if (source == m_okSource) {
+        m_okSource = -1;
+        setOkHeld(false);
+    }
     if (source == m_holdSource) {
         m_hold.stop();
         m_holdSource = -1;

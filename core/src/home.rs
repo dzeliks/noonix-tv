@@ -317,7 +317,9 @@ pub async fn recently_played(profile: i64) -> Result<Value> {
 }
 
 /// remove from up next / recently played / continue watching (trakt + local)
-pub async fn dismiss(profile: i64, item: &Value, undo: bool, sync: bool) -> Result<()> {
+/// hidden here only, from up next, continue watching and recently played: trakt never hears of it
+/// and search and recommendations don't look at this list. playing the title again brings it back
+pub async fn dismiss(profile: i64, item: &Value, undo: bool) -> Result<()> {
     let key = dismiss_key(item);
     let mut gone = dismissed(profile).await;
     if undo {
@@ -326,23 +328,22 @@ pub async fn dismiss(profile: i64, item: &Value, undo: bool, sync: bool) -> Resu
         gone.push(key);
     }
     let v = json!(gone);
-    store::with(move |c| store::set_setting(c, &format!("profile:{profile}"), "dismissed", &v)).await?;
-    // the ui commits to trakt only once its undo window has passed
-    if !sync {
+    store::with(move |c| store::set_setting(c, &format!("profile:{profile}"), "dismissed", &v)).await
+}
+
+/// it's being watched again, wherever it was started from
+pub async fn played_again(profile: i64, kind: &str, tmdb: i64) -> Result<()> {
+    let key = played_key(kind, tmdb);
+    let gone = dismissed(profile).await;
+    if !gone.contains(&key) {
         return Ok(());
     }
-    if let Some(acc) = Account::for_reads(profile).await? {
-        if let Some(pid) = item.get("playbackId").and_then(Value::as_i64) {
-            if !undo {
-                acc.remove_playback(pid).await?;
-            }
-        } else if let Some(show) = item.get("show").and_then(Value::as_i64).or_else(|| {
-            (item.get("kind").and_then(Value::as_str) == Some("show")).then(|| item.get("id").and_then(Value::as_i64)).flatten()
-        }) {
-            acc.hide_show(show, !undo).await?;
-        }
-    }
-    Ok(())
+    let v = json!(gone.into_iter().filter(|k| k != &key).collect::<Vec<_>>());
+    store::with(move |c| store::set_setting(c, &format!("profile:{profile}"), "dismissed", &v)).await
+}
+
+fn played_key(kind: &str, tmdb: i64) -> String {
+    format!("{}:{tmdb}", if kind == "episode" { "show" } else { kind })
 }
 
 /// in the library = noonix tv's watchlist or the profile's trakt watchlist
@@ -471,5 +472,15 @@ mod tests {
         assert_eq!(dismiss_key(&json!({ "kind": "episode", "show": 85552, "season": 3 })), "show:85552");
         assert_eq!(dismiss_key(&json!({ "kind": "movie", "id": 603 })), "movie:603");
         assert_eq!(dismiss_key(&json!({})), "");
+    }
+
+    #[test]
+    fn playing_clears_the_key_a_dismissal_wrote() {
+        // any episode of a dismissed show brings the show back
+        let episode = json!({ "kind": "episode", "show": 85552, "season": 3 });
+        assert_eq!(dismiss_key(&episode), played_key("episode", 85552));
+        let recent = json!({ "kind": "show", "id": 85552 });
+        assert_eq!(dismiss_key(&recent), played_key("episode", 85552));
+        assert_eq!(dismiss_key(&json!({ "kind": "movie", "id": 603 })), played_key("movie", 603));
     }
 }

@@ -23,6 +23,7 @@ class Input : public QObject
     Q_PROPERTY(QVariantMap bindings READ bindings NOTIFY bindingsChanged)
     // the mouse moved the focus last (no key since): lists don't scroll for it, the wheel and keys do
     Q_PROPERTY(bool pointing READ pointing NOTIFY pointingChanged)
+    Q_PROPERTY(bool okHeld READ okHeld NOTIFY okHeldChanged)
 public:
     explicit Input(Remote *remote, QObject *parent = nullptr);
     ~Input() override;
@@ -35,6 +36,7 @@ public:
     Q_INVOKABLE bool realKey() const { return m_realKey; }
 
     bool pointing() const { return m_pointing; }
+    bool okHeld() const { return m_okHeld; }
     // the wheel moves a page: from now on the mouse is in charge, even if it hasn't moved yet
     Q_INVOKABLE void setPointing(bool on);
     QString padKind() const { return m_padKind; }
@@ -57,6 +59,7 @@ signals:
     void padKindChanged();
     void bindingsChanged();
     void pointingChanged();
+    void okHeldChanged();
     void captured(const QString &what, const QString &name);
 
 protected:
@@ -90,6 +93,10 @@ private:
     QTimer m_repeat;
     QTimer m_hold;
     int m_holdSource = -1;
+    bool m_okHeld = false;
+    int m_okSource = -1;
+    void setOkHeld(bool on) { if (m_okHeld != on) { m_okHeld = on; emit okHeldChanged(); } }
+    QTimer m_okLost;
     QHash<int, int> m_stick;          // pad * 2 + axis -> -1 / 0 / 1
     QHash<int, bool> m_trigger;       // pad * 2 + side -> pressed
 

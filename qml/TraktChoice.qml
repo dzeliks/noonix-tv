@@ -53,7 +53,7 @@ FocusScope {
     Keys.onPressed: function (e) { e.accepted = true }
 
     Rectangle { anchors.fill: parent; color: "black"; opacity: 0.4 }
-    MouseArea { anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.AllButtons; onClicked: function (m) { if (m.button === Qt.RightButton && !tc.busy) tc.close() } }
+    Shield { onOutside: if (!tc.busy) tc.close(); onRightClick: if (!tc.busy) tc.close() }
 
     Item {
         anchors.centerIn: parent

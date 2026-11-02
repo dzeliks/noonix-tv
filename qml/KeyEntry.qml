@@ -54,7 +54,7 @@ FocusScope {
     Keys.onEscapePressed: cancel()
 
     Rectangle { anchors.fill: parent; color: "black"; opacity: 0.35 * ke.reveal }
-    Shield { enabled: ke.isOpen }
+    Shield { enabled: ke.isOpen; onOutside: ke.cancel() }
 
     Item {
         id: sheet

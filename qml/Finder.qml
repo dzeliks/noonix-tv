@@ -50,7 +50,7 @@ FocusScope {
 
     // the page behind, frosted
     Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: Theme.veil }
-    Shield {}
+    Shield { onOutside: f.cancel() }
 
     Glass {
         id: card

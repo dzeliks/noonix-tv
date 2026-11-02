@@ -141,7 +141,22 @@ Item {
             return
         }
         if (v === "space") { typed(" "); return }
+        // the release of a press that was already deleting
+        if (v === "backspace" && skipTap) { skipTap = false; return }
         special(v)
+    }
+
+    // backspace held (a press that stays, or ok on it): it deletes on, faster as it goes
+    property bool backHeld: false
+    property bool skipTap: false
+    readonly property bool onBackspace: active && rows[row][focusIndex()].v === "backspace"
+    Timer {
+        id: repeater
+        interval: 420
+        repeat: true
+        running: kb.active && (kb.backHeld || (Input.okHeld && kb.onBackspace))
+        onRunningChanged: interval = 420
+        onTriggered: { interval = Math.max(45, interval * 0.8); kb.skipTap = kb.backHeld; kb.special("backspace") }
     }
 
     // the glass the keys sit on
@@ -189,6 +204,10 @@ Item {
                     lit: spec.v === "shift" && (kb.shift || kb.caps)
                     focused: kb.active && rowItem.r === kb.row && index === kb.focusIndex()
                     labelSize: spec.k === "c" ? (rowItem.acc ? 42 : 54) * kb.u : (spec.t.length > 3 ? 34 * kb.u : 38 * kb.u)
+                    TapHandler {
+                        enabled: spec.v === "backspace"
+                        onPressedChanged: { kb.backHeld = pressed; if (!pressed) Qt.callLater(function () { kb.skipTap = false }) }
+                    }
                     Pointer {
                         okKey: false
                         onPointed: kb.pointAt(rowItem.r, index)

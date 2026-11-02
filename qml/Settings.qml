@@ -6,6 +6,8 @@ FocusScope {
     id: settings
     readonly property real u: Theme.u
     property int section: 0
+    property bool copied: false
+    Timer { id: copiedTimer; interval: 2200; onTriggered: settings.copied = false }
     readonly property var sectionIds: ["sources", "accounts", "profiles", "audio", "subtitles", "playback", "controls", "about"]
     readonly property var sections: [qsTr("Sources"), qsTr("Accounts"), qsTr("Profiles"), qsTr("Audio"), qsTr("Subtitles"), qsTr("Playback"), qsTr("Controls"), qsTr("About")]
     property var acc: ({})
@@ -167,7 +169,7 @@ FocusScope {
             out.push({ label: qsTr("Hide"), value: "›", act: "patterns:excluded",
                        detail: (pt.excluded || []).length ? pt.excluded.join(", ") : qsTr("None. Releases with these words never show") })
             out.push({ header: true, label: qsTr("Advanced") })
-            out.push({ label: qsTr("Noonix formatter for AIOStreams"), checkable: false, value: qsTr("Copy"),
+            out.push({ label: qsTr("Noonix formatter for AIOStreams"), checkable: false, value: copied ? qsTr("Copied") : qsTr("Copy"),
                        detail: qsTr("If you run your own AIOStreams: paste it into its Formatter › Custom when a source says Unsupported formatting"), act: "copy-template" })
             if (prefs) {
                 out.push({ label: qsTr("Show sources that need downloading"), checkable: true, checked: prefs.showUncached, act: "pref:showUncached" })
@@ -354,7 +356,11 @@ FocusScope {
         } else if (a.indexOf("desk:") === 0) {
             Api.call("desktop.set", { what: a.slice(5), on: !line.checked }, function (ok, d) { if (ok) settings.desktop = d })
         } else if (a === "copy-template") {
-            if (template) Desktop.copy(template.name + "\n\n" + template.description)
+            if (template) {
+                Desktop.copy(template.name + "\n\n" + template.description)
+                copied = true; copiedTimer.restart()
+                toast.show(qsTr("Copied"))
+            }
         } else if (a.indexOf("pref:") === 0) {
             var p = JSON.parse(JSON.stringify(prefs)); var key = a.slice(5); p[key] = !p[key]; savePrefs(p)
         } else if (a.indexOf("lang:") === 0) {

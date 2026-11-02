@@ -24,7 +24,7 @@ FocusScope {
     // (the mouse doesn't scroll the row: then it's where the row really is)
     readonly property int firstShown: {
         var step = cardW + list.spacing
-        if (Input.pointing) return Math.round((list.contentX - list.originX + list.leftMargin) / step)
+        if (Input.pointing || wheel.heldAt >= 0) return Math.round((list.contentX - list.originX + list.leftMargin) / step)
         return Math.min(list.currentIndex - restSlot, Math.ceil(Math.max(0, overrun - slack) / step - 0.01))
     }
     // a new list (a removal, an undo, a refresh) keeps the focus on the same title, else the same spot
@@ -32,14 +32,48 @@ FocusScope {
     property int keepIndex: 0
     property bool restoring: false
     function keyOf(it) { return it ? [it.kind, it.id, it.show, it.season, it.episode].join(":") : "" }
-    // the model is only a count: cards read their item from the js list (a js array as the model
-    // goes through qvariant maps for every card, and that churn wakes the gc mid-scroll)
+    // the model holds keys only, cards read their item from byKey (a js array as the model goes
+    // through qvariant maps for every card, and that churn wakes the gc mid-scroll). changes go in as
+    // inserts and removes, so a refresh rebuilds nothing and a removal is a real one: the view keeps
+    // what's on screen where it is when the title left from outside it
+    ListModel { id: cards }
+    property var byKey: ({})
+    function sync() {
+        var m = byKey, want = [], used = {}, count = {}, i
+        for (i = 0; i < items.length; ++i) {
+            var k = keyOf(items[i]), n = count[k] || 0
+            count[k] = n + 1
+            var id = n ? k + "#" + n : k
+            m[id] = items[i]
+            want.push(id)
+            used[id] = true
+        }
+        byKey = m
+        if (!cards.count) {
+            cards.append(want.map(function (x) { return { cardKey: x } }))
+            return
+        }
+        for (i = cards.count - 1; i >= 0; --i) if (!used[cards.get(i).cardKey]) cards.remove(i)
+        for (i = 0; i < want.length; ++i) {
+            if (i < cards.count && cards.get(i).cardKey === want[i]) continue
+            var from = -1
+            for (var j = i + 1; j < cards.count && from < 0; ++j) if (cards.get(j).cardKey === want[i]) from = j
+            if (from >= 0) cards.move(from, i, 1)
+            else cards.insert(i, { cardKey: want[i] })
+        }
+    }
     onItemsChanged: {
         restoring = true
-        list.model = items.length
+        sync()
         restore()
     }
-    Component.onCompleted: list.model = items.length
+    Component.onCompleted: sync()
+    // the next change is a removal: it animates (a refresh just changes)
+    property bool sliding: false
+    function slide() { sliding = true; slideEnd.restart() }
+    Timer { id: slideEnd; interval: 700; onTriggered: row.sliding = false }
+    // only the rows a removal is for
+    readonly property bool undoable: ["upnext", "continue", "continue-movie", "recent"].indexOf(rowId) >= 0
     function restore() {
         var i = -1
         for (var k = 0; k < items.length && keepKey; ++k) if (keyOf(items[k]) === keepKey) { i = k; break }
@@ -55,11 +89,9 @@ FocusScope {
     }
     function remember() { if (!restoring && items.length) { keepIndex = list.currentIndex; keepKey = keyOf(items[list.currentIndex]) } }
     signal activated(var item)
-    // a removal ran out: the home page takes the title out of its list
-    signal take(var item)
     function activate() {
         if (!row.current) return
-        var rec = win.removalOf(row.current)
+        var rec = row.undoable ? win.removalOf(row.current) : null
         if (rec) { if (!rec.done) win.undoRemoval(row.current); return }
         row.activated(row.current)
     }
@@ -114,16 +146,28 @@ FocusScope {
         keyNavigationEnabled: true
         onCurrentIndexChanged: row.remember()
         highlightRangeMode: Input.pointing ? ListView.NoHighlightRange : ListView.ApplyRange
-        preferredHighlightBegin: Theme.margin + row.restSlot * (row.cardW + spacing)
+        preferredHighlightBegin: wheel.heldAt >= 0 ? wheel.heldAt : wheel.restX
         preferredHighlightEnd: preferredHighlightBegin + row.cardW
         highlightMoveDuration: 380
         highlightMoveVelocity: -1
         boundsBehavior: Flickable.StopAtBounds
+        model: cards
+        // a title leaves to the side, fading, while the others close up
+        remove: Transition {
+            enabled: row.sliding
+            NumberAnimation { property: "leaveT"; to: 1; duration: 240; easing.type: Easing.OutQuad }
+        }
+        displaced: Transition {
+            enabled: row.sliding
+            NumberAnimation { property: "x"; duration: 320; easing.type: Easing.OutCubic }
+        }
         delegate: Card {
             required property int index
-            media: row.items[index] || ({})
+            required property string cardKey
+            media: row.byKey[cardKey] || ({})
             style: row.style
-            onGone: row.finishLeave(media)
+            undoable: row.undoable
+            ListView.onReused: leaveT = 0
             focused: ListView.isCurrentItem && (list.activeFocus || row.menuItem === media)
             z: focused ? 1 : 0
             // cards scrolled into the margin leave instead of peeking
@@ -133,7 +177,7 @@ FocusScope {
         Keys.onReturnPressed: row.activate()
         Keys.onEnterPressed: row.activate()
         Keys.onMenuPressed: function (event) {
-            if (row.current && win.removalOf(row.current)) { row.activate(); return }
+            if (row.undoable && row.current && win.removalOf(row.current)) { row.activate(); return }
             if (!row.optionsEnabled || !row.current || !list.currentItem) { event.accepted = false; return }
             var card = list.currentItem
             var p = card.mapToItem(null, -card.width * 0.05, -card.artH * 0.05)
@@ -141,53 +185,7 @@ FocusScope {
         }
     }
 
-    // ---- a removal's end: the card fades out to the side and the rest slide up to fill the gap; off
-    // screen nothing moves, the title is simply gone when you come back
-    function indexOfKey(k) {
-        for (var i = 0; i < items.length; ++i) if (keyOf(items[i]) === k) return i
-        return -1
-    }
-    function onScreen(c) {
-        for (var d = c; d; d = d.parent) if (!d.visible) return false
-        var p = c.mapToItem(null, 0, 0)
-        return p.x + c.width > 0 && p.x < win.width && p.y + c.height > 0 && p.y < win.height
-    }
-    function leave(item) {
-        var i = indexOfKey(keyOf(item))
-        if (i < 0) return
-        var c = list.itemAtIndex(i)
-        if (c && onScreen(c)) c.startLeave()
-        else cut(item, false)
-    }
-    function finishLeave(item) { cut(item, true) }
-    function cut(item, seen) {
-        var before = {}, kids = list.contentItem.children, k
-        for (k = 0; k < kids.length; ++k) {
-            var c = kids[k]
-            if (c.media !== undefined && c.visible) before[keyOf(c.media)] = c.mapToItem(row, 0, 0).x
-        }
-        row.take(item)
-        if (!list) return
-        list.forceLayout()
-        var moved = []
-        kids = list.contentItem.children
-        for (k = 0; k < kids.length; ++k) {
-            c = kids[k]
-            if (c.media === undefined || !c.visible) continue
-            var was = before[keyOf(c.media)]
-            if (was === undefined) continue
-            var d = was - c.mapToItem(row, 0, 0).x
-            if (Math.abs(d) > 0.5) moved.push({ c: c, d: d })
-        }
-        // gone from off screen on the left with the mouse about: the view holds, nothing slides
-        if (!seen && Input.pointing && moved.length && list.contentX - list.originX > 1) {
-            list.contentX -= moved[0].d
-            return
-        }
-        moved.forEach(function (m) { m.c.flip(m.d) })
-    }
-
-    ListWheel { view: list; across: true; cards: true }
+    ListWheel { id: wheel; view: list; across: true; cards: true; restX: Theme.margin + row.restSlot * (row.cardW + list.spacing); cardW: row.cardW }
     RowArrows {
         view: list
         restSlot: row.restSlot

@@ -47,7 +47,7 @@ FocusScope {
     }
 
     Rectangle { anchors.fill: parent; color: "black"; opacity: 0.4 }
-    MouseArea { anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.AllButtons; onClicked: function (m) { if (m.button === Qt.RightButton) tc.finish(false) } }
+    Shield { onOutside: tc.finish(false); onRightClick: tc.finish(false) }
 
     Item {
         anchors.centerIn: parent

@@ -67,7 +67,7 @@ FocusScope {
     Keys.onEscapePressed: cancel()
     function add(t) { if (name.length < 20) name += t }
 
-    Shield {}
+    Shield { onOutside: pa.cancel() }
     Glass {
         id: card
         anchors.centerIn: parent

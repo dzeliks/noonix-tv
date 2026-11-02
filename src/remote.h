@@ -46,6 +46,8 @@ public slots:
     // a key the mouse stands for (a click is ok, right click is back): the mouse stays in charge
     Q_INVOKABLE void pointerKey(const QString &button);
     Q_SCRIPTABLE void InputKind(const QString &kind);
+    // the remote daemon: ok is down / up (key() alone says nothing about a hold)
+    Q_SCRIPTABLE void OkHeld(bool down) { emit okHeld(down); }
     Q_SCRIPTABLE void Raise();
     // test runs only (NOONIX_TEST=1): the mouse moves to x, y in the window, a left click there
     Q_SCRIPTABLE void Pointer(double x, double y);
@@ -53,6 +55,7 @@ public slots:
     Q_SCRIPTABLE void Button(double x, double y, int button);
     Q_SCRIPTABLE void Wheel(double x, double y, int dx, int dy);
     Q_SCRIPTABLE void Press(int key, const QString &text);
+    Q_SCRIPTABLE void Grab(const QString &path);
     // the overlay: its launch card has dissolved over our splash, the splash can play
     Q_SCRIPTABLE void Revealed() { emit revealed(); }
 
@@ -60,6 +63,7 @@ signals:
     void inputKindChanged();
     void revealed();
     void padKey(const QString &button);
+    void okHeld(bool down);
 
 private:
     bool m_covered = false;

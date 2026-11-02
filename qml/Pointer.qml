@@ -8,6 +8,8 @@ MouseArea {
     id: pt
     property bool okKey: true            // a click sends ok; false: just tapped()
     property bool takesFocus: true       // false: pointing at it leaves the focus where it is
+    property bool menuOnHold: false      // touch: holding is the right click (a card's menu)
+    property bool longDone: false
     signal pointed()
     signal tapped()
     anchors.fill: parent
@@ -54,9 +56,20 @@ MouseArea {
     TapHandler {
         id: tap
         acceptedButtons: Qt.LeftButton
+        onPressedChanged: if (pressed) pt.longDone = false
         onTapped: {
+            if (pt.longDone) { pt.longDone = false; return }
             pt.go()
             if (pt.okKey) Remote.pointerKey("OK"); else pt.tapped()
+        }
+    }
+    TapHandler {
+        acceptedDevices: PointerDevice.TouchScreen
+        enabled: pt.menuOnHold
+        onLongPressed: {
+            pt.longDone = true
+            pt.go()
+            Remote.pointerKey("MENU")
         }
     }
 }
