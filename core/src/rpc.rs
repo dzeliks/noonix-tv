@@ -342,6 +342,7 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
             Ok(s)
         }
         "tmdb.search" => tmdb::search(arg_str(&args, "query")?).await,
+        "tmdb.suggest" => tmdb::suggest(arg_str(&args, "query")?).await,
 
         // dev cli: let background work finish between calls
         "dev.wait" => {

@@ -69,7 +69,6 @@ FocusScope {
     onVisibleChanged: {
         if (visible) { load(); return }
         // the next visit starts at the top, like a fresh page
-        if (capturing) stopCapture()
         swap.stop()
         page.opacity = 1
         section = 0
@@ -83,32 +82,6 @@ FocusScope {
         { id: "PLAYPAUSE", label: qsTr("Play / Pause") }, { id: "RW", label: qsTr("Rewind") }, { id: "FF", label: qsTr("Fast-forward") },
         { id: "CH_DOWN", label: qsTr("Back 30 seconds") }, { id: "CH_UP", label: qsTr("Forward 30 seconds") }, { id: "HOME", label: qsTr("Home") }
     ]
-    // "pad:OK" / "keys:BACK" while waiting for the button or key to bind
-    property string capturing: ""
-    Timer { id: captureTimeout; interval: 8000; onTriggered: settings.stopCapture() }
-    function stopCapture() { capturing = ""; Input.capture(""); captureTimeout.stop() }
-    Connections {
-        target: Input
-        function onCaptured(what, name) {
-            var parts = settings.capturing.split(":"), side = parts[0], action = parts[1]
-            settings.capturing = ""
-            captureTimeout.stop()
-            if (!name || !action) return
-            // one button, one action: it leaves whatever had it before
-            var custom = JSON.parse(JSON.stringify(settings.app.controls || {}))
-            custom[side] = custom[side] || {}
-            var now = Input.bindings[side] || {}
-            for (var a in now) {
-                if (a === action) continue
-                var l = now[a] || []
-                if (l.indexOf(name) >= 0) custom[side][a] = l.filter(function (x) { return x !== name })
-            }
-            custom[side][action] = [name]
-            settings.setApp("controls", custom)
-            Input.setBindings(custom)
-        }
-    }
-
     function savePrefs(p) {
         prefs = p
         Api.call("sources.setPrefs", p)
@@ -253,17 +226,15 @@ FocusScope {
             var pos = { south: qsTr("Button 1"), east: qsTr("Button 2"), west: qsTr("Button 3"), north: qsTr("Button 4") }
             out.push({ label: qsTr("Controller"), checkable: false, header: true })
             controlActions.forEach(function (c) {
-                var cap = settings.capturing === "pad:" + c.id
                 out.push({ label: c.label, checkable: false, act: "bind:pad:" + c.id,
-                           value: cap ? qsTr("Press a button…") : ((b.pad || {})[c.id] || []).map(function (x) { return Pads.text(kind, x, pos) }).join("  ·  ") || "–" })
+                           value: ((b.pad || {})[c.id] || []).map(function (x) { return Pads.text(kind, x, pos) }).join("  ·  ") || "–" })
             })
             out.push({ label: qsTr("Keyboard"), checkable: false, header: true })
             controlActions.forEach(function (c) {
-                var cap = settings.capturing === "keys:" + c.id
                 out.push({ label: c.label, checkable: false, act: "bind:keys:" + c.id,
-                           value: cap ? qsTr("Press a key…") : ((b.keys || {})[c.id] || []).map(Pads.keyText).join("  ·  ") || "–" })
+                           value: ((b.keys || {})[c.id] || []).map(Pads.keyText).join("  ·  ") || "–" })
             })
-            out.push({ label: qsTr("Always"), checkable: false, header: true })
+            out.push({ label: qsTr("Built in"), checkable: false, header: true })
             out.push({ label: qsTr("Moving around"), detail: qsTr("The d-pad, the left stick and the arrow keys"), checkable: false })
             out.push({ label: qsTr("Mouse"), detail: qsTr("Point to move, click to select, right click goes back, the wheel scrolls"), checkable: false })
             out.push({ label: qsTr("Reset controls"), detail: qsTr("The controller and keyboard as they came"), checkable: false, value: qsTr("Reset"), act: "bind-reset" })
@@ -328,8 +299,11 @@ FocusScope {
                 })
             })
         } else if (a === "hdrscreen") {
-            var order = ["auto", "on", "off"]
-            setApp("hdr_screen", order[(order.indexOf(app.hdr_screen || "auto") + 1) % order.length])
+            var seen = screen.hdr === true ? qsTr("HDR") : screen.hdr === false ? qsTr("no HDR") : ""
+            choices.open({ title: qsTr("HDR on this screen"), detail: qsTr("Picks the sources that suit it best. Set it yourself if the screen is guessed wrong"),
+                           current: app.hdr_screen || "auto",
+                           options: [{ id: "auto", label: seen ? qsTr("Automatic (%1)").arg(seen) : qsTr("Automatic") }, { id: "on", label: qsTr("On") }, { id: "off", label: qsTr("Off") }],
+                           pick: function (id) { settings.setApp("hdr_screen", id) } })
         } else if (a === "uilang") {
             var nl = Desktop.language === "sr" ? "en" : "sr"
             Desktop.setLanguage(nl)
@@ -338,11 +312,8 @@ FocusScope {
             if (nl === "sr" && app.balkan_subs !== true) Api.call("setup.setBalkan", { on: true }, function () { settings.load() })
         } else if (a.indexOf("bind:") === 0) {
             var bp = a.split(":")
-            if (capturing) { stopCapture(); return }
-            capturing = bp[1] + ":" + bp[2]
-            // the ok that started it must not be taken as the answer: listen from the next event on
-            Qt.callLater(function () { Input.capture(bp[1] === "pad" ? "pad" : "key") })
-            captureTimeout.restart()
+            bindSheet.open({ side: bp[1], action: bp[2], title: controlActions.filter(function (x) { return x.id === bp[2] })[0].label, custom: app.controls || {},
+                             positions: { south: qsTr("Button 1"), east: qsTr("Button 2"), west: qsTr("Button 3"), north: qsTr("Button 4") } })
         } else if (a === "bind-reset") {
             setApp("controls", {})
             Input.setBindings({})
@@ -606,6 +577,21 @@ FocusScope {
                 }
             }
         }
+    }
+
+    Choices {
+        id: choices
+        parent: win.sheetLayer
+        anchors.fill: parent
+        onClosed: page.forceActiveFocus()
+    }
+
+    BindSheet {
+        id: bindSheet
+        parent: win.sheetLayer
+        anchors.fill: parent
+        onClosed: page.forceActiveFocus()
+        onSaved: function (c) { settings.setApp("controls", c) }
     }
 
     SiteCard {

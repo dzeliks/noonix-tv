@@ -204,6 +204,10 @@ FocusScope {
         }
     }
 
+    // the page itself: what the top edge below blurs
+    Item {
+        id: scene
+        anchors.fill: parent
     Hero {
         id: hero
         anchors.fill: parent
@@ -275,25 +279,25 @@ FocusScope {
             onMenu: function (item, index, at) { home.menu(item, modelData.id, at) }
         }
     }
-    // scrolled: the page fades into the black before it gets to the bar and the profile
-    Rectangle {
+    }
+    // scrolled: towards the top of the screen the page blurs and sinks into black, coming on with the
+    // scroll, the first pixels stay black. what's under it takes no hover
+    GlassSource { id: sceneGlass; sourceItem: scene; live: edge.visible }
+    ShaderEffect {
+        id: edge
         anchors { left: parent.left; right: parent.right; top: parent.top }
-        height: 300 * home.u
-        visible: opacity > 0
-        opacity: Math.min(1, home.heroY / (120 * home.u))
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: Theme.bg }
-            GradientStop { position: 0.46; color: Theme.bg }
-            GradientStop { position: 0.62; color: Qt.rgba(0, 0, 0, 0.8) }
-            GradientStop { position: 0.8; color: Qt.rgba(0, 0, 0, 0.32) }
-            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
-        }
-        // what's fading out takes no hover
-        MouseArea { width: parent.width; height: parent.height * 0.62; hoverEnabled: true; acceptedButtons: Qt.NoButton }
+        height: 340 * home.u
+        visible: amount > 0.001 && home.visible
+        property real band: height / home.height
+        property real amount: { var t = Math.min(1, home.heroY / (560 * home.u)); return t * t * (3 - 2 * t) }
+        property variant tex: sceneGlass.tex
+        property variant frost: sceneGlass.frost
+        fragmentShader: "qrc:/shaders/edge.frag.qsb"
+        MouseArea { width: parent.width; height: parent.height * 0.62; hoverEnabled: true; acceptedButtons: Qt.NoButton; enabled: home.heroY > 120 * home.u }
     }
     // the rows before the page has them: placeholders where they'll be
     Column {
-        anchors { left: rows.left; right: rows.right; top: rows.top }
+        anchors { left: parent.left; right: parent.right; top: parent.top; topMargin: parent.height * 0.53 }
         spacing: rows.spacing
         visible: !home.known
         Repeater {

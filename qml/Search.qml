@@ -17,6 +17,7 @@ FocusScope {
     readonly property bool typing: true
     readonly property bool searching: query.trim().length > 1
     readonly property var shown: searching ? results : popular
+    property var suggested: []
     // terminal metrics on the 1080 grid
     readonly property real columnW: 575 * u
     readonly property real columnX: width - Theme.margin - columnW
@@ -25,9 +26,10 @@ FocusScope {
     readonly property real gridGap: 40 * u
     readonly property real posterW: (columnX - 64 * u - Theme.margin - 3 * gridGap) / 4
     readonly property var suggestions: {
-        var src = searching ? results : trending, out = []
+        // typing: what people likely mean, from the core's ranking; else what's trending
+        var src = searching ? suggested : trending.map(function (x) { return x.title }), out = []
         for (var i = 0; i < src.length && out.length < 6; ++i) {
-            var t = src[i].title
+            var t = src[i]
             if (t && out.indexOf(t) < 0 && t.toLowerCase() !== query.trim().toLowerCase()) out.push(t)
         }
         return out
@@ -76,7 +78,7 @@ FocusScope {
     // busy from the first letter on: the wait isn't "no results"
     onQueryChanged: {
         var q = query.trim()
-        if (q.length < 2) { results = []; busy = false; debounce.stop(); return }
+        if (q.length < 2) { results = []; suggested = []; busy = false; debounce.stop(); return }
         busy = true
         debounce.restart()
     }
@@ -90,6 +92,9 @@ FocusScope {
                 if (q !== search.query.trim()) return
                 search.busy = false
                 search.results = ok ? (d.results || d || []) : []
+            })
+            Api.call("tmdb.suggest", { query: q }, function (ok, d) {
+                if (q === search.query.trim()) search.suggested = ok ? d : []
             })
         }
     }

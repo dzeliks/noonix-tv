@@ -351,7 +351,7 @@ Window {
         if (sources.visible) { sources.close(); return }
         if (menuPopup.visible) { menuPopup.visible = false; focusPage(); return }
         if (profileAdd.visible) { profileAdd.visible = false; profileReturn.forceActiveFocus(); return }
-        if (profilePicker.visible) { profilePicker.visible = false; nav.forceActiveFocus(); return }
+        if (profilePicker.visible) { profilePicker.close(); nav.forceActiveFocus(); return }
         if (detailStack.length) {
             var s = detailStack.slice(); s.pop(); detailStack = s
             focusPage()
@@ -896,8 +896,22 @@ Window {
         visible: false
         function open(noFocus) {
             for (var i = 0; i < win.profiles.length; ++i) if (win.profile && win.profiles[i].id === win.profile.id) profList.currentIndex = i
+            pickerFade.stop()
+            pickerFade.to = 1
             visible = true
+            pickerFade.start()
             if (!noFocus) profList.forceActiveFocus()
+        }
+        function close() {
+            pickerFade.stop()
+            pickerFade.to = 0
+            pickerFade.start()
+        }
+        opacity: 0
+        NumberAnimation {
+            id: pickerFade
+            target: profilePicker; property: "opacity"; duration: 240; easing.type: Easing.OutCubic
+            onFinished: if (to === 0) profilePicker.visible = false
         }
         // the page behind, frosted
         Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: Theme.veil }
@@ -983,7 +997,7 @@ Window {
                     if (!ok) { toast.show(qsTr("Couldn't switch profile")); return }
                     toast.shown = false
                     win.profile = p
-                    profilePicker.visible = false
+                    profilePicker.close()
                     win.detailStack = []
                     nav.forceActiveFocus()
                 })

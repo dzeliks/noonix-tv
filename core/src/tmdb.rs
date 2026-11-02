@@ -214,6 +214,79 @@ pub async fn search(query: &str) -> Result<Value> {
     Ok(Value::Array(out))
 }
 
+/// what someone typing this likely means. tmdb matches whole words ("bre" finds no breaking bad);
+/// cinemeta, stremio's public catalog, is made for typing. tmdb, ranked, only if it can't answer
+pub async fn suggest(query: &str) -> Result<Value> {
+    let (shows, movies) = tokio::join!(cinemeta_titles("series", query), cinemeta_titles("movie", query));
+    let mut out = interleave(shows, movies);
+    if out.is_empty() {
+        let v = get("/search/multi", &[("query", query.to_owned()), ("include_adult", "false".into())], 3600).await?;
+        let list: Vec<(String, f64, u64)> = v
+            .get("results")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter(|r| matches!(r.get("media_type").and_then(Value::as_str), Some("movie" | "tv")) && listed(r))
+            .filter_map(|r| {
+                let t = r.get("title").or_else(|| r.get("name")).and_then(Value::as_str)?.to_owned();
+                Some((t, r.get("popularity").and_then(Value::as_f64).unwrap_or(0.0), r.get("vote_count").and_then(Value::as_u64).unwrap_or(0)))
+            })
+            .collect();
+        out = rank_suggestions(query, list);
+    }
+    Ok(json!(out))
+}
+
+async fn cinemeta_titles(kind: &str, query: &str) -> Vec<String> {
+    let Ok(mut url) = reqwest::Url::parse(&format!("https://v3-cinemeta.strem.io/catalog/{kind}/top/")) else { return Vec::new() };
+    if let Ok(mut path) = url.path_segments_mut() {
+        path.pop_if_empty().push(&format!("search={query}.json"));
+    }
+    let Ok(res) = crate::http::CLIENT.get(url).timeout(std::time::Duration::from_secs(3)).send().await else { return Vec::new() };
+    let Ok(v) = res.json::<Value>().await else { return Vec::new() };
+    v.get("metas")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|m| m.get("name").and_then(Value::as_str).map(str::to_owned))
+        .collect()
+}
+
+/// each list is already best first: side by side, nothing twice
+fn interleave(a: Vec<String>, b: Vec<String>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let (mut a, mut b) = (a.into_iter(), b.into_iter());
+    loop {
+        let (x, y) = (a.next(), b.next());
+        if x.is_none() && y.is_none() {
+            return out;
+        }
+        for t in [x, y].into_iter().flatten() {
+            if !out.contains(&t) {
+                out.push(t);
+            }
+        }
+    }
+}
+
+fn rank_suggestions(query: &str, mut list: Vec<(String, f64, u64)>) -> Vec<String> {
+    let q = query.trim().to_lowercase();
+    // nobody's ever rated it: the kind of entry that made the list look random
+    list.retain(|x| x.2 >= 5);
+    let starts = |t: &str| {
+        let t = t.to_lowercase();
+        t.starts_with(&q) || t.split_whitespace().any(|w| w.starts_with(&q))
+    };
+    list.sort_by(|a, b| starts(&b.0).cmp(&starts(&a.0)).then(b.1.total_cmp(&a.1)));
+    let mut out: Vec<String> = Vec::new();
+    for (t, ..) in list {
+        if !out.contains(&t) {
+            out.push(t);
+        }
+    }
+    out
+}
+
 fn pick_logo(images: &Value) -> Value {
     let logos = images.get("logos").and_then(Value::as_array);
     let best = logos.and_then(|l| {
@@ -421,6 +494,18 @@ pub async fn art(kind: &str, id: i64) -> Result<Map<String, Value>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn suggestions_side_by_side() {
+        let (a, b) = (vec!["Breaking Bad".to_owned(), "Breeders".to_owned()], vec!["Brave".to_owned(), "Breeders".to_owned(), "Brazil".to_owned()]);
+        assert_eq!(interleave(a, b), ["Breaking Bad", "Brave", "Breeders", "Brazil"]);
+    }
+
+    #[test]
+    fn suggestions_rank() {
+        let l = vec![("Obscure Breaking Point".to_owned(), 1.0, 2), ("A Bad Film".to_owned(), 90.0, 50), ("Bad Boys".to_owned(), 40.0, 500), ("Breaking Bad".to_owned(), 300.0, 9000), ("Bad Boys".to_owned(), 10.0, 40)];
+        assert_eq!(rank_suggestions("bad", l), ["Breaking Bad", "A Bad Film", "Bad Boys"]);
+    }
 
     #[test]
     fn normalizes_list_items() {
