@@ -236,8 +236,9 @@ final class Osd {
             seen[label, default: 0] += 1
             let n = seen[label]!
             // an added one: where it's from and the release it was made for, not its file name
-            let made = t.external ? Self.groupOf(t.title) : ""
-            let detail = (t.external ? ["OpenSubtitles", made.isEmpty ? "" : L("made for %1", made)] : [t.title ?? "", Self.subKind(t.codec)])
+            let mine = t.external && (t.file ?? "").firstMatch(of: #/[\\\/]import-[^\\\/]+$/#) != nil
+            let made = t.external && !mine ? Self.groupOf(t.title) : ""
+            let detail = (mine ? [t.title ?? ""] : t.external ? ["OpenSubtitles", made.isEmpty ? "" : L("made for %1", made)] : [t.title ?? "", Self.subKind(t.codec)])
                 .filter { !$0.isEmpty }.joined(separator: "  ·  ")
             out.append(TrackLine(kind: "sub", id: t.id, label: n > 1 && (t.title ?? "").isEmpty ? "\(label) \(n)" : label,
                                  detail: detail, selected: t.selected))
@@ -245,7 +246,25 @@ final class Osd {
         let say = ["searching": L("Looking on OpenSubtitles…"), "none": L("Nothing new for your languages"),
                    "added": L("Added to the list"), "failed": L("OpenSubtitles isn't answering")]
         out.append(TrackLine(kind: "search", id: -1, label: L("Search Subtitles"), detail: say[subSearch] ?? L("Your languages, from OpenSubtitles")))
+        out.append(TrackLine(kind: "file", id: -2, label: L("Add Subtitle File"), detail: L("An .srt or .ass file of your own")))
         return out
+    }
+
+    /// a subtitle file of the viewer's own: the core keeps a copy and hands it back as a track
+    func addFile() {
+        guard let app else { return }
+        picker = nil
+        let p = FolderPickerModel()
+        p.files = ["srt", "ass", "ssa", "vtt", "sub"]
+        p.caption = L("Add a subtitle file")
+        p.picked = { [weak app] path in
+            Task {
+                if (try? await Core.shared.raw("playback.importSub", ["path": path])) == nil { app?.toast(L("Couldn't read that file")) }
+            }
+        }
+        app.folderPicker = p
+        p.go("", app: app)
+        show()
     }
 
     func searchSubs() {
@@ -305,6 +324,7 @@ final class Osd {
     func pick(_ i: Int) {
         guard let l = pickerLines[safe: i], !l.header else { return }
         if l.kind == "search" { searchSubs(); return }
+        if l.kind == "file" { addFile(); return }
         player.select(l.kind, l.id)
         picker = nil
         show()
@@ -898,11 +918,17 @@ struct SeekBar: View {
             let w = g.size.width
             let frac = p.duration > 0 ? min(1, osd.pos / p.duration) : 0
             let ahead = p.duration > 0 ? min(1, (p.position + p.cacheAhead) / p.duration) : 0
+            // never narrower than it is tall: a shorter capsule loses its round ends
+            let fill = { (f: CGFloat) in f > 0 ? max(g.size.height, w * f) : 0 }
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.white.opacity(0.25))
-                Capsule().fill(Color.white.opacity(0.22)).frame(width: w * ahead)
-                Capsule().fill(foc ? Theme.accent : .white).frame(width: w * frac)
-                // the knob only while the bar has focus: the fill says where it is otherwise
+                Capsule().fill(Color.white.opacity(0.22)).frame(width: fill(ahead))
+                Capsule().fill(foc ? Theme.accent : .white).frame(width: fill(frac))
+            }
+            .frame(height: g.size.height)
+            // the knob only while the bar has focus: the fill says where it is otherwise. an
+            // overlay: inside the stack it stretched the whole bar to its own height
+            .overlay(alignment: .leading) {
                 Circle().fill(.white)
                     .frame(width: 26 * u, height: 26 * u)
                     .shadow(color: .black.opacity(0.35), radius: 6 * u, y: 2 * u)
@@ -973,7 +999,7 @@ struct TrackPicker: View {
                                 .padding(.leading, 30 * u).padding(.bottom, 22 * u)
                                 .frame(maxWidth: .infinity, minHeight: 84 * u, alignment: .bottomLeading)
                         } else {
-                            let value = l.kind == "search" ? (osd.subSearch == "searching" ? "…" : "›") : l.selected ? "✓" : ""
+                            let value = l.kind == "search" ? (osd.subSearch == "searching" ? "…" : "›") : l.kind == "file" ? "›" : l.selected ? "✓" : ""
                             // no lift: it would eat the inset and crowd the corners
                             SettingsRow(line: SettingsModel.Line(label: l.label, detail: l.detail, value: value),
                                         focused: osd.pickerIndex == i, u: u, grow: 1)

@@ -10,13 +10,14 @@ FocusScope {
     property bool busy: false
     property var files: []               // file extensions to list and pick, none = a folder
     property string caption: qsTr("Add a folder")
+    property bool media: !files.length    // android lets these be seen only after asking
     signal picked(string path)
     signal closed()
     visible: opacity > 0
     opacity: 0
     Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
-    function open() { if (!files.length) Desktop.askMedia(); go(""); opacity = 1; forceActiveFocus() }
+    function open() { if (media) Desktop.askMedia(); go(""); opacity = 1; forceActiveFocus() }
     function close() { opacity = 0; closed() }
     function go(path) {
         busy = true

@@ -122,10 +122,9 @@ FocusScope {
             if (personal.indexOf(specs[i].id) >= 0) loadRow(specs[i].id)
     }
     function removeLocal(rowId, item) {
-        var c = cache, list = (c[rowId] || []).slice()
-        var i = list.indexOf(item)
-        if (i >= 0) list.splice(i, 1)
-        c[rowId] = list
+        // by what it is: the item came through a signal, it isn't the same object any more
+        var c = cache, key = [item.kind, item.id, item.show, item.season, item.episode].join(":")
+        c[rowId] = (c[rowId] || []).filter(function (x) { return [x.kind, x.id, x.show, x.season, x.episode].join(":") !== key })
         cache = c
         version++
         updateShown()

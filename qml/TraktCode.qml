@@ -36,7 +36,11 @@ FocusScope {
         onTriggered: {
             if (--left <= 0 || !tc.code) { tc.finish(false); return }
             Api.call("trakt.devicePoll", { code: tc.code.device_code, profile: tc.profile }, function (ok, d) {
-                if (ok && d.done) { tc.finish(true); toast.show(qsTr("Signed in to Trakt")) }
+                if (ok && d.done) {
+                    tc.finish(true)
+                    toast.show(qsTr("Signed in to Trakt"))
+                    if (d.local) traktChoice.ask(tc.profile, d.local)
+                }
                 else if (!ok) { tc.finish(false); toast.show(qsTr("That code didn't work")) }
             })
         }

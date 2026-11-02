@@ -394,6 +394,40 @@ pub fn add_history(c: &Connection, profile: i64, p: &Progress) -> Result<()> {
     Ok(())
 }
 
+/// one watched title, for the trip up to trakt
+#[derive(Debug, Clone, PartialEq)]
+pub struct Seen {
+    pub kind: String,
+    pub tmdb: i64,
+    pub season: Option<i64>,
+    pub episode: Option<i64>,
+    pub watched_at: i64,
+}
+
+pub fn seen(c: &Connection, profile: i64) -> Result<Vec<Seen>> {
+    let mut st = c.prepare("select kind, tmdb, season, episode, max(watched_at) from history where profile = ?1 group by key order by 5")?;
+    let rows = st.query_map(params![profile], |r| {
+        Ok(Seen { kind: r.get(0)?, tmdb: r.get(1)?, season: r.get(2)?, episode: r.get(3)?, watched_at: r.get(4)? })
+    })?;
+    Ok(rows.collect::<rusqlite::Result<_>>()?)
+}
+
+/// (watched, in progress, in the watchlist): what signing in to trakt would have to meet
+pub fn local_counts(c: &Connection, profile: i64) -> Result<(i64, i64, i64)> {
+    Ok((
+        c.query_row("select count(distinct key) from history where profile = ?1", params![profile], |r| r.get(0))?,
+        c.query_row("select count(*) from progress where profile = ?1 and completed = 0 and position > 0", params![profile], |r| r.get(0))?,
+        c.query_row("select count(*) from watchlist where profile = ?1", params![profile], |r| r.get(0))?,
+    ))
+}
+
+pub fn clear_local(c: &Connection, profile: i64) -> Result<()> {
+    for table in ["progress", "history", "watchlist"] {
+        c.execute(&format!("delete from {table} where profile = ?1"), params![profile])?;
+    }
+    Ok(())
+}
+
 pub fn history(c: &Connection, profile: i64, limit: i64) -> Result<Vec<Value>> {
     let mut st = c.prepare(
         "select kind, tmdb, season, episode, max(watched_at) from history

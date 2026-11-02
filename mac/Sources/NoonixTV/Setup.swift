@@ -287,6 +287,7 @@ final class SetupModel {
                     self?.code = nil
                     if let say { app.toast(say) }
                     if ok { Task { await self?.refresh(); await app.loadProfiles() } }
+                    if let local = c.local { app.traktChoice = TraktChoiceModel(profile: id, local: local) }
                 }
             }
         } else if a == "bench" {

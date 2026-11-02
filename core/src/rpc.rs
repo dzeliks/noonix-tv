@@ -185,7 +185,10 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
             store::with(move |c| {
                 let mut p = store::profiles(c)?.into_iter().find(|p| p.id == id).context("unknown profile")?;
                 p.trakt = mode;
-                store::update_profile(c, &p)
+                store::update_profile(c, &p)?;
+                // the next sign-in asks again
+                c.execute("delete from settings where scope = ?1 and key = 'trakt_local'", [format!("profile:{id}")])?;
+                Ok(())
             })
             .await?;
             Ok(json!({ "ok": true }))
@@ -351,6 +354,7 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
         "playback.open" => playback::open(current_profile().await?, &args).await,
         "playback.loaded" => playback::loaded(&args).await,
         "playback.searchSubs" => playback::search_subs().await,
+        "playback.importSub" => playback::import_sub(arg_str(&args, "path")?).await,
         "playback.tick" => playback::tick(&args).await,
         "playback.stop" => playback::stop(&args).await,
         "playback.refresh" => playback::refresh(&args).await,
@@ -502,18 +506,25 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
         "trakt.devicePoll" => {
             let profile = request_profile(&args).await?;
             let ok = trakt::device_poll(profile, arg_str(&args, "code")?).await?.is_some();
+            let mut local = Value::Null;
             if ok {
-                store::with(move |c| {
+                let (again, counts) = store::with(move |c| {
                     let mut p = store::profiles(c)?.into_iter().find(|p| p.id == profile).context("profile")?;
+                    let again = p.trakt == "own";
                     p.trakt = "own".into();
                     store::update_profile(c, &p)?;
                     c.execute("delete from settings where scope = ?1 and key = 'trakt_relogin'", [format!("profile:{profile}")])?;
-                    Ok(())
+                    Ok((again, store::local_counts(c, profile)?))
                 })
                 .await?;
+                // a login that ran out has answered this already
+                if !again && counts != (0, 0, 0) {
+                    local = json!({ "watched": counts.0, "progress": counts.1, "library": counts.2 });
+                }
             }
-            Ok(json!({ "done": ok }))
+            Ok(json!({ "done": ok, "local": local }))
         }
+        "trakt.choose" => trakt::choose(request_profile(&args).await?, arg_str(&args, "choice")?).await,
 
         _ => bail!("unknown method {method}"),
     }
@@ -523,7 +534,7 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
 async fn annotate_episodes(season: &mut Value, show: i64) {
     let Ok(profile) = current_profile().await else { return };
     let local = store::with(move |c| store::show_progress(c, profile, show)).await.unwrap_or_default();
-    let watched = match trakt::Account::for_profile(profile).await {
+    let watched = match trakt::Account::for_reads(profile).await {
         Ok(Some(acc)) => acc.watched_episodes(show).await.unwrap_or_default(),
         _ => Vec::new(),
     };

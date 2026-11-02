@@ -190,7 +190,7 @@ fn dismiss_key(it: &Value) -> String {
 pub async fn up_next(profile: i64) -> Result<Value> {
     let local = store::with(move |c| store::in_progress(c, profile, 200)).await?;
     let gone = dismissed(profile).await;
-    let mut items = match Account::for_profile(profile).await? {
+    let mut items = match Account::for_reads(profile).await? {
         Some(acc) => acc.up_next(20).await?,
         None => local_up_next(profile).await?,
     };
@@ -258,7 +258,7 @@ pub async fn continue_watching(profile: i64, only: Option<&str>) -> Result<Value
             items.push(it);
         }
     }
-    if let Some(acc) = Account::for_profile(profile).await? {
+    if let Some(acc) = Account::for_reads(profile).await? {
         for it in acc.playback().await.unwrap_or_default() {
             let key = match it.get("kind").and_then(Value::as_str) {
                 Some("movie") => store::movie_key(it.get("id").and_then(Value::as_i64).unwrap_or(0)),
@@ -305,7 +305,7 @@ pub async fn continue_watching(profile: i64, only: Option<&str>) -> Result<Value
 
 pub async fn recently_played(profile: i64) -> Result<Value> {
     let gone = dismissed(profile).await;
-    let mut items = match Account::for_profile(profile).await? {
+    let mut items = match Account::for_reads(profile).await? {
         Some(acc) => acc.shows_in_progress(20).await?,
         None => {
             let recent = store::with(move |c| store::recent_shows(c, profile, 20)).await?;
@@ -331,7 +331,7 @@ pub async fn dismiss(profile: i64, item: &Value, undo: bool, sync: bool) -> Resu
     if !sync {
         return Ok(());
     }
-    if let Some(acc) = Account::for_profile(profile).await? {
+    if let Some(acc) = Account::for_reads(profile).await? {
         if let Some(pid) = item.get("playbackId").and_then(Value::as_i64) {
             if !undo {
                 acc.remove_playback(pid).await?;
@@ -354,7 +354,7 @@ pub async fn in_library(profile: i64, kind: &str, tmdb: i64) -> Result<bool> {
     if local.iter().any(|(lk, id)| *lk == k && *id == tmdb) {
         return Ok(true);
     }
-    if let Some(acc) = Account::for_profile(profile).await? {
+    if let Some(acc) = Account::for_reads(profile).await? {
         let list = acc.watchlist().await?;
         return Ok(list.iter().any(|w| w.get("kind").and_then(Value::as_str) == Some(&kind) && w.get("id").and_then(Value::as_i64) == Some(tmdb)));
     }
@@ -364,7 +364,7 @@ pub async fn in_library(profile: i64, kind: &str, tmdb: i64) -> Result<bool> {
 /// trakt first: when it refuses, nothing changes here either
 pub async fn set_library(profile: i64, kind: &str, tmdb: i64, on: bool) -> Result<()> {
     validate_library_target(kind, tmdb)?;
-    if let Some(acc) = Account::for_profile(profile).await? {
+    if let Some(acc) = Account::for_reads(profile).await? {
         acc.set_watchlist(kind, tmdb, on).await?;
     }
     let kind = kind.to_owned();
@@ -392,7 +392,7 @@ pub async fn library(profile: i64, section: &str) -> Result<Value> {
         _ => bail!("unknown library section"),
     };
     let mut unavailable = false;
-    if let Some(acc) = Account::for_profile(profile).await? {
+    if let Some(acc) = Account::for_reads(profile).await? {
         let remote = if section == "history" { acc.history().await } else { acc.watchlist().await };
         match remote {
             Ok(remote) => items.extend(remote),

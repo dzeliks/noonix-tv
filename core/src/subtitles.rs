@@ -7,7 +7,7 @@ use crate::http::{self, Req};
 use crate::matches::SubLearn;
 use crate::ranking;
 use anyhow::{Context, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
 const API: &str = "https://api.opensubtitles.com/api/v1";
@@ -67,7 +67,7 @@ fn wrong_length(path: &str, rel: &Release) -> Option<String> {
     }
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Found {
     pub path: String,
     pub lang: String,
@@ -85,6 +85,76 @@ impl Found {
     pub fn sub(&self) -> crate::matches::Sub {
         crate::matches::Sub { key: self.key.clone(), lang: self.lang.clone(), name: self.title.clone(), provider: self.provider.clone(), src: Some(self.src.clone()) }
     }
+}
+
+const CP1250: &str = "€\u{fffd}‚\u{fffd}„…†‡\u{fffd}‰Š‹ŚŤŽŹ\u{fffd}‘’“”•–—\u{fffd}™š›śťžź\u{a0}ˇ˘Ł¤Ą¦§¨©Ş«¬\u{ad}®Ż°±˛ł´µ¶·¸ąş»Ľ˝ľżŔÁÂĂÄĹĆÇČÉĘËĚÍÎĎĐŃŇÓÔŐÖ×ŘŮÚŰÜÝŢßŕáâăäĺćçčéęëěíîďđńňóôőö÷řůúűüýţ˙";
+const CP1251: &str = "ЂЃ‚ѓ„…†‡€‰Љ‹ЊЌЋЏђ‘’“”•–—\u{fffd}™љ›њќћџ\u{a0}ЎўЈ¤Ґ¦§Ё©Є«¬\u{ad}®Ї°±Ііґµ¶·ё№є»јЅѕїАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюя";
+
+/// old subtitle files are in a windows code page: mostly latin 1250 here, 1251 when the letters
+/// themselves are all high bytes (cyrillic)
+fn decode(bytes: &[u8]) -> Option<String> {
+    let utf16 = |be: bool| {
+        let units = bytes[2..].chunks_exact(2).map(|p| if be { u16::from_be_bytes([p[0], p[1]]) } else { u16::from_le_bytes([p[0], p[1]]) });
+        char::decode_utf16(units).map(|c| c.unwrap_or('\u{fffd}')).collect::<String>()
+    };
+    let text = match bytes {
+        [0xff, 0xfe, ..] => utf16(false),
+        [0xfe, 0xff, ..] => utf16(true),
+        _ => match std::str::from_utf8(bytes) {
+            Ok(t) => t.trim_start_matches('\u{feff}').to_owned(),
+            Err(_) => {
+                let high = bytes.iter().filter(|b| **b >= 0xc0).count();
+                let plain = bytes.iter().filter(|b| b.is_ascii_alphabetic()).count();
+                let table: Vec<char> = (if high > plain { CP1251 } else { CP1250 }).chars().collect();
+                bytes.iter().map(|b| if b.is_ascii() { *b as char } else { table[*b as usize - 0x80] }).collect()
+            }
+        },
+    };
+    // a binary .sub, not text
+    (!text.contains('\0')).then_some(text)
+}
+
+/// the last word of the name, past the marks that aren't a language: movie.sr-Latn.forced.srt
+fn guess_lang(name: &str) -> String {
+    const LANGS: [(&str, &[&str]); 16] = [
+        ("en", &["en", "eng", "english"]), ("sr", &["sr", "srp", "scc", "serbian", "srpski"]), ("hr", &["hr", "hrv", "scr", "croatian", "hrvatski"]),
+        ("bs", &["bs", "bos", "bosnian", "bosanski"]), ("sl", &["sl", "slv", "slovenian", "slovenski"]), ("mk", &["mk", "mkd", "macedonian", "makedonski"]),
+        ("de", &["de", "ger", "deu", "german"]), ("fr", &["fr", "fre", "fra", "french"]), ("es", &["es", "spa", "spanish"]), ("it", &["it", "ita", "italian"]),
+        ("ru", &["ru", "rus", "russian"]), ("pt", &["pt", "por", "portuguese"]), ("pl", &["pl", "pol", "polish"]), ("nl", &["nl", "dut", "nld", "dutch"]),
+        ("tr", &["tr", "tur", "turkish"]), ("ja", &["ja", "jpn", "japanese"]),
+    ];
+    const MARKS: [&str; 9] = ["forced", "sdh", "hi", "cc", "latn", "latin", "cyrl", "cyr", "lat"];
+    let stem = name.rsplit_once('.').map_or(name, |n| n.0).to_lowercase();
+    let word = stem.split(|c: char| !c.is_alphanumeric()).rev().find(|w| !w.is_empty() && !MARKS.contains(w)).unwrap_or("");
+    LANGS.iter().find(|(_, names)| names.contains(&word)).map_or(String::new(), |l| l.0.to_owned())
+}
+
+/// a subtitle file of the viewer's own, kept as a utf-8 copy (it reads right, and stays when the
+/// original moves)
+pub fn import(path: &str) -> Result<Found> {
+    use std::hash::{Hash, Hasher};
+    let file = std::path::Path::new(path);
+    let bytes = std::fs::read(file)?;
+    anyhow::ensure!(bytes.len() <= 8 << 20, "not a subtitle file");
+    let text = decode(&bytes).context("not a subtitle file")?;
+    let name = file.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let ext = file.extension().map(|e| e.to_string_lossy().to_lowercase()).unwrap_or_else(|| "srt".into());
+    let mut hash = std::collections::hash_map::DefaultHasher::new();
+    bytes.hash(&mut hash);
+    let dir = PATHS.cache.join("subs");
+    std::fs::create_dir_all(&dir)?;
+    let copy = dir.join(format!("import-{:016x}.{ext}", hash.finish()));
+    std::fs::write(&copy, text)?;
+    Ok(Found {
+        path: copy.to_string_lossy().into_owned(),
+        lang: guess_lang(&name),
+        key: format!("ext:{name}"),
+        title: name,
+        score: 0.0,
+        provider: "file".into(),
+        src: Value::Null,
+        liked: false,
+    })
 }
 
 fn req(url: String) -> Req {
@@ -601,6 +671,28 @@ pub async fn next(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn imported_files_read_right() {
+        assert_eq!(CP1250.chars().count(), 128);
+        assert_eq!(CP1251.chars().count(), 128);
+        // "čćžšđ" in 1250, a word of cyrillic in 1251
+        assert_eq!(decode(b"1\n00:00:01,000\nrecenica \xe8\xe6\x9e\x9a\xf0").unwrap(), "1\n00:00:01,000\nrecenica čćžšđ");
+        assert_eq!(decode(b"\xf1\xf0\xef\xf1\xea\xe8 \xf2\xe5\xea\xf1\xf2").unwrap(), "српски текст");
+        assert_eq!(decode("već utf-8".as_bytes()).unwrap(), "već utf-8");
+        assert_eq!(decode(b"\xef\xbb\xbfbom").unwrap(), "bom");
+        assert_eq!(decode(b"\xff\xfea\0b\0").unwrap(), "ab");
+        assert!(decode(b"\0\x01binary").is_none());
+    }
+
+    #[test]
+    fn imported_language_comes_from_the_name() {
+        assert_eq!(guess_lang("Movie.2019.1080p.sr.srt"), "sr");
+        assert_eq!(guess_lang("Movie.2019.eng.forced.srt"), "en");
+        assert_eq!(guess_lang("Movie-sr-Latn.ass"), "sr");
+        assert_eq!(guess_lang("Film [Hrvatski].srt"), "hr");
+        assert_eq!(guess_lang("Movie.2019.1080p.WEB-DL.srt"), "");
+    }
 
     fn cand(attr: Value, rank: usize, lang: &str, rel: &Release) -> Cand {
         Cand { translated: translated(&attr), fit: match_score(&attr, rel), lang_rank: rank, quality: quality(&attr), src: Src::OpenSubtitles(0), release: String::new(), lang: lang.into() }

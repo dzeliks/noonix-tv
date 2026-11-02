@@ -189,6 +189,7 @@ final class AppModel {
     private(set) var watching = false
     var watchingNow: Bool { setup == nil && currentProfile != nil && splash == nil && picker == nil }
     var trakt: TraktCodeModel?
+    var traktChoice: TraktChoiceModel?
     /// a website as a qr code (settings › about)
     var site: SiteCardModel?
     let player = MPVPlayer()
@@ -470,7 +471,14 @@ final class AppModel {
         t.start { [weak self] ok, say in
             self?.closeTrakt(ok)
             if let say { self?.toast(say) }
+            if let local = t.local { self?.traktChoice = TraktChoiceModel(profile: p.id, local: local) }
         }
+    }
+
+    func refreshRows() { for r in rails.values { r.refreshPersonal() } }
+    func refreshLists() {
+        refreshRows()
+        Task { await library.load() }
     }
 
     func closeTrakt(_ ok: Bool) {
@@ -652,7 +660,7 @@ final class AppModel {
     /// nothing over the page
     private var pageOnTop: Bool {
         splash == nil && !entry.isOpen && help == nil && folderPicker == nil && extSheet == nil && profileSheet == nil
-            && profileEdit == nil && trakt == nil && site == nil && setup == nil && picker == nil && exitChoice == nil && !playing
+            && profileEdit == nil && trakt == nil && traktChoice == nil && site == nil && setup == nil && picker == nil && exitChoice == nil && !playing
             && finder == nil && sources == nil && menu == nil
     }
     func wheel(_ e: NSEvent) -> Bool {
@@ -684,6 +692,7 @@ final class AppModel {
         if let e = extSheet { e.key(k, app: self); return true }
         if let p = profileSheet { p.key(k, app: self); return true }
         if let p = profileEdit { return p.key(k) }
+        if let t = traktChoice { t.key(k, app: self); return true }
         if trakt != nil {
             if k == .back { closeTrakt(false) }
             return true
@@ -816,7 +825,16 @@ final class GridModel {
         loading = true
         items = (try? await Core.shared.call("library.list", ["section": section], as: LibraryList.self))?.items ?? []
         index = min(index, max(0, items.count - 1))
+        if items.isEmpty { head = true }
         loading = false
+    }
+
+    /// gone from the watchlist before the answer. history keeps what was watched
+    func removeLocal(_ it: Item) {
+        guard section == "watchlist" else { return }
+        items.removeAll { $0.id == it.id }
+        index = min(index, max(0, items.count - 1))
+        if items.isEmpty { head = true }
     }
 
     func leaveMouse(_ active: Bool) -> Bool {

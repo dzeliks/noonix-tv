@@ -81,19 +81,29 @@ final class CardMenu {
             let on = library != 1
             var args = target
             args["on"] = on
-            Task {
-                if (try? await Core.shared.raw("library.set", args)) != nil {
-                    await app.library.load()
-                    app.toast(on ? L("Added to Library") : L("Removed from Library"), action: L("Undo"), run: {
-                        var back = args
-                        back["on"] = !on
-                        Task {
-                            if (try? await Core.shared.raw("library.set", back)) != nil { await app.library.load() } else { app.toast(L("Couldn't undo that change")) }
-                        }
-                    })
-                } else {
-                    app.toast(on ? L("Couldn't add it") : L("Couldn't remove it"))
+            // gone at once: trakt can take a while to answer
+            if !on {
+                if let row, row.id.hasPrefix("library") {
+                    row.items.removeAll { $0.id == it.id }
+                    row.index = min(row.index, max(0, row.items.count - 1))
+                } else if row == nil, app.page == .library {
+                    app.library.removeLocal(it)
                 }
+            }
+            Task {
+                let done = (try? await Core.shared.raw("library.set", args)) != nil
+                app.refreshLists()
+                guard done else {
+                    app.toast(on ? L("Couldn't add it") : L("Couldn't remove it"))
+                    return
+                }
+                app.toast(on ? L("Added to Library") : L("Removed from Library"), action: L("Undo"), run: {
+                    var back = args
+                    back["on"] = !on
+                    Task {
+                        if (try? await Core.shared.raw("library.set", back)) != nil { app.refreshLists() } else { app.toast(L("Couldn't undo that change")) }
+                    }
+                })
             }
         case .dismiss:
             guard let row else { return }
@@ -103,12 +113,14 @@ final class CardMenu {
             let profile = app.profiles?.current ?? 0
             Task {
                 if (try? await Core.shared.raw("home.dismiss", ["item": it.json, "profile": profile, "sync": false])) != nil {
+                    // the same title can sit in rows on the other pages
+                    app.refreshRows()
                     app.toast(L("Removed"), action: L("Undo"), secs: 6, run: {
                         Task {
                             if (try? await Core.shared.raw("home.dismiss", ["item": it.json, "profile": profile, "undo": true, "sync": false])) == nil {
                                 app.toast(L("Couldn't undo that change"))
                             }
-                            await row.load(force: true)
+                            app.refreshRows()
                         }
                     }, commit: {
                         Task {

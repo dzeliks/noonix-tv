@@ -9,6 +9,10 @@ use serde_json::{json, Value};
 use std::path::PathBuf;
 
 const API: &str = "https://api.trakt.tv";
+/// tests talk to a stand-in, never to someone's real account
+fn api() -> String {
+    std::env::var("NOONIX_TRAKT_API").unwrap_or_else(|_| API.to_owned())
+}
 // access tokens live 24 h (old apps since 2025-03) to 7 days (noonix tv's app): the daily keepalive
 // refreshes them within 12 h of the end, a call refreshes one that runs out within minutes
 const REFRESH_MARGIN: i64 = 12 * 3600;
@@ -139,6 +143,15 @@ impl Account {
         Ok(Some(Account { profile, mode }))
     }
 
+    /// "use local" at sign-in: this profile's rows stay its own, only new watches go to trakt
+    pub async fn for_reads(profile: i64) -> Result<Option<Account>> {
+        let local = store::with(move |c| store::get_setting(c, &format!("profile:{profile}"), "trakt_local")).await?;
+        if local.and_then(|v| v.as_bool()).unwrap_or(false) {
+            return Ok(None);
+        }
+        Self::for_profile(profile).await
+    }
+
     fn token(&self) -> Result<Token> {
         read_token(self.mode, self.profile).ok_or_else(|| anyhow!("trakt token missing"))
     }
@@ -146,8 +159,8 @@ impl Account {
     fn req(&self, method: reqwest::Method, path: &str, body: Option<Value>) -> Result<Req> {
         let token = self.token()?;
         let mut r = match body {
-            Some(b) => Req::post(format!("{API}{path}"), b),
-            None => Req::get(format!("{API}{path}")),
+            Some(b) => Req::post(format!("{}{path}", api()), b),
+            None => Req::get(format!("{}{path}", api())),
         };
         r.method = method;
         Ok(r.header("trakt-api-version", "2")
@@ -453,6 +466,25 @@ impl Account {
         Ok(())
     }
 
+    /// what's only here goes up. a title trakt already has as watched stays out: a second post
+    /// would be a second play
+    pub async fn merge(&self, seen: &[store::Seen], watchlist: &[(String, i64)]) -> Result<()> {
+        let there = known_watched(&self.get("/sync/watched/movies", 0).await?, &self.get("/sync/watched/shows", 0).await?);
+        let fresh: Vec<&store::Seen> = seen.iter().filter(|s| !there.contains(&watched_key(s))).collect();
+        for (i, part) in fresh.chunks(MERGE_BATCH).enumerate() {
+            if i > 0 {
+                tokio::time::sleep(MERGE_PAUSE).await;
+            }
+            self.post("/sync/history", history_body(part)).await?;
+        }
+        if !watchlist.is_empty() {
+            tokio::time::sleep(MERGE_PAUSE).await;
+            self.post("/sync/watchlist", watchlist_body(watchlist)).await?;
+        }
+        self.invalidate().await;
+        Ok(())
+    }
+
     pub async fn set_watchlist(&self, kind: &str, tmdb: i64, on: bool) -> Result<()> {
         let key = if kind == "movie" { "movies" } else { "shows" };
         let body = json!({ key: [{ "ids": { "tmdb": tmdb } }] });
@@ -460,6 +492,83 @@ impl Account {
         self.invalidate().await;
         Ok(())
     }
+}
+
+// trakt takes about one write a second
+const MERGE_BATCH: usize = 300;
+const MERGE_PAUSE: std::time::Duration = std::time::Duration::from_millis(1200);
+
+/// (tmdb, season, episode), a movie has -1 for both
+fn watched_key(s: &store::Seen) -> (i64, i64, i64) {
+    if s.kind == "episode" { (s.tmdb, s.season.unwrap_or(0), s.episode.unwrap_or(0)) } else { (s.tmdb, -1, -1) }
+}
+
+fn known_watched(movies: &Value, shows: &Value) -> std::collections::HashSet<(i64, i64, i64)> {
+    let list = |v: &Value, k: &str| v.get(k).and_then(Value::as_array).cloned().unwrap_or_default();
+    let num = |v: &Value, k: &str| v.get(k).and_then(Value::as_i64);
+    let mut out = std::collections::HashSet::new();
+    for m in movies.as_array().into_iter().flatten() {
+        if let Some(id) = m.pointer("/movie/ids/tmdb").and_then(Value::as_i64) {
+            out.insert((id, -1, -1));
+        }
+    }
+    for show in shows.as_array().into_iter().flatten() {
+        let Some(id) = show.pointer("/show/ids/tmdb").and_then(Value::as_i64) else { continue };
+        for season in list(show, "seasons") {
+            let Some(s) = num(&season, "number") else { continue };
+            for e in list(&season, "episodes").iter().filter_map(|e| num(e, "number")) {
+                out.insert((id, s, e));
+            }
+        }
+    }
+    out
+}
+
+fn iso(secs: i64) -> String {
+    chrono::DateTime::from_timestamp(secs, 0).unwrap_or_default().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+}
+
+fn history_body(seen: &[&store::Seen]) -> Value {
+    let mut movies = Vec::new();
+    let mut shows: std::collections::BTreeMap<i64, std::collections::BTreeMap<i64, Vec<Value>>> = Default::default();
+    for s in seen {
+        if s.kind == "movie" {
+            movies.push(json!({ "ids": { "tmdb": s.tmdb }, "watched_at": iso(s.watched_at) }));
+        } else if let (Some(season), Some(episode)) = (s.season, s.episode) {
+            shows.entry(s.tmdb).or_default().entry(season).or_default().push(json!({ "number": episode, "watched_at": iso(s.watched_at) }));
+        }
+    }
+    let shows: Vec<Value> = shows
+        .into_iter()
+        .map(|(id, seasons)| {
+            let seasons: Vec<Value> = seasons.into_iter().map(|(n, episodes)| json!({ "number": n, "episodes": episodes })).collect();
+            json!({ "ids": { "tmdb": id }, "seasons": seasons })
+        })
+        .collect();
+    json!({ "movies": movies, "shows": shows })
+}
+
+fn watchlist_body(list: &[(String, i64)]) -> Value {
+    let of = |kind: &str| list.iter().filter(|(k, _)| k == kind).map(|(_, id)| json!({ "ids": { "tmdb": id } })).collect::<Vec<_>>();
+    json!({ "movies": of("movie"), "shows": of("show") })
+}
+
+/// after a first sign-in on a profile with its own history: "trakt" drops what's here, "merge"
+/// sends it up and shows both, "local" keeps the rows as they are
+pub async fn choose(profile: i64, choice: &str) -> Result<Value> {
+    match choice {
+        "trakt" => store::with(move |c| store::clear_local(c, profile)).await?,
+        "merge" => {
+            let acc = Account::for_profile(profile).await?.context("not signed in to trakt")?;
+            let (seen, watchlist) = store::with(move |c| Ok((store::seen(c, profile)?, store::watchlist(c, profile)?))).await?;
+            acc.merge(&seen, &watchlist).await?;
+        }
+        "local" => {}
+        _ => bail!("unknown choice"),
+    }
+    let local = choice == "local";
+    store::with(move |c| store::set_setting(c, &format!("profile:{profile}"), "trakt_local", &json!(local))).await?;
+    Ok(json!({ "ok": true }))
 }
 
 fn history_item(v: &Value) -> Option<Value> {
@@ -498,7 +607,7 @@ const APP_REDIRECT: &str = "https://github.com/dzeliks/noonix-tv";
 
 pub async fn device_code() -> Result<Value> {
     let body = json!({ "client_id": client_id()? });
-    http::json(&Req::post(format!("{API}/oauth/device/code"), body).header("content-type", "application/json")).await
+    http::json(&Req::post(format!("{}/oauth/device/code", api()), body).header("content-type", "application/json")).await
 }
 
 /// one poll; Ok(None) while the user has not typed the code yet
@@ -509,7 +618,7 @@ pub async fn device_poll(profile: i64, device_code: &str) -> Result<Option<Token
     if !secret.is_empty() {
         body["client_secret"] = json!(secret);
     }
-    let req = Req::post(format!("{API}/oauth/device/token"), body).header("content-type", "application/json");
+    let req = Req::post(format!("{}/oauth/device/token", api()), body).header("content-type", "application/json");
     let (status, bytes) = http::send(&req).await?;
     match status.as_u16() {
         200 => {
@@ -553,7 +662,7 @@ async fn refresh_within(mode: Mode, profile: i64, margin: i64) -> Result<bool> {
     if !secret.is_empty() {
         body["client_secret"] = json!(secret);
     }
-    let v = http::json(&Req::post(format!("{API}/oauth/token"), body).header("content-type", "application/json")).await?;
+    let v = http::json(&Req::post(format!("{}/oauth/token", api()), body).header("content-type", "application/json")).await?;
     let mut t: Token = serde_json::from_value(v)?;
     t.expires_at = Some(t.created_at + t.expires_in);
     if mode == Mode::Own {
@@ -577,6 +686,23 @@ pub async fn wait_for_dns(host: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn merge_sends_only_what_trakt_lacks() {
+        let seen = |kind: &str, tmdb, season, episode, at| store::Seen { kind: kind.into(), tmdb, season, episode, watched_at: at };
+        let movies = json!([{ "movie": { "ids": { "tmdb": 10 } } }]);
+        let shows = json!([{ "show": { "ids": { "tmdb": 20 } }, "seasons": [{ "number": 1, "episodes": [{ "number": 1 }] }] }]);
+        let there = known_watched(&movies, &shows);
+        let local = [seen("movie", 10, None, None, 0), seen("movie", 11, None, None, 0),
+                     seen("episode", 20, Some(1), Some(1), 0), seen("episode", 20, Some(1), Some(2), 60)];
+        let fresh: Vec<&store::Seen> = local.iter().filter(|s| !there.contains(&watched_key(s))).collect();
+        assert_eq!(history_body(&fresh), json!({
+            "movies": [{ "ids": { "tmdb": 11 }, "watched_at": "1970-01-01T00:00:00Z" }],
+            "shows": [{ "ids": { "tmdb": 20 }, "seasons": [{ "number": 1, "episodes": [{ "number": 2, "watched_at": "1970-01-01T00:01:00Z" }] }] }],
+        }));
+        assert_eq!(watchlist_body(&[("show".into(), 5), ("movie".into(), 6)]),
+                   json!({ "movies": [{ "ids": { "tmdb": 6 } }], "shows": [{ "ids": { "tmdb": 5 } }] }));
+    }
 
     #[test]
     fn scrobble_targets() {

@@ -305,6 +305,8 @@ final class TraktCodeModel {
     let profile: Int
     let name: String
     var code: [String: Any]?
+    /// signed in on a profile with a history here: what it has
+    var local: [String: Any]?
     @ObservationIgnored private var poll: Task<Void, Never>?
 
     var userCode: String? { code?["user_code"] as? String }
@@ -333,7 +335,9 @@ final class TraktCodeModel {
                 if Task.isCancelled { return }
                 do {
                     let r = try await Core.shared.raw("trakt.devicePoll", ["code": device, "profile": profile])
-                    if (try? JSONSerialization.jsonObject(with: r) as? [String: Any])?["done"] as? Bool == true {
+                    let o = try? JSONSerialization.jsonObject(with: r) as? [String: Any]
+                    if o?["done"] as? Bool == true {
+                        local = o?["local"] as? [String: Any]
                         done(true, L("Signed in to Trakt"))
                         return
                     }
@@ -347,6 +351,85 @@ final class TraktCodeModel {
     }
 
     func cancel() { poll?.cancel() }
+}
+
+/// first trakt sign-in on a profile that already has a history here (qml TraktChoice).
+/// back leaves both as they are
+@MainActor @Observable
+final class TraktChoiceModel {
+    let profile: Int
+    let local: [String: Any]
+    var index = 1
+    var busy = false
+
+    init(profile: Int, local: [String: Any]) {
+        self.profile = profile
+        self.local = local
+    }
+
+    var summary: String {
+        let n = { (k: String) in (self.local[k] as? NSNumber)?.intValue ?? 0 }
+        return [("watched", "%1 watched"), ("progress", "%1 in progress"), ("library", "%1 in Library")]
+            .filter { n($0.0) > 0 }.map { L($0.1, String(n($0.0))) }.joined(separator: "  ·  ")
+    }
+    let lines = [SettingsModel.Line(label: L("Overwrite with Trakt"), detail: L("Delete what's here and use Trakt's history"), act: "trakt"),
+                 SettingsModel.Line(label: L("Merge"), detail: L("Add what's here to Trakt and keep both"), act: "merge"),
+                 SettingsModel.Line(label: L("Use Local"), detail: L("Keep what's here, only new watches go to Trakt"), act: "local")]
+
+    func pick(_ i: Int, app: AppModel) {
+        guard !busy, let l = lines[safe: i] else { return }
+        busy = true
+        Task {
+            let ok = (try? await Core.shared.raw("trakt.choose", ["profile": profile, "choice": l.act])) != nil
+            busy = false
+            guard ok else {
+                app.toast(l.act == "merge" ? L("Trakt isn't answering") : L("Couldn't save it"))
+                return
+            }
+            app.traktChoice = nil
+            app.refreshLists()
+        }
+    }
+
+    func key(_ k: Key, app: AppModel) {
+        switch k {
+        case .up: index = max(0, index - 1)
+        case .down: index = min(lines.count - 1, index + 1)
+        case .ok: pick(index, app: app)
+        case .back: if !busy { app.traktChoice = nil; app.refreshLists() }
+        default: break
+        }
+    }
+}
+
+struct TraktChoiceView: View {
+    @Environment(AppModel.self) private var app
+    let model: TraktChoiceModel
+
+    var body: some View {
+        let u = app.u
+        ZStack {
+            Color.black.opacity(0.4).contentShape(.rect).onTapGesture {}
+            VStack(alignment: .leading, spacing: 14 * u) {
+                Text(L("This profile already has a history")).font(Theme.display(42 * u, .bold)).foregroundStyle(Theme.fg)
+                Text(model.summary).font(Theme.text(27 * u, .medium)).foregroundStyle(Theme.fg2).padding(.bottom, 10 * u)
+                VStack(spacing: 4 * u) {
+                    ForEach(Array(model.lines.enumerated()), id: \.offset) { i, l in
+                        SettingsRow(line: l, focused: model.index == i, u: u, grow: 1)
+                            .opacity(model.busy ? 0.5 : 1)
+                            .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.index = i } }
+                            .onTapGesture { model.index = i; model.pick(i, app: app) }
+                    }
+                }
+                Text(model.busy ? L("Sending it to Trakt…") : L("Back changes nothing"))
+                    .font(Theme.text(22 * u)).foregroundStyle(Theme.fg3)
+                    .frame(maxWidth: .infinity).padding(.top, 8 * u)
+            }
+            .padding(52 * u)
+            .frame(width: 1040 * u)
+            .panelGlass(52 * u, u: u)
+        }
+    }
 }
 
 struct TraktCodeView: View {

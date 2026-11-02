@@ -108,7 +108,7 @@ Window {
     property alias backdropTex: bdTex
     property alias sheetLayer: sheetLayer
     property alias frostTex: frostV
-    readonly property bool videoGlass: videoUp && (osd.glassUp || tracks.visible || sources.visible || matchSheet.visible || timing.visible || matchTip.visible
+    readonly property bool videoGlass: videoUp && (osd.glassUp || tracks.visible || subPick.visible || sources.visible || matchSheet.visible || timing.visible || matchTip.visible
                                                 || toast.visible || switching.visible)
     readonly property bool backdropOn: !videoUp || vglass.ready
     readonly property bool backdropLive: !videoUp || videoGlass
@@ -452,17 +452,26 @@ Window {
                                           : { kind: "show", tmdb: it.show, season: it.season, episode: it.episode, start: 0 }, null, it)
         } else if (o.act === "library") {
             var t = libraryTarget(it), on = libraryState !== 1
+            if (!on && menuHome && menuHome.removeLocal && menuRow.indexOf("library") === 0) menuHome.removeLocal(menuRow, it)
             Api.call("library.set", Object.assign({ on: on }, t), function (ok) {
+                refreshLists()
                 if (!ok) { toast.show(on ? qsTr("Couldn't add it") : qsTr("Couldn't remove it")); return }
-                if (libraryL.item) libraryL.item.load()
                 toast.show(on ? qsTr("Added to Library") : qsTr("Removed from Library"), qsTr("Undo"), function () {
                     Api.call("library.set", Object.assign({ on: !on }, t), function (ok) {
-                        if (ok && libraryL.item) libraryL.item.load()
-                        if (!ok) toast.show(qsTr("Couldn't undo that change"))
+                        if (ok) refreshLists()
+                        else toast.show(qsTr("Couldn't undo that change"))
                     })
                 })
             })
         }
+    }
+    // the same title can sit in rows on every page and in the library
+    function refreshRows() {
+        [homeL, moviesL, showsL].forEach(function (l) { if (l.item) l.item.refreshPersonal() })
+    }
+    function refreshLists() {
+        refreshRows()
+        if (libraryL.item) libraryL.item.load()
     }
     function dismiss() {
         var it = menuItem, rowId = menuRow, home = menuHome, p = profile.id
@@ -471,10 +480,11 @@ Window {
         home.removeLocal(rowId, it)
         Api.call("home.dismiss", { item: it, profile: p, sync: false }, function (ok) {
             if (!ok) { toast.show(qsTr("Couldn't remove it")); home.loadRow(rowId); return }
+            refreshRows()
             toast.show(qsTr("Removed"), qsTr("Undo"), function () {
                 Api.call("home.dismiss", { item: it, profile: p, undo: true, sync: false }, function (ok) {
                     if (!ok) toast.show(qsTr("Couldn't undo that change"))
-                    home.loadRow(rowId)
+                    refreshRows()
                 })
             }, 6, function () {
                 Api.call("home.dismiss", { item: it, profile: p }, function (ok) {
@@ -582,6 +592,7 @@ Window {
     }
     function closePickers() {
         if (tracks.visible) tracks.close()
+        if (subPick.visible) subPick.close()
         if (matchSheet.visible) matchSheet.close()
     }
     function stopPlayback() {
@@ -665,7 +676,7 @@ Window {
             win.closePickers()
             if (!same) matchSheet.open(x, w)
         }
-        pickerOpen: tracks.visible || matchSheet.visible
+        pickerOpen: tracks.visible || subPick.visible || matchSheet.visible
     }
     Finder {
         id: finder
@@ -676,6 +687,21 @@ Window {
         id: tracks
         anchors.fill: parent
         onClosed: osd.forceActiveFocus()
+        onAddFile: subPick.open()
+    }
+    FolderPicker {
+        id: subPick
+        anchors.fill: parent
+        z: 5
+        files: ["srt", "ass", "ssa", "vtt", "sub"]
+        media: true
+        caption: qsTr("Add a subtitle file")
+        onClosed: if (win.videoUp) osd.forceActiveFocus()
+        onPicked: function (path) {
+            Api.call("playback.importSub", { path: path }, function (ok) {
+                if (!ok) toast.show(qsTr("Couldn't read that file"))
+            })
+        }
     }
     Match {
         id: matchSheet
@@ -1081,10 +1107,16 @@ Window {
         function onPushed(name, d) {
             if (name === "notice" && d && d.message) toast.notify(qsTranslate("core", d.message))
             // a library scan finished: its rows follow
-            if (name === "library") [homeL, moviesL, showsL].forEach(function (l) { if (l.item) l.item.refreshPersonal() })
+            if (name === "library") refreshRows()
         }
     }
 
+    TraktChoice {
+        id: traktChoice
+        anchors.fill: parent
+        z: 9
+        onChosen: win.refreshLists()
+    }
     Toast {
         id: toast
         z: 10

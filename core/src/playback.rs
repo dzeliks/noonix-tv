@@ -282,6 +282,20 @@ pub async fn loaded(args: &Value) -> Result<Value> {
     };
     let (embedded, sub_pick) = pick_embedded(&tracks, &learn);
     let take = sub_pick == Some(-1) || learn.exact.iter().any(|s| !s.is_embedded());
+    // a file the viewer added to this title last time comes back on, after the player's own pick
+    let imported = {
+        let key = imported_key(&item.key());
+        store::with(move |c| store::get_setting(c, &format!("profile:{profile}"), &key)).await.ok().flatten()
+    }
+    .and_then(|v| serde_json::from_value::<subtitles::Found>(v).ok())
+    .filter(|f| std::path::Path::new(&f.path).exists());
+    let take = take && imported.is_none();
+    if let Some(f) = imported {
+        app::RUNTIME.spawn(async move {
+            tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+            hand_over(id, vec![f], true).await;
+        });
+    }
     // extra subtitles for the preferences the file has no (good) track for; arrive a moment later
     if let (Some(imdb), false, true) = (item.imdb.clone(), dud, setting_on("extra_subs").await) {
         let (season, ep, original) = (item.season, item.episode, item.original_language.clone());
@@ -516,6 +530,25 @@ pub async fn search_subs() -> Result<Value> {
     Ok(json!({ "count": count }))
 }
 
+fn imported_key(item: &str) -> String {
+    format!("imported_sub:{item}")
+}
+
+/// a subtitle file the viewer picked: on at once, and on again the next time this title plays
+pub async fn import_sub(path: &str) -> Result<Value> {
+    let path = path.to_owned();
+    let found = tokio::task::spawn_blocking(move || subtitles::import(&path)).await??;
+    let (id, profile, key) = {
+        let g = SESSION.lock().await;
+        let s = g.as_ref().context("nothing is playing")?;
+        (s.id, s.profile, imported_key(&s.item.key()))
+    };
+    let v = serde_json::to_value(&found)?;
+    store::with(move |c| store::set_setting(c, &format!("profile:{profile}"), &key, &v)).await?;
+    hand_over(id, vec![found], true).await;
+    Ok(json!({ "ok": true }))
+}
+
 pub async fn tick(args: &Value) -> Result<Value> {
     let position = args.get("position").and_then(Value::as_f64).unwrap_or(0.0);
     let paused = args.get("paused").and_then(Value::as_bool).unwrap_or(false);
@@ -654,7 +687,8 @@ pub async fn match_state() -> Result<Value> {
         "release": { "label": release_label(&stream), "group": stream.group, "file": stream.filename },
         "sub": sub.map(|s| json!({
             "lang": s.lang, "name": s.name, "provider": s.provider, "embedded": s.is_embedded(),
-            "group": matches::sub_group_name(&s.name),
+            // a file of the viewer's own isn't made for any release, whatever its name says
+            "group": if s.provider == "file" { None } else { matches::sub_group_name(&s.name) },
         })),
         "releaseMark": matches::state_json(rm),
         "subMark": matches::state_json(sm),

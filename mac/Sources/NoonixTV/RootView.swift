@@ -90,6 +90,9 @@ struct RootView: View {
             if let t = app.trakt {
                 TraktCodeView(model: t).transition(.opacity.combined(with: .scale(scale: 0.96))).zIndex(6)
             }
+            if let t = app.traktChoice {
+                TraktChoiceView(model: t).transition(.opacity.combined(with: .scale(scale: 0.96))).zIndex(8.7)
+            }
             if let s = app.site {
                 SiteCardView(model: s).transition(.opacity.combined(with: .scale(scale: 0.96))).zIndex(6)
             }

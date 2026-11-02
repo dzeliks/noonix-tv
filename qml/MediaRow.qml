@@ -17,13 +17,15 @@ FocusScope {
     readonly property real cardH: style === "poster" ? 214 * u * 1.5 : 400 * u * 9 / 16 + 92 * u
     readonly property real cardW: (style === "poster" ? 214 : 400) * u
     readonly property int restSlot: style === "poster" ? 2 : 1
+    // a hair too wide for the screen (4 landscape cards): the margin gives way, the row stays put
+    readonly property real overrun: items.length * (cardW + list.spacing) - list.spacing + 2 * Theme.margin - width
+    readonly property real slack: overrun > 0 && overrun < Theme.margin / 2 ? overrun : 0
     // first card left in view: the rest slot, or less once the row has hit its end
     // (the mouse doesn't scroll the row: then it's where the row really is)
     readonly property int firstShown: {
         var step = cardW + list.spacing
         if (Input.pointing) return Math.round((list.contentX - list.originX + list.leftMargin) / step)
-        var end = items.length * step - list.spacing + 2 * Theme.margin - width
-        return Math.min(list.currentIndex - restSlot, Math.ceil(Math.max(0, end) / step - 0.01))
+        return Math.min(list.currentIndex - restSlot, Math.ceil(Math.max(0, overrun - slack) / step - 0.01))
     }
     // a new list (a removal, an undo, a refresh) keeps the focus on the same title, else the same spot
     property string keepKey: ""
@@ -97,7 +99,7 @@ FocusScope {
         focus: true
         spacing: (row.style === "poster" ? 34 : 44) * row.u
         leftMargin: Theme.margin
-        rightMargin: Theme.margin
+        rightMargin: Theme.margin - row.slack
         clip: false
         reuseItems: true
         cacheBuffer: 1200 * row.u

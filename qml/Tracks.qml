@@ -9,6 +9,7 @@ FocusScope {
     property real anchorX: Theme.margin  // left edge of the subtitles + audio buttons
     property real anchorW: 470 * u       // their width together
     signal closed()
+    signal addFile()
     property string search: ""            // "" | searching | none | added | failed
     Connections {
         target: Player
@@ -62,15 +63,17 @@ FocusScope {
             // the same language twice without a title: number them
             seen[label] = (seen[label] || 0) + 1
             // an added one: where it's from and the release it was made for, not its file name
-            var made = t.external ? tr.groupOf(t.title) : ""
-            var detail = (t.external ? ["OpenSubtitles", made ? qsTr("made for %1").arg(made) : ""]
-                                     : [t.title, tr.subKind(t.codec)]).filter(function (x) { return x }).join("  ·  ")
+            var mine = t.external && /[\\/]import-[^\\/]+$/.test(t.file || "")
+            var made = t.external && !mine ? tr.groupOf(t.title) : ""
+            var detail = (mine ? [t.title] : t.external ? ["OpenSubtitles", made ? qsTr("made for %1").arg(made) : ""]
+                                                        : [t.title, tr.subKind(t.codec)]).filter(function (x) { return x }).join("  ·  ")
             out.push({ kind: "sub", id: t.id, label: seen[label] > 1 && !t.title ? label + " " + seen[label] : label, detail: detail, selected: t.selected })
         })
         out.push({ kind: "search", id: -1, label: qsTr("Search Subtitles"),
                    detail: { searching: qsTr("Looking on OpenSubtitles…"), none: qsTr("Nothing new for your languages"),
                              added: qsTr("Added to the list"), failed: qsTr("OpenSubtitles isn't answering") }[tr.search]
                            || qsTr("Your languages, from OpenSubtitles") })
+        out.push({ kind: "file", id: -2, label: qsTr("Add Subtitle File"), detail: qsTr("An .srt or .ass file of your own") })
         return out
     }
     // the panel fits its lines (toggle 84 / 108 with a detail, headers 84)
@@ -128,6 +131,7 @@ FocusScope {
             var l = tr.lines[currentIndex]
             if (!l || l.header) return
             if (l.kind === "search") { tr.searchSubs(); return }
+            if (l.kind === "file") { tr.close(); tr.addFile(); return }
             if (l.kind === "sub") Player.setSubtitleTrack(l.id); else Player.setAudioTrack(l.id)
             tr.close()
         }
@@ -157,7 +161,7 @@ FocusScope {
                     detail: modelData.detail || ""
                     checkable: false
                     grow: 1                     // a lift would eat the inset and crowd the corners
-                    value: modelData.kind === "search" ? (tr.search === "searching" ? "…" : "›") : modelData.selected ? "✓" : ""
+                    value: modelData.kind === "search" ? (tr.search === "searching" ? "…" : "›") : modelData.kind === "file" ? "›" : modelData.selected ? "✓" : ""
                     focused: list.currentIndex === index && list.activeFocus
                 }
             }

@@ -587,6 +587,14 @@
             <translation>Ovaj izvor ne može da se pusti</translation>
         </message>
         <message>
+            <source>Add a subtitle file</source>
+            <translation>Dodavanje fajla s titlom</translation>
+        </message>
+        <message>
+            <source>Couldn't read that file</source>
+            <translation>Ne mogu da pročitam taj fajl</translation>
+        </message>
+        <message>
             <source>Timing kept for these subtitles</source>
             <translation>Pomeranje sačuvano za ove titlove</translation>
         </message>
@@ -639,11 +647,11 @@
         <name>Match</name>
         <message>
             <source>Good match · saved</source>
-            <translation>Sve štima · zapamćeno</translation>
+            <translation>Sve je u redu · zapamćeno</translation>
         </message>
         <message>
             <source>Good match</source>
-            <translation>Sve štima</translation>
+            <translation>Sve je u redu</translation>
         </message>
         <message>
             <source>Remember this source and subtitles</source>
@@ -695,7 +703,7 @@
         </message>
         <message>
             <source>How's this one?</source>
-            <translation>Da li sve štima?</translation>
+            <translation>Ima problema?</translation>
         </message>
         <message>
             <source>This source</source>
@@ -722,15 +730,15 @@
         <name>MatchTip</name>
         <message>
             <source>How's this one?</source>
-            <translation>Da li sve štima?</translation>
+            <translation>Ima problema?</translation>
         </message>
         <message>
             <source>Press Menu while watching to say if the source and subtitles fit.</source>
-            <translation>Tokom gledanja pritisni Meni i reci da li izvor i titlovi štimaju.</translation>
+            <translation>Tokom gledanja pritisni Meni i reci da li su izvor i titlovi dobri.</translation>
         </message>
         <message>
             <source>Good match</source>
-            <translation>Sve štima</translation>
+            <translation>Sve je u redu</translation>
         </message>
         <message>
             <source>Out of sync</source>
@@ -2647,6 +2655,73 @@
         <message>
             <source>Your languages, from OpenSubtitles</source>
             <translation>Tvoji jezici, sa OpenSubtitles-a</translation>
+        </message>
+        <message>
+            <source>Add Subtitle File</source>
+            <translation>Dodaj fajl s titlom</translation>
+        </message>
+        <message>
+            <source>An .srt or .ass file of your own</source>
+            <translation>Tvoj .srt ili .ass fajl</translation>
+        </message>
+    </context>
+    <context>
+        <name>TraktChoice</name>
+        <message>
+            <source>Trakt isn't answering</source>
+            <translation>Trakt se ne javlja</translation>
+        </message>
+        <message>
+            <source>Couldn't save it</source>
+            <translation>Nije sačuvano</translation>
+        </message>
+        <message>
+            <source>%1 watched</source>
+            <translation>Odgledano: %1</translation>
+        </message>
+        <message>
+            <source>%1 in progress</source>
+            <translation>U toku: %1</translation>
+        </message>
+        <message>
+            <source>%1 in Library</source>
+            <translation>U biblioteci: %1</translation>
+        </message>
+        <message>
+            <source>Overwrite with Trakt</source>
+            <translation>Zameni Traktom</translation>
+        </message>
+        <message>
+            <source>Delete what's here and use Trakt's history</source>
+            <translation>Obriši ono što je ovde i koristi istoriju sa Trakta</translation>
+        </message>
+        <message>
+            <source>Merge</source>
+            <translation>Spoji</translation>
+        </message>
+        <message>
+            <source>Add what's here to Trakt and keep both</source>
+            <translation>Dodaj ovo na Trakt i zadrži oboje</translation>
+        </message>
+        <message>
+            <source>Use Local</source>
+            <translation>Koristi lokalno</translation>
+        </message>
+        <message>
+            <source>Keep what's here, only new watches go to Trakt</source>
+            <translation>Ostaje ono što je ovde, na Trakt idu samo nova gledanja</translation>
+        </message>
+        <message>
+            <source>This profile already has a history</source>
+            <translation>Ovaj profil već ima istoriju</translation>
+        </message>
+        <message>
+            <source>Sending it to Trakt…</source>
+            <translation>Šaljem na Trakt…</translation>
+        </message>
+        <message>
+            <source>Back changes nothing</source>
+            <translation>Nazad ništa ne menja</translation>
         </message>
     </context>
     <context>

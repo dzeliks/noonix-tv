@@ -32,10 +32,27 @@ FocusScope {
             library.busy = false
             library.failed = !ok
             if (ok) {
-                library.items = d.items
+                library.setItems(d.items)
                 library.offline = d.traktUnavailable
             }
         })
+    }
+    // a new list resets the view: the focus stays where it was, or goes up to the tabs
+    function setItems(list) {
+        var i = grid.currentIndex
+        items = list
+        if (list.length) {
+            grid.currentIndex = Math.max(0, Math.min(i, list.length - 1))
+            grid.positionViewAtIndex(grid.currentIndex, GridView.Contain)
+        } else if (grid.activeFocus) {
+            (library.history ? historyTab : library.files ? filesTab : watchlist).forceActiveFocus()
+        }
+    }
+    // gone from the watchlist before the answer: trakt can take a while. history keeps what was watched
+    function removeLocal(rowId, item) {
+        if (section !== "watchlist") return
+        var key = item.kind + ":" + item.id
+        setItems(items.filter(function (x) { return x.kind + ":" + x.id !== key }))
     }
     onSectionChanged: { items = []; load() }
     onProfileIdChanged: { items = []; load() }

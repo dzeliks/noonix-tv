@@ -294,7 +294,10 @@ FocusScope {
         onTriggered: {
             if (--left <= 0 || !setup.code) { stop(); setup.code = null; return }
             Api.call("trakt.devicePoll", { code: setup.code.device_code, profile: setup.codeProfile }, function (ok, d) {
-                if (ok && d.done) { poll.stop(); setup.code = null; setup.refresh(); toast.show(qsTr("Signed in to Trakt")) }
+                if (ok && d.done) {
+                    poll.stop(); setup.code = null; setup.refresh(); toast.show(qsTr("Signed in to Trakt"))
+                    if (d.local) traktChoice.ask(setup.codeProfile, d.local)
+                }
                 else if (!ok) { poll.stop(); setup.code = null; toast.show(qsTr("That code didn't work")) }
             })
         }
