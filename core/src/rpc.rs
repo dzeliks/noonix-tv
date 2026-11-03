@@ -131,9 +131,9 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
             Ok(json!({ "ok": true }))
         }
         "bench.device" => {
-            let v = crate::bench::device().await?;
-            let d = v["score"].clone();
-            store::with(move |c| store::set_setting(c, "app", "bench_device", &d)).await?;
+            let v = crate::bench::device(args.get("hardware").and_then(Value::as_bool).unwrap_or(false)).await?;
+            let d = json!({ "fps": v["fps"], "hardware": v["hardware"], "score": v["score"] });
+            store::with(move |c| store::set_setting(c, "app", "bench_decode", &d)).await?;
             Ok(v)
         }
         "quality.options" => Ok(crate::quality::options().await),

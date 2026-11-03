@@ -85,7 +85,6 @@ final class UILang: @unchecked Sendable {
         "This Mac is the weaker of the two": "Slabija karika je ovaj Mac",
         "this Mac": "ovaj Mac",
         "On This Mac": "Na ovom Mac-u",
-        "Last time: %1 Mbit/s down, this Mac scored %2": "Prošli put: %1 Mbit/s, Mac je dobio ocenu %2",
         "May be too much for this Mac": "Možda je previše za ovaj Mac",
         "Starts Noonix TV when you sign in to this Mac": "Pokreće Noonix TV kad se prijaviš na Mac",
         "Starts Noonix TV when you sign in, handy on a Mac made for the TV": "Pokreće Noonix TV kad se prijaviš, zgodno za Mac namenjen televizoru",

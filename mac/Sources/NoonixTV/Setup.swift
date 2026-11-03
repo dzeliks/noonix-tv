@@ -185,7 +185,7 @@ final class SetupModel {
                 out.append(Line(label: L("Internet"), detail: L("%1 Mbit/s down", String(Int(m.rounded()))), value: sp.netZones[safe: sp.netZone]?.label ?? "", act: "bench"))
             }
             if let p = sp.devValue {
-                out.append(Line(label: L("Device"), detail: L("%1 points", String(Int(p.rounded()))), value: sp.devZones[safe: sp.devZone]?.label ?? "", act: "bench"))
+                out.append(Line(label: L("Device"), detail: SpeedCheckModel.devText(fps: sp.devFps ?? p, hardware: sp.hardware), value: sp.devZones[safe: sp.devZone]?.label ?? "", act: "bench"))
             }
         case "quality":
             out = SettingsModel.qualityLines(quality, setup: true)

@@ -17,6 +17,7 @@ Item {
     property string number: ""
     property string unit: ""
     property string note: ""             // no reading: why
+    property string extra: ""            // a small line under the result
     readonly property int count: zones.length
     function fraction(v) {
         if (!count) return 0
@@ -136,6 +137,14 @@ Item {
                 Behavior on scale { NumberAnimation { duration: 380; easing.type: Easing.OutCubic } }
                 Behavior on color { ColorAnimation { duration: 420 } }
             }
+        }
+        Text {
+            width: parent.width
+            visible: text !== ""
+            horizontalAlignment: Text.AlignHCenter
+            text: g.extra
+            color: Theme.fg3
+            font { family: Theme.text; pixelSize: 17 * g.u }
         }
     }
 }

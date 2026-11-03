@@ -55,6 +55,13 @@ jobs:
           NOONIX_TRAKT_CLIENT_SECRET: ${{ secrets.NOONIX_TRAKT_CLIENT_SECRET }}
           NOONIX_RELEASE: '1'
         run: mac/build.sh
+      # the speed check's cpu test on this architecture: same pixels as x86, and the fps it reads
+      - name: device test
+        env:
+          CARGO_TARGET_DIR: mac/.build/cargo
+        run: |
+          cargo test --release --manifest-path core/Cargo.toml --lib --locked -- bench::
+          cargo test --release --manifest-path core/Cargo.toml --lib --locked -- --ignored --nocapture calibrate
       - name: zip
         run: |
           v="$(sed -n 's/^version = "\(.*\)"/\1/p' core/Cargo.toml | head -1)"

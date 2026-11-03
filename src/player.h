@@ -37,6 +37,8 @@ class Player : public QObject
     Q_PROPERTY(bool refreshMatch READ refreshMatch NOTIFY refreshMatchChanged)
     // subtitle timing in seconds (+ = later); follows what was set for this release + subtitle
     Q_PROPERTY(double subDelay READ subDelay NOTIFY subDelayChanged)
+    // a hardware hevc main10 decoder (what carries 4k): -1 not known yet, 0 no, 1 yes
+    Q_PROPERTY(int hevc10 READ hevc10 NOTIFY hevc10Changed)
 
 public:
     // nativeVideo (windows hdr): mpv draws in its own d3d11 window instead of the qt scene
@@ -89,8 +91,12 @@ public:
     // subtitles move above the controls while they're up
     Q_INVOKABLE void setSubtitleLift(bool on);
     Q_INVOKABLE void stop();
+    int hevc10() const { return m_hevc10; }
+    // looks once, off the ui thread (drivers take a moment to load): hwdecode.cpp
+    Q_INVOKABLE void probeHevc10();
 
 signals:
+    void hevc10Changed();
     void stateChanged();
     void positionChanged();
     void durationChanged();
@@ -107,6 +113,8 @@ signals:
     void ended(bool completed);
 
 private:
+    int m_hevc10 = -1;
+    bool m_probing = false;
     void drain();
     void onFileLoaded();
     void onEnd(const QString &reason, const QString &error);

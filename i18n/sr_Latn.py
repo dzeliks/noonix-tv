@@ -13,6 +13,12 @@ T = {
     "No internet, so it follows the device. Change it any time in Settings › Sources": "Nema interneta, pa važi uređaj. Promeni bilo kad u Podešavanja › Izvori",
     "You can change the picture quality any time in Settings › Sources": "Kvalitet slike možeš da promeniš bilo kad u Podešavanja › Izvori",
     "Last time: no internet reading, this device scored %1": "Prošli put: internet nije izmeren, uređaj je dobio ocenu %1",
+    "%1 fps (4K HDR, 40 Mbit/s)": "%1 fps (4K HDR, 40 Mbit/s)",
+    "%1 fps (4K HDR, 40 Mbit/s) + hardware decoder": "%1 fps (4K HDR, 40 Mbit/s) + hardverski dekoder",
+    "fps · 4K HDR, 40 Mbit/s": "fps · 4K HDR, 40 Mbit/s",
+    "+ hardware decoder": "+ hardverski dekoder",
+    "Last time: %1 Mbit/s down, %2": "Prošli put: %1 Mbit/s, %2",
+    "Last time: no internet reading, %1": "Prošli put: internet nije izmeren, %1",
     # ---- on-screen keyboard
     "space": "razmak",
     "clear": "obriši",

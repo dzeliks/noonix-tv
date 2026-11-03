@@ -9,7 +9,8 @@ FocusScope {
     property var net: null               // null, { running }, { mbps }, { error }
     property var dev: null
     property real liveMbps: 0
-    property real liveScore: 0
+    property real liveScore: 0           // with a hardware decoder lifted to the top
+    property real liveFps: 0
     property int choice: 1
     property int generation: 0
     readonly property bool running: (!!net && !!net.running) || (!!dev && (!!dev.running || !!dev.next))
@@ -28,7 +29,7 @@ FocusScope {
         })
     }
     readonly property var netZones: zonesFrom("needMbps", 600)
-    readonly property var devZones: zonesFrom("needDevice", 130)
+    readonly property var devZones: zonesFrom("needDevice", 80)
     function zoneIn(zs, v) {
         var z = -1
         for (var i = 0; i < zs.length; ++i) if (v >= zs[i].from) z = i
@@ -37,6 +38,11 @@ FocusScope {
     function label(zs, v) { var z = zoneIn(zs, v); return z >= 0 ? zs[z].label : "" }
     readonly property bool netDone: !!net && net.mbps !== undefined
     readonly property bool devDone: !!dev && dev.score !== undefined
+    // what the cpu decodes (fps of 4k hevc 10-bit at 40 mbit/s, as calibrated), and whether a hardware decoder carries it
+    function devText(d) {
+        var fps = d.fps !== undefined && d.fps !== null ? d.fps : d.score
+        return d.hardware ? qsTr("%1 fps (4K HDR, 40 Mbit/s) + hardware decoder").arg(fps) : qsTr("%1 fps (4K HDR, 40 Mbit/s)").arg(fps)
+    }
     readonly property int netZone: netDone ? zoneIn(netZones, net.mbps) : -1
     readonly property int devZone: devDone ? zoneIn(devZones, dev.score) : -1
     readonly property bool bothDone: netDone && devDone
@@ -53,11 +59,12 @@ FocusScope {
         choice = 1
         opacity = 1
         forceActiveFocus()
+        Player.probeHevc10()
         Api.call("quality.options", {}, function (ok, d) {
             if (!ok) return
             sc.levels = d.levels || []
             if (!sc.net && d.mbps !== null && d.mbps !== undefined) sc.net = { mbps: d.mbps }
-            if (!sc.dev && d.device !== null && d.device !== undefined) sc.dev = { score: d.device }
+            if (!sc.dev && d.device !== null && d.device !== undefined) sc.dev = { score: d.device, fps: d.deviceFps, hardware: d.hardware }
             if (auto) sc.run()
         })
     }
@@ -73,25 +80,34 @@ FocusScope {
         var request = ++generation
         liveMbps = 0
         liveScore = 0
+        liveFps = 0
+        hwWait.tries = 0
         net = { running: true }
         dev = { next: true }
         // one after the other: the cpu test would slow the download down
         Api.call("bench.internet", {}, function (ok, d) {
             if (request !== sc.generation) return
             sc.net = ok ? d : sc.net && sc.net.skipped ? sc.net : { error: qsTr("No connection") }
-            sc.dev = { running: true }
-            Api.call("bench.device", {}, function (ok2, d2) {
-                if (request !== sc.generation) return
-                sc.dev = ok2 ? d2 : { error: qsTr("Couldn't measure") }
-                sc.measured()
-            })
+            sc.device(request)
         })
     }
+    // the hardware decoder check runs since open(); give it up to 3 s, without one the cpu decides
+    function device(request) {
+        if (request !== generation) return
+        if (Player.hevc10 < 0 && hwWait.tries < 30) { hwWait.request = request; hwWait.start(); return }
+        dev = { running: true }
+        Api.call("bench.device", { hardware: Player.hevc10 === 1 }, function (ok, d) {
+            if (request !== sc.generation) return
+            sc.dev = ok ? d : { error: qsTr("Couldn't measure") }
+            sc.measured()
+        })
+    }
+    Timer { id: hwWait; interval: 100; property int request; property int tries: 0; onTriggered: { tries++; sc.device(request) } }
     Connections {
         target: Api
         function onPushed(name, d) {
             if (name === "bench" && d && sc.net && sc.net.running) sc.liveMbps = d.mbps
-            else if (name === "benchDevice" && d && sc.dev && sc.dev.running) sc.liveScore = d.score
+            else if (name === "benchDevice" && d && sc.dev && sc.dev.running) { sc.liveScore = d.score; sc.liveFps = d.fps }
         }
     }
 
@@ -142,18 +158,20 @@ FocusScope {
                     // without internet the device alone decides
                     decided: sc.bothDone || (sc.netFailed && sc.devDone)
                     chosen: !sc.netDone || sc.devZone <= sc.netZone
-                    number: sc.devDone ? String(sc.dev.score) : measuring && sc.liveScore > 0 ? String(Math.round(sc.liveScore)) : ""
-                    unit: qsTr("points")
+                    number: sc.devDone ? String(sc.dev.fps !== undefined && sc.dev.fps !== null ? sc.dev.fps : sc.dev.score)
+                                       : measuring && sc.liveFps > 0 ? String(Math.round(sc.liveFps)) : ""
+                    unit: qsTr("fps · 4K HDR, 40 Mbit/s")
+                    extra: (sc.devDone ? sc.dev.hardware : Player.hevc10 === 1) ? qsTr("+ hardware decoder") : ""
                     note: sc.dev && sc.dev.error ? sc.dev.error : ""
                 }
             }
             // what it comes to: the weaker of the two
             Item {
                 width: parent.width
-                height: verdict.height + 30 * sc.u
+                height: verdict.height + 70 * sc.u
                 Column {
                     id: verdict
-                    y: 18 * sc.u
+                    y: 34 * sc.u
                     width: parent.width
                     spacing: 6 * sc.u
                     opacity: sc.headline ? 1 : 0
@@ -177,7 +195,7 @@ FocusScope {
                 }
             }
             Row {
-                topPadding: 22 * sc.u
+                topPadding: 8 * sc.u
                 anchors.right: parent.right
                 spacing: 20 * sc.u
                 GlassButton {

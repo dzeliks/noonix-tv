@@ -1187,6 +1187,14 @@
             <translation>Pokreni</translation>
         </message>
         <message>
+            <source>Last time: %1 Mbit/s down, %2</source>
+            <translation>Prošli put: %1 Mbit/s, %2</translation>
+        </message>
+        <message>
+            <source>Last time: no internet reading, %1</source>
+            <translation>Prošli put: internet nije izmeren, %1</translation>
+        </message>
+        <message>
             <source>Not measured yet: the recommendation is a guess</source>
             <translation>Još nije izmereno: preporuka je odokativna</translation>
         </message>
@@ -1317,14 +1325,6 @@
         <message>
             <source>If you run your own AIOStreams: paste it into its Formatter › Custom when a source says Unsupported formatting</source>
             <translation>Ako koristiš svoj AIOStreams: nalepi ga u Formatter › Custom kad izvor kaže da format nije podržan</translation>
-        </message>
-        <message>
-            <source>Last time: %1 Mbit/s down, this device scored %2</source>
-            <translation>Prošli put: %1 Mbit/s, uređaj je dobio ocenu %2</translation>
-        </message>
-        <message>
-            <source>Last time: no internet reading, this device scored %1</source>
-            <translation>Prošli put: internet nije izmeren, uređaj je dobio ocenu %1</translation>
         </message>
         <message>
             <source>Sign in</source>
@@ -1970,10 +1970,6 @@
             <translation>Internet</translation>
         </message>
         <message>
-            <source>%1 points</source>
-            <translation>%1 poena</translation>
-        </message>
-        <message>
             <source>Measuring…</source>
             <translation>Merim…</translation>
         </message>
@@ -2521,6 +2517,14 @@
             <translation>Maksimalno</translation>
         </message>
         <message>
+            <source>%1 fps (4K HDR, 40 Mbit/s) + hardware decoder</source>
+            <translation>%1 fps (4K HDR, 40 Mbit/s) + hardverski dekoder</translation>
+        </message>
+        <message>
+            <source>%1 fps (4K HDR, 40 Mbit/s)</source>
+            <translation>%1 fps (4K HDR, 40 Mbit/s)</translation>
+        </message>
+        <message>
             <source>Device</source>
             <translation>Uređaj</translation>
         </message>
@@ -2553,8 +2557,12 @@
             <translation>Preskočeno</translation>
         </message>
         <message>
-            <source>points</source>
-            <translation>poena</translation>
+            <source>fps · 4K HDR, 40 Mbit/s</source>
+            <translation>fps · 4K HDR, 40 Mbit/s</translation>
+        </message>
+        <message>
+            <source>+ hardware decoder</source>
+            <translation>+ hardverski dekoder</translation>
         </message>
         <message>
             <source>You can watch up to %1</source>

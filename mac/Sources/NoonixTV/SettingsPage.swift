@@ -150,8 +150,12 @@ final class SettingsModel {
                 out.append(Line(label: L("Picture quality"), header: true))
                 out += Self.qualityLines(q, setup: false)
                 let mbps = q["mbps"].flatMap { $0 is NSNull ? nil : $0 }
+                let dev = (q["device"] as? NSNumber).map {
+                    SpeedCheckModel.devText(fps: (q["deviceFps"] as? NSNumber)?.doubleValue ?? $0.doubleValue, hardware: q["hardware"] as? Bool ?? false)
+                }
                 out.append(Line(label: L("Speed check"),
-                                detail: mbps != nil ? L("Last time: %1 Mbit/s down, this Mac scored %2", "\(mbps!)", "\(q["device"].flatMap { $0 is NSNull ? nil : $0 } ?? "–")")
+                                detail: mbps != nil ? L("Last time: %1 Mbit/s down, %2", "\(mbps!)", dev ?? "–")
+                                    : dev != nil ? L("Last time: no internet reading, %1", dev!)
                                     : L("Not measured yet: the recommendation is a guess"),
                                 value: L("Run"), act: "bench"))
             }

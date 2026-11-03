@@ -12,15 +12,21 @@ pub struct Level {
     pub max_mbps: Option<f64>,
     /// what the speed check should show for it to play smoothly (peaks run ~2x the average)
     pub net: f64,
+    /// software 4k hevc 10-bit fps (bench.rs): a film needs 24, a remux's bits cost more on top
     pub device: u32,
 }
 
 pub const LEVELS: &[Level] = &[
     Level { id: "light", max_res: 1080, remux: false, max_mbps: Some(8.0), net: 0.0, device: 0 },
-    Level { id: "hd", max_res: 1080, remux: false, max_mbps: Some(20.0), net: 25.0, device: 5 },
-    Level { id: "4k", max_res: 2160, remux: false, max_mbps: Some(35.0), net: 50.0, device: 15 },
-    Level { id: "max", max_res: 2160, remux: true, max_mbps: None, net: 120.0, device: 30 },
+    Level { id: "hd", max_res: 1080, remux: false, max_mbps: Some(20.0), net: 25.0, device: 8 },
+    Level { id: "4k", max_res: 2160, remux: false, max_mbps: Some(35.0), net: 50.0, device: 24 },
+    Level { id: "max", max_res: 2160, remux: true, max_mbps: None, net: 120.0, device: 36 },
 ];
+
+/// what a hardware hevc main10 decoder counts as: the top level
+pub fn top_device() -> u32 {
+    LEVELS[LEVELS.len() - 1].device
+}
 
 /// installs from before the levels keep what they had: everything
 pub const DEFAULT: &str = "max";
@@ -62,12 +68,14 @@ pub fn over(s: &Stream, l: &Level, runtime_min: Option<f64>) -> bool {
 /// what setup and settings show: the choice, the recommendation and why the ones above it may not play well
 pub async fn options() -> Value {
     let (net, dev, cur) = store::with(|c| {
-        Ok((store::get_setting(c, "app", "bench_net")?, store::get_setting(c, "app", "bench_device")?, store::get_setting(c, "app", "quality")?))
+        // bench_decode: { fps, hardware, score }. the old bench_device (sha-256 points) is left alone
+        Ok((store::get_setting(c, "app", "bench_net")?, store::get_setting(c, "app", "bench_decode")?, store::get_setting(c, "app", "quality")?))
     })
     .await
     .unwrap_or((None, None, None));
     let mbps = net.as_ref().and_then(Value::as_f64);
-    let device = dev.as_ref().and_then(Value::as_u64).map(|d| d as u32);
+    let dev = dev.unwrap_or(Value::Null);
+    let device = dev.get("score").and_then(Value::as_u64).map(|d| d as u32);
     let rec = recommend(mbps, device);
     let levels: Vec<Value> = LEVELS
         .iter()
@@ -87,6 +95,8 @@ pub async fn options() -> Value {
         "recommended": rec,
         "mbps": mbps,
         "device": device,
+        "deviceFps": dev.get("fps"),
+        "hardware": dev.get("hardware").and_then(Value::as_bool).unwrap_or(false),
         "levels": levels,
     })
 }
@@ -98,11 +108,13 @@ mod tests {
     #[test]
     fn recommendation() {
         assert_eq!(recommend(Some(300.0), Some(100)), "max");
-        assert_eq!(recommend(Some(300.0), Some(20)), "4k");
+        assert_eq!(recommend(Some(300.0), Some(30)), "4k");
+        assert_eq!(recommend(Some(300.0), Some(62)), "max");
+        assert_eq!(recommend(Some(300.0), Some(20)), "hd");
         assert_eq!(recommend(Some(60.0), Some(100)), "4k");
         assert_eq!(recommend(Some(30.0), None), "hd");
         assert_eq!(recommend(Some(10.0), Some(100)), "light");
-        assert_eq!(recommend(None, Some(3)), "light");
+        assert_eq!(recommend(None, Some(5)), "light");
         assert_eq!(recommend(None, None), "4k");
         assert_eq!(recommend(None, Some(100)), "max");
     }
