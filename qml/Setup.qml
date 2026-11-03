@@ -108,7 +108,7 @@ FocusScope {
         subtitles: qsTr("Subtitle languages, best first. Noonix TV turns on the first one a video has and can find the ones it doesn't. Right jumps to Continue."),
         background: qsTr("Logins expire when nothing uses them for a while. Noonix TV can check them once a day."),
         playback: qsTr("These can be changed any time in Settings."),
-        benchmark: (Theme.android ? qsTr("How fast this internet connection and this device are. The next step picks a picture quality from it.") : qsTr("How fast this internet connection and this PC are. The next step picks a picture quality from it.")),
+        benchmark: qsTr("How fast this internet connection and this device are. The next step picks a picture quality from it."),
         quality: qsTr("Picked from the speed check. Higher ones may stutter here, lower ones always play smoothly. Sources above it still show, last and marked. You can change it in Settings."),
         done: gaps.length ? qsTr("Almost there. You can start now and add the rest later in Settings.") : qsTr("That's everything. You can change any of it later in Settings.")
     })
@@ -169,7 +169,7 @@ FocusScope {
         } else if (name === "benchmark") {
             var bn = speed.net, bd = speed.dev
             out.push({ label: qsTr("Speed check"), checkable: false, act: "bench", value: speed.running ? "…" : qsTr("Run"),
-                       detail: speed.running ? qsTr("Measuring…") : speed.headline ? qsTr("You can watch up to %1").arg(speed.headline) + "  ·  " + speed.why : qsTr("Not measured yet") })
+                       detail: speed.running ? qsTr("Measuring…") : speed.headline ? qsTr("You can watch up to %1").arg(speed.headline) + (speed.why ? "  ·  " + speed.why : "") : qsTr("Not measured yet") })
             if (speed.netDone) out.push({ label: qsTr("Internet"), checkable: false, act: "bench", detail: qsTr("%1 Mbit/s down").arg(bn.mbps), value: speed.label(speed.netZones, bn.mbps) })
             if (speed.devDone) out.push({ label: speed.deviceName, checkable: false, act: "bench", detail: qsTr("%1 points").arg(bd.score), value: speed.label(speed.devZones, bd.score) })
         } else if (name === "quality") {

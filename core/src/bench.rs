@@ -1,10 +1,18 @@
-// setup's benchmark: internet speed and how fast this pc is. only a score for now, nothing
-// acts on it yet
+// the speed check: internet speed and how fast this device is. quality.rs picks a level from both
 use crate::http::CLIENT;
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+static SKIP: AtomicBool = AtomicBool::new(false);
+
+/// stops a running internet check (skip, or no connection worth waiting for)
+pub fn skip_internet() {
+    SKIP.store(true, Ordering::Relaxed);
+}
 
 // cloudflare's speed test answers any size from the nearest edge, but turns you away (429) after
 // a few runs in a row: then the public test files of two hosters
@@ -27,8 +35,12 @@ pub fn device_score(mb_per_s: f64) -> u32 {
 }
 
 pub async fn internet() -> Result<Value> {
+    SKIP.store(false, Ordering::Relaxed);
     let mut last = None;
     for url in DOWNS {
+        if SKIP.load(Ordering::Relaxed) {
+            anyhow::bail!("skipped");
+        }
         match measure(url).await {
             Ok(mbps) => return Ok(json!({ "mbps": mbps.round(), "score": net_score(mbps) })),
             Err(e) => {
@@ -41,8 +53,6 @@ pub async fn internet() -> Result<Value> {
 }
 
 async fn measure(url: &'static str) -> Result<f64> {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    use std::sync::Arc;
     // one answer is capped below 100 mb: a few parallel 25 mb downloads, again and again
     let got = Arc::new(AtomicU64::new(0));
     let start = Instant::now();
@@ -50,11 +60,11 @@ async fn measure(url: &'static str) -> Result<f64> {
         .map(|_| {
             let got = got.clone();
             tokio::spawn(async move {
-                while start.elapsed() < NET_FOR {
+                while start.elapsed() < NET_FOR && !SKIP.load(Ordering::Relaxed) {
                     let mut res = CLIENT.get(url).timeout(NET_FOR + Duration::from_secs(5)).send().await?.error_for_status()?;
                     while let Some(c) = res.chunk().await? {
                         got.fetch_add(c.len() as u64, Ordering::Relaxed);
-                        if start.elapsed() >= NET_FOR {
+                        if start.elapsed() >= NET_FOR || SKIP.load(Ordering::Relaxed) {
                             break;
                         }
                     }
@@ -65,10 +75,19 @@ async fn measure(url: &'static str) -> Result<f64> {
         .collect();
     // the first second is tcp warming up: measure after it
     tokio::time::sleep(Duration::from_secs(1)).await;
+    let abort = |workers: &[tokio::task::JoinHandle<Result<()>>]| workers.iter().for_each(|w| w.abort());
+    if SKIP.load(Ordering::Relaxed) {
+        abort(&workers);
+        anyhow::bail!("skipped");
+    }
     let (from, from_bytes) = (Instant::now(), got.load(Ordering::Relaxed));
     // the gauge follows along
     while !workers.iter().all(|w| w.is_finished()) {
         tokio::time::sleep(Duration::from_millis(250)).await;
+        if SKIP.load(Ordering::Relaxed) {
+            abort(&workers);
+            anyhow::bail!("skipped");
+        }
         let bytes = got.load(Ordering::Relaxed) - from_bytes;
         let mbps = bytes as f64 * 8.0 / from.elapsed().as_secs_f64().max(0.001) / 1e6;
         crate::app::emit("bench", json!({ "mbps": mbps.round() }));
@@ -90,22 +109,31 @@ pub async fn device() -> Result<Value> {
     let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(1);
     let total = tokio::task::spawn_blocking(move || {
         let block = vec![0x5au8; 1 << 20];
+        let done = Arc::new(AtomicU64::new(0));
+        let start = Instant::now();
         let workers: Vec<_> = (0..threads)
             .map(|_| {
                 let block = block.clone();
+                let done = done.clone();
                 std::thread::spawn(move || {
-                    let start = Instant::now();
                     let mut n = 0u64;
                     let mut h = Sha256::new();
                     while start.elapsed() < CPU_FOR {
                         h.update(&block);
                         n += 1;
+                        done.fetch_add(1, Ordering::Relaxed);
                     }
                     std::hint::black_box(h.finalize());
                     n as f64 / start.elapsed().as_secs_f64()
                 })
             })
             .collect();
+        // the gauge follows along here too
+        while !workers.iter().all(|w| w.is_finished()) {
+            std::thread::sleep(Duration::from_millis(200));
+            let rate = done.load(Ordering::Relaxed) as f64 / start.elapsed().as_secs_f64().max(0.001);
+            crate::app::emit("benchDevice", json!({ "score": device_score(rate) }));
+        }
         workers.into_iter().map(|w| w.join().unwrap_or(0.0)).sum::<f64>()
     })
     .await?;

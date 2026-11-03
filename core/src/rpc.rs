@@ -114,10 +114,21 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
         "setup.credential" => setup::set_credential(arg_str(&args, "key")?, args.get("value").unwrap_or(&Value::Null)).await,
         // kept for the quality recommendation (settings shows it later too)
         "bench.internet" => {
-            let v = crate::bench::internet().await?;
+            // skipped or offline: the old reading goes too, the level then follows the device alone
+            let v = match crate::bench::internet().await {
+                Ok(v) => v,
+                Err(e) => {
+                    let _ = store::with(|c| store::set_setting(c, "app", "bench_net", &Value::Null)).await;
+                    return Err(e);
+                }
+            };
             let m = v["mbps"].clone();
             store::with(move |c| store::set_setting(c, "app", "bench_net", &m)).await?;
             Ok(v)
+        }
+        "bench.skipInternet" => {
+            crate::bench::skip_internet();
+            Ok(json!({ "ok": true }))
         }
         "bench.device" => {
             let v = crate::bench::device().await?;

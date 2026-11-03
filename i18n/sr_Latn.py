@@ -5,6 +5,14 @@ import sys
 import xml.etree.ElementTree as ET
 
 T = {
+    "Device": "Uređaj",
+    "Skip": "Preskoči",
+    "Skipped": "Preskočeno",
+    "No connection": "Nema veze",
+    "No internet, so it follows the device": "Nema interneta, pa važi uređaj",
+    "No internet, so it follows the device. Change it any time in Settings › Sources": "Nema interneta, pa važi uređaj. Promeni bilo kad u Podešavanja › Izvori",
+    "You can change the picture quality any time in Settings › Sources": "Kvalitet slike možeš da promeniš bilo kad u Podešavanja › Izvori",
+    "Last time: no internet reading, this device scored %1": "Prošli put: internet nije izmeren, uređaj je dobio ocenu %1",
     # ---- on-screen keyboard
     "space": "razmak",
     "clear": "obriši",

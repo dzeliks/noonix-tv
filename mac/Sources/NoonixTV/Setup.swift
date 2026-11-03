@@ -179,13 +179,13 @@ final class SetupModel {
         case "benchmark":
             let sp = speed
             out.append(Line(label: L("Speed check"),
-                            detail: sp.running ? L("Measuring…") : !sp.headline.isEmpty ? L("You can watch up to %1", sp.headline) + "  ·  " + sp.why : L("Not measured yet"),
+                            detail: sp.running ? L("Measuring…") : !sp.headline.isEmpty ? L("You can watch up to %1", sp.headline) + (sp.why.isEmpty ? "" : "  ·  " + sp.why) : L("Not measured yet"),
                             value: sp.running ? "…" : L("Run"), act: "bench"))
             if let m = sp.netValue {
                 out.append(Line(label: L("Internet"), detail: L("%1 Mbit/s down", String(Int(m.rounded()))), value: sp.netZones[safe: sp.netZone]?.label ?? "", act: "bench"))
             }
             if let p = sp.devValue {
-                out.append(Line(label: L("This Mac"), detail: L("%1 points", String(Int(p.rounded()))), value: sp.devZones[safe: sp.devZone]?.label ?? "", act: "bench"))
+                out.append(Line(label: L("Device"), detail: L("%1 points", String(Int(p.rounded()))), value: sp.devZones[safe: sp.devZone]?.label ?? "", act: "bench"))
             }
         case "quality":
             out = SettingsModel.qualityLines(quality, setup: true)

@@ -97,7 +97,7 @@ QtObject {
         return q.levels.map(function (l, i) {
             var warn = i <= rec ? ""
                 : !l.netOk ? qsTr("May stutter: wants about %1 Mbit/s, this connection has %2").arg(l.needMbps).arg(q.mbps)
-                : !l.deviceOk ? (Theme.android ? qsTr("May be too much for this device") : qsTr("May be too much for this PC"))
+                : !l.deviceOk ? qsTr("May be too much for this device")
                 : qsTr("Not measured yet: may stutter here")
             return { label: l.id === q.recommended ? qsTr("%1 (Recommended)").arg(names[l.id]) : names[l.id],
                      detail: about[l.id] + (warn ? "  ·  " + warn : ""), checkable: true, checked: l.id === cur, act: "quality:" + l.id }

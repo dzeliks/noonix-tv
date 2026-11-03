@@ -35,7 +35,8 @@ struct Card: View {
             ZStack(alignment: .bottom) {
                 Art(url: wide ? (media.still ?? media.backdrop) : media.poster, radius: 18 * u,
                     px: wide ? 900 : 700, placeholder: title, u: u)
-                    .scaleEffect(x: 1 - 2 * inset / artW, y: 1 - 2 * inset / artH)
+                    // pulled in, the corners stay the border's
+                    .padding(inset)
                     .opacity(removing ? 0.55 : 1)
                 if let removal {
                     UndoFace(removal: removal, radius: 18 * u, u: u, width: artW)
@@ -114,7 +115,7 @@ struct UndoFace: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: radius).strokeBorder(.white.opacity(0.16), lineWidth: 2 * u)
-            DrainLine(radius: max(4, radius - 8 * u))
+            DrainLine(radius: radius)
                 .trim(from: 0, to: left)
                 .stroke(.white, style: StrokeStyle(lineWidth: 4 * u, lineCap: .round))
                 .padding(8 * u)

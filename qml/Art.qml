@@ -6,6 +6,7 @@ Item {
     property url source
     property real radius: 18 * Theme.u
     property real shade: 0
+    property real inset: 0                   // drawn this far inside, the corners stay the same
     property string placeholder: ""          // title shown while there's no image
     readonly property bool ready: img.status === Image.Ready
 
@@ -16,6 +17,7 @@ Item {
     Timer { interval: 120; running: !art.ready && !art.slow; onTriggered: art.slow = true }
     Rectangle {
         anchors.fill: parent
+        anchors.margins: art.inset
         radius: art.radius
         color: Qt.rgba(1, 1, 1, 0.08)
         visible: !art.ready
@@ -58,10 +60,11 @@ Item {
         property real h: height
         property real radius: art.radius
         readonly property real imgAr: img.implicitHeight > 0 ? img.implicitWidth / img.implicitHeight : 1
-        readonly property real boxAr: height > 0 ? width / height : 1
+        readonly property real boxAr: height > 2 * art.inset ? (width - 2 * art.inset) / (height - 2 * art.inset) : 1
         property real sx: imgAr > boxAr ? boxAr / imgAr : 1
         property real sy: imgAr > boxAr ? 1 : imgAr / boxAr
         property real shade: art.shade
+        property real inset: art.inset
         fragmentShader: "qrc:/shaders/art.frag.qsb"
     }
 }

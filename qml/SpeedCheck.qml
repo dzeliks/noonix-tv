@@ -9,6 +9,7 @@ FocusScope {
     property var net: null               // null, { running }, { mbps }, { error }
     property var dev: null
     property real liveMbps: 0
+    property real liveScore: 0
     property int choice: 1
     property int generation: 0
     readonly property bool running: (!!net && !!net.running) || (!!dev && (!!dev.running || !!dev.next))
@@ -39,20 +40,15 @@ FocusScope {
     readonly property int netZone: netDone ? zoneIn(netZones, net.mbps) : -1
     readonly property int devZone: devDone ? zoneIn(devZones, dev.score) : -1
     readonly property bool bothDone: netDone && devDone
-    readonly property string deviceName: Theme.android ? qsTr("This device") : qsTr("This PC")
+    readonly property string deviceName: qsTr("Device")
+    readonly property bool netFailed: !!net && (!!net.error || !!net.skipped)
     readonly property string headline: {
         if (running || (!netDone && !devDone)) return ""
         if (bothDone) return (netZones[Math.min(netZone, devZone)] || {}).label || ""
-        return netDone ? netZones[netZone].label : devDone ? devZones[devZone].label : ""
+        return ((netDone ? netZones[netZone] : devDone ? devZones[devZone] : null) || {}).label || ""
     }
-    readonly property string why: {
-        if (running) return ""
-        if (bothDone) return netZone < devZone ? qsTr("Your internet is the weaker of the two")
-                           : devZone < netZone ? (Theme.android ? qsTr("This device is the weaker of the two") : qsTr("This PC is the weaker of the two"))
-                           : qsTr("Both reach the same zone")
-        return netDone || devDone ? qsTr("Only one of the two could be measured") : ""
-    }
-
+    // only said when it's worth knowing: without internet the device alone decides
+    readonly property string why: !running && netFailed && devDone ? qsTr("No internet, so it follows the device") : ""
     function open(auto) {
         choice = 1
         opacity = 1
@@ -66,16 +62,23 @@ FocusScope {
         })
     }
     function close() { opacity = 0; closed() }
+    // no internet worth waiting for: straight on to the device
+    function skip() {
+        if (!net || !net.running) return
+        net = { skipped: true }
+        Api.call("bench.skipInternet", {})
+    }
     function run() {
         if (running) return
         var request = ++generation
         liveMbps = 0
+        liveScore = 0
         net = { running: true }
         dev = { next: true }
         // one after the other: the cpu test would slow the download down
         Api.call("bench.internet", {}, function (ok, d) {
             if (request !== sc.generation) return
-            sc.net = ok ? d : { error: qsTr("Couldn't measure") }
+            sc.net = ok ? d : sc.net && sc.net.skipped ? sc.net : { error: qsTr("No connection") }
             sc.dev = { running: true }
             Api.call("bench.device", {}, function (ok2, d2) {
                 if (request !== sc.generation) return
@@ -86,7 +89,10 @@ FocusScope {
     }
     Connections {
         target: Api
-        function onPushed(name, d) { if (name === "bench" && d && sc.net && sc.net.running) sc.liveMbps = d.mbps }
+        function onPushed(name, d) {
+            if (name === "bench" && d && sc.net && sc.net.running) sc.liveMbps = d.mbps
+            else if (name === "benchDevice" && d && sc.dev && sc.dev.running) sc.liveScore = d.score
+        }
     }
 
     Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: Theme.veil }
@@ -94,102 +100,109 @@ FocusScope {
 
     Item {
         anchors.centerIn: parent
-        width: 1440 * sc.u
-        height: body.height + 2 * 48 * sc.u
+        width: 880 * sc.u
+        height: body.height + 2 * 44 * sc.u
         scale: sc.opacity > 0.5 ? 1 : 0.96
-        Behavior on scale { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
-        Glass { anchors.fill: parent; kind: "panel"; radius: 60 * sc.u }
+        Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        Glass { anchors.fill: parent; kind: "panel"; radius: 52 * sc.u }
         Column {
             id: body
-            x: 48 * sc.u; y: 48 * sc.u
-            width: parent.width - 96 * sc.u
-            spacing: 24 * sc.u
+            x: 58 * sc.u; y: 44 * sc.u
+            width: parent.width - 116 * sc.u
+            spacing: 0
             Text {
                 text: qsTr("Speed check")
                 color: Theme.fg
-                font { family: Theme.display; pixelSize: 42 * sc.u; weight: Font.Bold }
+                font { family: Theme.display; pixelSize: 36 * sc.u; weight: Font.Bold }
             }
             Row {
+                topPadding: 26 * sc.u
                 spacing: 24 * sc.u
                 Gauge {
                     width: (body.width - 24 * sc.u) / 2
-                    height: 560 * sc.u
                     title: qsTr("Internet")
                     zones: sc.netZones
-                    value: sc.netDone ? sc.net.mbps : sc.net && sc.net.running ? sc.liveMbps : 0
+                    value: sc.netDone ? sc.net.mbps : sc.liveMbps
+                    measuring: !!sc.net && !!sc.net.running
                     measured: sc.netDone
-                    number: sc.netDone ? String(sc.net.mbps) : sc.net && sc.net.running && sc.liveMbps > 0 ? String(Math.round(sc.liveMbps)) : ""
+                    decided: sc.bothDone
+                    chosen: sc.netZone <= sc.devZone
+                    number: sc.netDone ? String(sc.net.mbps) : measuring && sc.liveMbps > 0 ? String(Math.round(sc.liveMbps)) : ""
                     unit: qsTr("Mbit/s")
-                    note: sc.net && sc.net.error ? sc.net.error : ""
-                    weakest: sc.bothDone && sc.netZone <= sc.devZone
+                    note: sc.net && sc.net.skipped ? qsTr("Skipped") : sc.net && sc.net.error ? sc.net.error : ""
                 }
                 Gauge {
                     width: (body.width - 24 * sc.u) / 2
-                    height: 560 * sc.u
                     title: sc.deviceName
                     zones: sc.devZones
-                    value: sc.devDone ? sc.dev.score : 0
+                    value: sc.devDone ? sc.dev.score : sc.liveScore
+                    measuring: !!sc.dev && !!sc.dev.running
                     measured: sc.devDone
-                    busy: !!sc.dev && !!sc.dev.running
                     waiting: !!sc.dev && !!sc.dev.next
-                    number: sc.devDone ? String(sc.dev.score) : ""
+                    // without internet the device alone decides
+                    decided: sc.bothDone || (sc.netFailed && sc.devDone)
+                    chosen: !sc.netDone || sc.devZone <= sc.netZone
+                    number: sc.devDone ? String(sc.dev.score) : measuring && sc.liveScore > 0 ? String(Math.round(sc.liveScore)) : ""
                     unit: qsTr("points")
                     note: sc.dev && sc.dev.error ? sc.dev.error : ""
-                    weakest: sc.bothDone && sc.devZone <= sc.netZone
                 }
             }
             // what it comes to: the weaker of the two
             Item {
                 width: parent.width
-                height: 84 * sc.u
+                height: verdict.height + 30 * sc.u
                 Column {
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 2 * sc.u
+                    id: verdict
+                    y: 18 * sc.u
+                    width: parent.width
+                    spacing: 6 * sc.u
                     opacity: sc.headline ? 1 : 0
                     Behavior on opacity { NumberAnimation { duration: 320 } }
                     Text {
-                        text: qsTr("You can watch up to %1").arg(sc.headline)
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        text: sc.headline ? qsTr("You can watch up to %1").arg(sc.headline) : " "
                         color: Theme.fg
-                        font { family: Theme.display; pixelSize: 34 * sc.u; weight: Font.Bold }
+                        font { family: Theme.display; pixelSize: 30 * sc.u; weight: Font.Bold }
                     }
                     Text {
-                        text: sc.why
-                        color: Theme.fg2
-                        font { family: Theme.text; pixelSize: 23 * sc.u }
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.WordWrap
+                        text: sc.why ? qsTr("No internet, so it follows the device. Change it any time in Settings › Sources")
+                                      : qsTr("You can change the picture quality any time in Settings › Sources")
+                        color: Theme.fg3
+                        font { family: Theme.text; pixelSize: 19 * sc.u }
                     }
                 }
-                Text {
-                    anchors.verticalCenter: parent.verticalCenter
-                    visible: sc.running
-                    text: qsTr("Measuring…")
-                    color: Theme.fg2
-                    font { family: Theme.display; pixelSize: 30 * sc.u; weight: Font.Medium }
+            }
+            Row {
+                topPadding: 22 * sc.u
+                anchors.right: parent.right
+                spacing: 20 * sc.u
+                GlassButton {
+                    // while the internet is measured it can be skipped (no connection, or no patience)
+                    text: sc.net && sc.net.running ? qsTr("Skip") : qsTr("Run Again")
+                    opacity: sc.running && !(sc.net && sc.net.running) ? 0.45 : 1
+                    focused: sc.activeFocus && sc.choice === 0
+                    pointerFocus: false
+                    onPointed: sc.choice = 0
+                    onClicked: sc.skipOrRun()
                 }
-                Row {
-                    anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                    spacing: 20 * sc.u
-                    GlassButton {
-                        text: qsTr("Run Again")
-                        opacity: sc.running ? 0.45 : 1
-                        focused: sc.activeFocus && sc.choice === 0
-                        pointerFocus: false
-                        onPointed: sc.choice = 0
-                        onClicked: sc.run()
-                    }
-                    GlassButton {
-                        primary: true
-                        text: qsTr("Done")
-                        focused: sc.activeFocus && sc.choice === 1
-                        pointerFocus: false
-                        onPointed: sc.choice = 1
-                        onClicked: sc.close()
-                    }
+                GlassButton {
+                    primary: true
+                    text: qsTr("Done")
+                    focused: sc.activeFocus && sc.choice === 1
+                    pointerFocus: false
+                    onPointed: sc.choice = 1
+                    onClicked: sc.close()
                 }
             }
         }
     }
 
-    function act() { if (choice === 0) run(); else close() }
+    function skipOrRun() { if (net && net.running) skip(); else run() }
+    function act() { if (choice === 0) skipOrRun(); else close() }
     Keys.onReturnPressed: act()
     Keys.onEnterPressed: act()
     Keys.onLeftPressed: choice = 0

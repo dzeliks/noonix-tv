@@ -393,8 +393,8 @@
             <translation>Čeka</translation>
         </message>
         <message>
-            <source>Weakest</source>
-            <translation>Najslabije</translation>
+            <source>Measuring…</source>
+            <translation>Merim…</translation>
         </message>
     </context>
     <context>
@@ -1187,10 +1187,6 @@
             <translation>Pokreni</translation>
         </message>
         <message>
-            <source>Last time: %1 Mbit/s down, this PC scored %2</source>
-            <translation>Prošli put: %1 Mbit/s, računar je dobio ocenu %2</translation>
-        </message>
-        <message>
             <source>Not measured yet: the recommendation is a guess</source>
             <translation>Još nije izmereno: preporuka je odokativna</translation>
         </message>
@@ -1325,6 +1321,10 @@
         <message>
             <source>Last time: %1 Mbit/s down, this device scored %2</source>
             <translation>Prošli put: %1 Mbit/s, uređaj je dobio ocenu %2</translation>
+        </message>
+        <message>
+            <source>Last time: no internet reading, this device scored %1</source>
+            <translation>Prošli put: internet nije izmeren, uređaj je dobio ocenu %1</translation>
         </message>
         <message>
             <source>Sign in</source>
@@ -1792,10 +1792,6 @@
         <message>
             <source>These can be changed any time in Settings.</source>
             <translation>Sve ovo možeš kad god da promeniš u Podešavanjima.</translation>
-        </message>
-        <message>
-            <source>How fast this internet connection and this PC are. The next step picks a picture quality from it.</source>
-            <translation>Koliko su brzi internet i ovaj računar. Prema tome sledeći korak bira kvalitet slike.</translation>
         </message>
         <message>
             <source>Signed in</source>
@@ -2525,32 +2521,16 @@
             <translation>Maksimalno</translation>
         </message>
         <message>
-            <source>This device</source>
-            <translation>Ovaj uređaj</translation>
+            <source>Device</source>
+            <translation>Uređaj</translation>
         </message>
         <message>
-            <source>This PC</source>
-            <translation>Ovaj računar</translation>
+            <source>No internet, so it follows the device</source>
+            <translation>Nema interneta, pa važi uređaj</translation>
         </message>
         <message>
-            <source>Your internet is the weaker of the two</source>
-            <translation>Slabija karika je internet</translation>
-        </message>
-        <message>
-            <source>This device is the weaker of the two</source>
-            <translation>Slabija karika je ovaj uređaj</translation>
-        </message>
-        <message>
-            <source>This PC is the weaker of the two</source>
-            <translation>Slabija karika je ovaj računar</translation>
-        </message>
-        <message>
-            <source>Both reach the same zone</source>
-            <translation>Oba su u istoj zoni</translation>
-        </message>
-        <message>
-            <source>Only one of the two could be measured</source>
-            <translation>Izmereno je samo jedno od dva</translation>
+            <source>No connection</source>
+            <translation>Nema veze</translation>
         </message>
         <message>
             <source>Couldn't measure</source>
@@ -2569,6 +2549,10 @@
             <translation>Mbit/s</translation>
         </message>
         <message>
+            <source>Skipped</source>
+            <translation>Preskočeno</translation>
+        </message>
+        <message>
             <source>points</source>
             <translation>poena</translation>
         </message>
@@ -2577,12 +2561,20 @@
             <translation>Možeš da gledaš do %1</translation>
         </message>
         <message>
-            <source>Measuring…</source>
-            <translation>Merim…</translation>
+            <source>No internet, so it follows the device. Change it any time in Settings › Sources</source>
+            <translation>Nema interneta, pa važi uređaj. Promeni bilo kad u Podešavanja › Izvori</translation>
+        </message>
+        <message>
+            <source>You can change the picture quality any time in Settings › Sources</source>
+            <translation>Kvalitet slike možeš da promeniš bilo kad u Podešavanja › Izvori</translation>
         </message>
         <message>
             <source>Run Again</source>
             <translation>Pokreni ponovo</translation>
+        </message>
+        <message>
+            <source>Skip</source>
+            <translation>Preskoči</translation>
         </message>
         <message>
             <source>Done</source>
@@ -2666,10 +2658,6 @@
         <message>
             <source>May stutter: wants about %1 Mbit/s, this connection has %2</source>
             <translation>Može da secka: traži oko %1 Mbit/s, a ova veza ima %2</translation>
-        </message>
-        <message>
-            <source>May be too much for this PC</source>
-            <translation>Možda je previše za ovaj računar</translation>
         </message>
         <message>
             <source>May be too much for this device</source>

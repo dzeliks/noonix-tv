@@ -79,11 +79,7 @@ Item {
             source: card.wide ? (card.media.still || card.media.backdrop || "") : (card.media.poster || "")
             placeholder: card.label
             opacity: 1 - 0.45 * card.shrink
-            transform: Scale {
-                origin.x: art.width / 2; origin.y: art.height / 2
-                xScale: 1 - 2 * card.inset / art.width
-                yScale: 1 - 2 * card.inset / art.height
-            }
+            inset: card.inset
         }
         // resume bar inside the artwork, like apple tv
         Rectangle {
@@ -116,7 +112,8 @@ Item {
             visible: opacity > 0
             property size size: Qt.size(width, height)
             property real inset: 8 * card.u
-            property real radius: Math.max(4, art.radius - inset)
+            // the same corners as the border and the cover
+            property real radius: art.radius
             property real stroke: 4 * card.u
             property real drain: 1
             fragmentShader: "qrc:/shaders/ring.frag.qsb"

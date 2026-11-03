@@ -266,12 +266,13 @@ struct BindSheetView: View {
 @MainActor @Observable
 final class SpeedCheckModel {
     struct Zone { let label: String; let from: Double; let to: Double; let color: Color }
-    enum State: Equatable { case none, next, running, value(Double), failed(String) }
+    enum State: Equatable { case none, next, running, value(Double), failed(String), skipped }
 
     var levels: [[String: Any]] = []
     var net = State.none
     var dev = State.none
     var live = 0.0
+    var liveDev = 0.0
     var choice = 1
     /// the first answer's in: the caller shows it
     @ObservationIgnored var measured: () -> Void = {}
@@ -283,6 +284,12 @@ final class SpeedCheckModel {
                   let d = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let m = (d["mbps"] as? NSNumber)?.doubleValue else { return }
             self.live = m
+        }
+        Core.shared.on("benchDevice", key: "speed") { [weak self] data in
+            guard let self, self.dev == .running,
+                  let d = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let s = (d["score"] as? NSNumber)?.doubleValue else { return }
+            self.liveDev = s
         }
     }
 
@@ -308,6 +315,7 @@ final class SpeedCheckModel {
     var netZone: Int { netValue.map { Self.zone(netZones, $0) } ?? -1 }
     var devZone: Int { devValue.map { Self.zone(devZones, $0) } ?? -1 }
     var bothDone: Bool { netValue != nil && devValue != nil }
+    var netFailed: Bool { if case .failed = net { return true }; return net == .skipped }
 
     var headline: String {
         if running { return "" }
@@ -316,14 +324,8 @@ final class SpeedCheckModel {
         if devValue != nil { return devZones[safe: devZone]?.label ?? "" }
         return ""
     }
-    var why: String {
-        if running { return "" }
-        if bothDone {
-            return netZone < devZone ? L("Your internet is the weaker of the two")
-                : devZone < netZone ? L("This Mac is the weaker of the two") : L("Both reach the same zone")
-        }
-        return netValue != nil || devValue != nil ? L("Only one of the two could be measured") : ""
-    }
+    /// only said when it's worth knowing: without internet the device alone decides
+    var why: String { !running && netFailed && devValue != nil ? L("No internet, so it follows the device") : "" }
 
     private func json(_ m: String) async -> [String: Any]? {
         guard let d = try? await Core.shared.raw(m, [:]) else { return nil }
@@ -347,13 +349,14 @@ final class SpeedCheckModel {
         generation += 1
         let request = generation
         live = 0
+        liveDev = 0
         net = .running
         dev = .next
         // one after the other: the cpu test would slow the download down
         Task {
             let n = await json("bench.internet")
             guard request == generation else { return }
-            net = (n?["mbps"] as? NSNumber).map { .value($0.doubleValue) } ?? .failed(L("Couldn't measure"))
+            if net != .skipped { net = (n?["mbps"] as? NSNumber).map { .value($0.doubleValue) } ?? .failed(L("No connection")) }
             dev = .running
             let d = await json("bench.device")
             guard request == generation else { return }
@@ -362,11 +365,20 @@ final class SpeedCheckModel {
         }
     }
 
+    /// no internet worth waiting for: straight on to the device
+    func skip() {
+        guard net == .running else { return }
+        net = .skipped
+        Task { _ = await json("bench.skipInternet") }
+    }
+
+    func left() { if net == .running { skip() } else { run() } }
+
     func key(_ k: Key, app: AppModel) {
         switch k {
         case .left: choice = 0
         case .right: choice = 1
-        case .ok: if choice == 0 { run() } else { app.speed = nil }
+        case .ok: if choice == 0 { left() } else { app.speed = nil }
         case .back: app.speed = nil
         default: break
         }
@@ -386,99 +398,78 @@ private struct GaugeArc: Shape {
     }
 }
 
-/// a speedometer: one arc section per zone, the needle runs over them
+/// a small white speedometer cut into the quality zones (qml Gauge). the needle glides after the
+/// readings and the zone under it takes its colour; once both are in, only the weaker one keeps it
 struct GaugeView: View {
     let title: String
     let zones: [SpeedCheckModel.Zone]
     let value: Double
+    var measuring = false
     let measured: Bool
-    var busy = false
     var waiting = false
-    var weakest = false
+    var decided = false
+    var chosen = false
     let number: String
     let unit: String
     var note = ""
     let u: CGFloat
     let width: CGFloat
-    @State private var swing = 0.0
 
-    private let start = -210.0, sweep = 240.0
-    private var zone: Int { SpeedCheckModel.zone(zones, value) }
-    private var seg: Double { zones.isEmpty ? sweep : sweep / Double(zones.count) }
-    private func fraction(_ v: Double) -> Double {
+    private let start = -210.0, sweep = 240.0, gap = 2.4
+    private var zone: Int { measured ? SpeedCheckModel.zone(zones, value) : -1 }
+    private var lit: Bool { decided ? chosen : true }
+    private var pos: Double {
+        guard measuring || measured, !zones.isEmpty else { return 0 }
         let n = Double(zones.count)
-        guard n > 0, zone >= 0 else { return 0 }
-        let z = zones[zone]
-        return min(1, (Double(zone) + min(1, (v - z.from) / max(0.001, z.to - z.from))) / n)
+        guard let i = zones.lastIndex(where: { value >= $0.from }) else { return 0 }
+        let z = zones[i]
+        return min(1, (Double(i) + min(1, (value - z.from) / max(0.001, z.to - z.from))) / n)
     }
+    private var under: Int { (measuring || measured) && pos > 0.002 ? min(zones.count - 1, Int(pos * Double(zones.count))) : -1 }
 
     var body: some View {
-        let height = 560 * u, r = 170 * u
-        let c = CGPoint(x: width / 2, y: 306 * u)
-        let lit = zone >= 0 ? zones[zone].color : Color.white
+        let r = 104 * u, stroke = 9 * u
+        let c = CGPoint(x: width / 2, y: 48 * u + r)
+        let height = c.y + r * 0.5 + 72 * u
+        let seg = zones.isEmpty ? sweep : sweep / Double(zones.count)
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 44 * u)
-                .fill(Color.white.opacity(weakest ? 0.085 : 0.05))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 44 * u)
-                        .strokeBorder(weakest ? lit : Color.white.opacity(0.1), lineWidth: (weakest ? 3 : 1) * u)
-                }
-            Text(title).font(Theme.display(29 * u, .semibold)).foregroundStyle(Theme.fg)
-                .frame(width: width).offset(y: 28 * u)
+            Text(title).font(Theme.display(23 * u, .semibold)).foregroundStyle(Theme.fg2).frame(width: width)
             ForEach(Array(zones.enumerated()), id: \.offset) { i, z in
-                let here = measured && zone == i
-                let a = start + Double(i) * seg + 3.2, b = a + seg - 6.4
-                let mid = (start + (Double(i) + 0.5) * seg) * .pi / 180
-                GaugeArc(from: a, to: b, centre: c, radius: r)
-                    .stroke(z.color, style: StrokeStyle(lineWidth: 44 * u, lineCap: .round))
-                    .opacity(here ? (weakest ? 0.42 : 0.22) : 0)
-                GaugeArc(from: a, to: b, centre: c, radius: r)
-                    .stroke(z.color, style: StrokeStyle(lineWidth: 20 * u, lineCap: .round))
-                    .opacity(!measured ? 0.55 : zone >= i ? 1 : 0.22)
-                // the side labels grow away from the arc, so they end inside the card
-                let side = abs(cos(mid)) > 0.9
-                Text(z.label).font(Theme.text(20 * u, here ? .bold : .medium))
-                    .foregroundStyle(here ? Theme.fg : Theme.fg3)
-                    .fixedSize()
-                    .frame(width: 200 * u, alignment: !side ? .center : cos(mid) > 0 ? .leading : .trailing)
-                    .position(x: c.x + cos(mid) * (r + (side ? 128 : 42) * u), y: c.y + sin(mid) * (r + 42 * u))
+                let a = start + Double(i) * seg + gap * 2
+                let on = under == i && lit, marked = under == i
+                GaugeArc(from: a, to: a + seg - gap * 4, centre: c, radius: r)
+                    .stroke(on ? z.color : .white.opacity(marked ? 0.85 : 0.16), style: StrokeStyle(lineWidth: stroke, lineCap: .round))
+                    .animation(.easeInOut(duration: 0.42), value: on)
+                    .animation(.easeInOut(duration: 0.42), value: marked)
             }
-            let len = r - 30 * u
-            Capsule()
-                .fill(LinearGradient(colors: [.white, .white.opacity(0.25)], startPoint: .top, endPoint: .bottom))
-                .frame(width: 6 * u, height: len)
-                .opacity(waiting || !note.isEmpty ? 0.35 : 1)
+            let len = r - 22 * u
+            Capsule().fill(.white)
+                .frame(width: 4 * u, height: len)
                 .position(x: c.x, y: c.y - len / 2)
-                .rotationEffect(.degrees(start + sweep * fraction(value) + 90 + swing),
-                                anchor: UnitPoint(x: c.x / width, y: c.y / height))
-                .animation(.timingCurve(0.33, 1, 0.68, 1, duration: 0.52), value: value)
-            Circle().fill(.white).frame(width: 22 * u, height: 22 * u).position(c)
-            let idle = waiting && number.isEmpty
-            VStack(spacing: 2 * u) {
-                Text(!note.isEmpty ? note : !number.isEmpty ? number : idle ? L("Waiting") : "…")
-                    .font(Theme.display((!note.isEmpty || idle ? 30 : 66) * u, .bold))
-                    .foregroundStyle(idle ? Theme.fg3 : Theme.fg)
-                Text(idle || !note.isEmpty ? " " : unit).font(Theme.text(23 * u)).foregroundStyle(Theme.fg2)
-                if measured, zone >= 0 {
-                    Text(zones[zone].label + (weakest ? "  ·  " + L("Weakest") : ""))
-                        .font(Theme.display(27 * u, .semibold)).foregroundStyle(lit)
-                        .padding(.top, 8 * u)
-                }
+                .rotationEffect(.degrees(start + sweep * pos + 90), anchor: UnitPoint(x: c.x / width, y: c.y / height))
+                .opacity(measuring || measured ? 1 : 0.4)
+                .animation(.smooth(duration: 0.7), value: pos)
+            Circle().fill(.white).frame(width: 14 * u, height: 14 * u).position(c)
+            VStack(spacing: 0) {
+                Text(number.isEmpty ? "–" : number)
+                    .font(Theme.display(44 * u, .bold).monospacedDigit())
+                    .foregroundStyle(number.isEmpty ? Theme.fg3 : Theme.fg)
+                Text(unit).font(Theme.text(19 * u)).foregroundStyle(Theme.fg3)
+                Text(!note.isEmpty ? note : zone >= 0 ? zones[zone].label : waiting ? L("Waiting") : measuring ? L("Measuring…") : " ")
+                    .font(Theme.display(24 * u, zone >= 0 ? .bold : .medium))
+                    .foregroundStyle(zone >= 0 && note.isEmpty ? (lit ? zones[zone].color : Theme.fg) : Theme.fg3)
+                    // the chosen one reads a touch larger
+                    .scaleEffect(decided && chosen ? 1.2 : 1)
+                    .frame(height: 48 * u)
+                    .animation(.easeOut(duration: 0.38), value: decided && chosen)
+                    .animation(.easeInOut(duration: 0.42), value: lit)
             }
             .frame(width: width)
-            // an error is wide: below the needle at rest
-            .offset(y: c.y + (note.isEmpty ? 44 : 90) * u)
+            .offset(y: c.y + 26 * u)
         }
         .frame(width: width, height: height, alignment: .topLeading)
-        .animation(.easeInOut(duration: 0.4), value: measured)
-        .animation(.easeInOut(duration: 0.3), value: weakest)
-        .onChange(of: busy, initial: true) { _, on in
-            if on {
-                withAnimation(.easeInOut(duration: 1.15).repeatForever(autoreverses: true)) { swing = sweep * 0.94 }
-            } else {
-                withAnimation(.easeOut(duration: 0.32)) { swing = 0 }
-            }
-        }
+        .opacity(waiting ? 0.5 : 1)
+        .animation(.easeInOut(duration: 0.3), value: waiting)
     }
 }
 
@@ -489,50 +480,60 @@ struct SpeedCheckView: View {
 
     var body: some View {
         let u = app.u
-        let gaugeW = (1440 * u - 96 * u - 24 * u) / 2
-        let live = model.net == .running
+        let gaugeW = (880 * u - 116 * u - 24 * u) / 2
+        let live = model.net == .running, liveDev = model.dev == .running
         ZStack {
             SheetFloor { app.speed = nil }
-            VStack(alignment: .leading, spacing: 24 * u) {
-                Text(L("Speed check")).font(Theme.display(42 * u, .bold)).foregroundStyle(Theme.fg)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(L("Speed check")).font(Theme.display(36 * u, .bold)).foregroundStyle(Theme.fg)
                 HStack(spacing: 24 * u) {
-                    GaugeView(title: L("Internet"), zones: model.netZones, value: model.netValue ?? (live ? model.live : 0),
-                              measured: model.netValue != nil, weakest: model.bothDone && model.netZone <= model.devZone,
+                    GaugeView(title: L("Internet"), zones: model.netZones, value: model.netValue ?? model.live,
+                              measuring: live, measured: model.netValue != nil,
+                              decided: model.bothDone, chosen: model.netZone <= model.devZone,
                               number: model.netValue.map { String(Int($0.rounded())) } ?? (live && model.live > 0 ? String(Int(model.live)) : ""),
-                              unit: L("Mbit/s"), note: { if case .failed(let e) = model.net { return e } else { return "" } }(), u: u, width: gaugeW)
-                    GaugeView(title: L("This Mac"), zones: model.devZones, value: model.devValue ?? 0,
-                              measured: model.devValue != nil, busy: model.dev == .running, waiting: model.dev == .next,
-                              weakest: model.bothDone && model.devZone <= model.netZone,
-                              number: model.devValue.map { String(Int($0.rounded())) } ?? "",
+                              unit: L("Mbit/s"),
+                              note: model.net == .skipped ? L("Skipped") : { if case .failed(let e) = model.net { return e } else { return "" } }(),
+                              u: u, width: gaugeW)
+                    GaugeView(title: L("Device"), zones: model.devZones, value: model.devValue ?? model.liveDev,
+                              measuring: liveDev, measured: model.devValue != nil, waiting: model.dev == .next,
+                              // without internet the device alone decides
+                              decided: model.bothDone || (model.netFailed && model.devValue != nil),
+                              chosen: model.netValue == nil || model.devZone <= model.netZone,
+                              number: model.devValue.map { String(Int($0.rounded())) } ?? (liveDev && model.liveDev > 0 ? String(Int(model.liveDev)) : ""),
                               unit: L("points"), note: { if case .failed(let e) = model.dev { return e } else { return "" } }(), u: u, width: gaugeW)
                 }
-                HStack {
-                    if model.running {
-                        Text(L("Measuring…")).font(Theme.display(30 * u, .medium)).foregroundStyle(Theme.fg2)
-                    } else if !model.headline.isEmpty {
-                        VStack(alignment: .leading, spacing: 2 * u) {
-                            Text(L("You can watch up to %1", model.headline)).font(Theme.display(34 * u, .bold)).foregroundStyle(Theme.fg)
-                            Text(model.why).font(Theme.text(23 * u)).foregroundStyle(Theme.fg2)
-                        }
-                        .transition(.opacity)
-                    }
+                .padding(.top, 26 * u)
+                VStack(spacing: 6 * u) {
+                    Text(model.headline.isEmpty ? " " : L("You can watch up to %1", model.headline))
+                        .font(Theme.display(30 * u, .bold)).foregroundStyle(Theme.fg)
+                    Text(model.why.isEmpty ? L("You can change the picture quality any time in Settings › Sources")
+                         : L("No internet, so it follows the device. Change it any time in Settings › Sources"))
+                        .font(Theme.text(19 * u)).foregroundStyle(Theme.fg3)
+                        .multilineTextAlignment(.center)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 22 * u)
+                .opacity(model.headline.isEmpty ? 0 : 1)
+                .animation(.easeOut(duration: 0.32), value: model.headline.isEmpty)
+                HStack(spacing: 20 * u) {
                     Spacer()
-                    GlassButton(text: L("Run Again"), focused: model.choice == 0, u: u, flat: true)
+                    // while the internet is measured it can be skipped (no connection, or no patience)
+                    GlassButton(text: live ? L("Skip") : L("Run Again"), focused: model.choice == 0, u: u, flat: true)
                         .contentShape(.capsule)
-                        .opacity(model.running ? 0.45 : 1)
+                        .opacity(model.running && !live ? 0.45 : 1)
                         .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.choice = 0 } }
-                        .onTapGesture { model.run() }
+                        .onTapGesture { model.left() }
                     GlassButton(text: L("Done"), primary: true, focused: model.choice == 1, u: u, flat: true)
                         .contentShape(.capsule)
                         .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.choice = 1 } }
                         .onTapGesture { app.speed = nil }
                 }
-                .frame(height: 84 * u)
-                .animation(.easeOut(duration: 0.32), value: model.running)
+                .padding(.top, 52 * u)
             }
-            .padding(48 * u)
-            .frame(width: 1440 * u, alignment: .leading)
-            .panelGlass(60 * u, u: u)
+            .padding(.horizontal, 58 * u)
+            .padding(.vertical, 44 * u)
+            .frame(width: 880 * u, alignment: .leading)
+            .panelGlass(52 * u, u: u)
             .scaleEffect(shown ? 1 : 0.96)
         }
         .onAppear { withAnimation(.timingCurve(0.33, 1, 0.68, 1, duration: 0.24)) { shown = true } }
