@@ -17,6 +17,8 @@ Item {
     readonly property real artH: wide ? artW * 9 / 16 : artW * 1.5
     readonly property real progress: media.progress || 0
     readonly property real inset: 16 * u * shrink
+    // the tile's outline rounds out as the cover pulls in, so every gap stays even round the corners
+    readonly property real outerRadius: art.radius + inset
     // media.label / media.sublabel override the defaults (season pages)
     readonly property string label: media.label !== undefined ? media.label
         : media.kind === "episode" ? (media.showTitle || "") : (media.title || "")
@@ -67,7 +69,7 @@ Item {
         RectangularShadow {
             opacity: 1 - 0.6 * card.shrink
             anchors.fill: art
-            radius: art.radius
+            radius: card.outerRadius
             offset.y: (card.lifted ? 26 : 8) * card.u
             blur: (card.lifted ? 60 : 24) * card.u
             color: Qt.rgba(0, 0, 0, card.lifted ? 0.6 : 0.35)
@@ -99,7 +101,7 @@ Item {
         // the border and the line draining inside it, counter-clockwise from the top
         Rectangle {
             anchors.fill: parent
-            radius: art.radius
+            radius: card.outerRadius
             color: "transparent"
             border { width: 2 * card.u; color: Qt.rgba(1, 1, 1, 0.22) }
             opacity: card.shrink
@@ -111,9 +113,9 @@ Item {
             opacity: card.shrink
             visible: opacity > 0
             property size size: Qt.size(width, height)
-            property real inset: 8 * card.u
-            // the same corners as the border and the cover
-            property real radius: art.radius
+            // centred between the border and the cover, its corners concentric with both
+            property real inset: (2 * card.u + card.inset) / 2
+            property real radius: art.radius + card.inset - inset
             property real stroke: 4 * card.u
             property real drain: 1
             fragmentShader: "qrc:/shaders/ring.frag.qsb"

@@ -35,7 +35,7 @@ struct Card: View {
             ZStack(alignment: .bottom) {
                 Art(url: wide ? (media.still ?? media.backdrop) : media.poster, radius: 18 * u,
                     px: wide ? 900 : 700, placeholder: title, u: u)
-                    // pulled in, the corners stay the border's
+                    // pulled in; the outline round it rounds out to stay concentric
                     .padding(inset)
                     .opacity(removing ? 0.55 : 1)
                 if let removal {
@@ -114,11 +114,12 @@ struct UndoFace: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: radius).strokeBorder(.white.opacity(0.16), lineWidth: 2 * u)
-            DrainLine(radius: radius)
+            // concentric with the cover (16u in): the outline rounds out, the line sits centred between
+            RoundedRectangle(cornerRadius: radius + 16 * u).strokeBorder(.white.opacity(0.16), lineWidth: 2 * u)
+            DrainLine(radius: radius + 7 * u)
                 .trim(from: 0, to: left)
                 .stroke(.white, style: StrokeStyle(lineWidth: 4 * u, lineCap: .round))
-                .padding(8 * u)
+                .padding(9 * u)
             VStack(spacing: 10 * u) {
                 Image(systemName: "arrow.uturn.backward").font(.system(size: 34 * u, weight: .semibold))
                 Text(PointerMode.shared.on ? L("Click to undo") : L("Press OK to undo"))
