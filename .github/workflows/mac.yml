@@ -60,8 +60,8 @@ jobs:
         env:
           CARGO_TARGET_DIR: mac/.build/cargo
         run: |
-          cargo test --release --manifest-path core/Cargo.toml --lib --locked -- bench::
-          cargo test --release --manifest-path core/Cargo.toml --lib --locked -- --ignored --nocapture calibrate
+          cargo test --release --no-default-features --manifest-path core/Cargo.toml --lib --locked -- bench::
+          cargo test --release --no-default-features --manifest-path core/Cargo.toml --lib --locked -- --ignored --nocapture calibrate
       - name: zip
         run: |
           v="$(sed -n 's/^version = "\(.*\)"/\1/p' core/Cargo.toml | head -1)"
