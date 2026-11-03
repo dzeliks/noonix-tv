@@ -1,0 +1,65 @@
+name: mirror
+
+# every push (and branch or tag delete) lands on git.aleksa.sh/aleksa/noonix-tv as well: a plain
+# mirror of the branches and tags, nothing else (no refs/pull, no releases). needs the secret
+# FORGEJO_TOKEN, an access token of the forgejo user aleksa with write:repository. without it the
+# job says so and passes. the repo is made on the first run if the token may (write:user), its
+# description always says where the original is
+on:
+  push:
+    branches: ['**']
+    tags: ['**']
+  delete:
+  workflow_dispatch:
+
+concurrency:
+  group: mirror
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    env:
+      TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+      HOST: git.aleksa.sh
+      OWNER: aleksa
+      REPO: noonix-tv
+      ORIGIN: https://github.com/${{ github.repository }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: mirror to forgejo
+        run: |
+          set -euo pipefail
+          if [ -z "$TOKEN" ]; then
+            echo "::notice::FORGEJO_TOKEN isn't set: nothing mirrored"
+            exit 0
+          fi
+          api="https://$HOST/api/v1"
+          auth="Authorization: token $TOKEN"
+          meta=$(jq -nc --arg d "A direct mirror of the Noonix TV repo on GitHub: $ORIGIN" --arg w "$ORIGIN" \
+            '{description: $d, website: $w}')
+
+          # the repo once, then its description
+          code=$(curl -s -o /dev/null -w '%{http_code}' -H "$auth" "$api/repos/$OWNER/$REPO")
+          if [ "$code" = 404 ]; then
+            jq -nc --arg n "$REPO" --argjson m "$meta" '$m + {name: $n, private: false}' \
+              | curl -sf -X POST -H "$auth" -H 'Content-Type: application/json' -d @- "$api/user/repos" >/dev/null \
+              || { echo "::error::no $OWNER/$REPO on $HOST and this token can't make it: create it (empty) once"; exit 1; }
+          fi
+          curl -sf -X PATCH -H "$auth" -H 'Content-Type: application/json' -d "$meta" "$api/repos/$OWNER/$REPO" >/dev/null \
+            || echo "::warning::couldn't set the description"
+
+          # branches and tags only, deletes included
+          git init -q --bare mirror && cd mirror
+          gh=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          basic=$(printf '%s:%s' "$OWNER" "$TOKEN" | base64 -w0)
+          echo "::add-mask::$gh"
+          echo "::add-mask::$basic"
+          git -c http.extraHeader="Authorization: Basic $gh" \
+            fetch -q --prune "$ORIGIN.git" '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*'
+          git -c http.extraHeader="Authorization: Basic $basic" \
+            push -q --prune "https://$HOST/$OWNER/$REPO.git" '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*'
+          echo "mirrored $(git for-each-ref --format=x refs/heads | wc -l) branches, $(git for-each-ref --format=x refs/tags | wc -l) tags"
