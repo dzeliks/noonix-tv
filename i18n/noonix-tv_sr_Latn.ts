@@ -2517,10 +2517,6 @@
             <translation>Maksimalno</translation>
         </message>
         <message>
-            <source>%1 fps (4K HDR, 40 Mbit/s) + hardware decoder</source>
-            <translation>%1 fps (4K HDR, 40 Mbit/s) + hardverski dekoder</translation>
-        </message>
-        <message>
             <source>%1 fps (4K HDR, 40 Mbit/s)</source>
             <translation>%1 fps (4K HDR, 40 Mbit/s)</translation>
         </message>
@@ -2559,10 +2555,6 @@
         <message>
             <source>fps · 4K HDR, 40 Mbit/s</source>
             <translation>fps · 4K HDR, 40 Mbit/s</translation>
-        </message>
-        <message>
-            <source>+ hardware decoder</source>
-            <translation>+ hardverski dekoder</translation>
         </message>
         <message>
             <source>You can watch up to %1</source>

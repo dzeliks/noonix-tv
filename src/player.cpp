@@ -13,12 +13,15 @@
 #include <QLocale>
 #include <QJsonDocument>
 #include <QMetaObject>
+#include <QPointer>
 #include <QQuickWindow>
 #include <QScreen>
 #include <QVariant>
 #include <mpv/client.h>
 
+#include <chrono>
 #include <clocale>
+#include <thread>
 
 namespace {
 
@@ -738,4 +741,69 @@ void Player::stop()
     onEnd(QStringLiteral("user"), {});
     const char *cmd[] = {"stop", nullptr};
     mpv_command_async(m_mpv, 0, cmd);
+}
+
+void Player::benchDecode(const QString &path)
+{
+    QPointer<Player> self(this);
+    std::thread([self, file = path.toStdString()] {
+        const auto report = [self](double fps, bool done) {
+            QMetaObject::invokeMethod(qApp, [self, fps, done] { if (self) emit self->benchDecoded(fps, done); }, Qt::QueuedConnection);
+        };
+        mpv_handle *m = mpv_create();
+        if (!m) {
+            report(0, true);
+            return;
+        }
+        const auto opt = [m](const char *k, const char *v) { mpv_set_option_string(m, k, v); };
+        static const std::pair<const char *, const char *> quiet[] = { { "config", "no" }, { "terminal", "no" }, { "load-scripts", "no" },
+            { "ytdl", "no" }, { "vo", "null" }, { "ao", "null" }, { "audio", "no" }, { "untimed", "yes" }, { "loop-file", "inf" } };
+        for (const auto &[k, v] : quiet)
+            opt(k, v);
+#if defined(Q_OS_ANDROID)
+        char qemu[PROP_VALUE_MAX] = {}, oldQemu[PROP_VALUE_MAX] = {};
+        __system_property_get("ro.boot.qemu", qemu);
+        __system_property_get("ro.kernel.qemu", oldQemu);
+        opt("hwdec", qemu[0] == '1' || oldQemu[0] == '1' ? "no" : "mediacodec-copy");
+#else
+        // the copy variants work without a video output; they fall back to software by themselves
+        opt("hwdec", "auto-copy-safe");
+#endif
+        const char *load[] = { "loadfile", file.c_str(), nullptr };
+        double fps = 0;
+        if (mpv_initialize(m) >= 0 && mpv_command(m, load) >= 0) {
+            const auto now = [] { return std::chrono::steady_clock::now(); };
+            const auto secs = [](auto d) { return std::chrono::duration<double>(d).count(); };
+            const auto get = [m](const char *p) {
+                double v = -1;
+                return mpv_get_property(m, p, MPV_FORMAT_DOUBLE, &v) >= 0 ? v : -1;
+            };
+            // the first frame (a hardware decoder takes a moment to open), then a short warm-up
+            auto t0 = now();
+            while (get("time-pos") < 0.2 && secs(now() - t0) < 10)
+                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            const double rate = get("container-fps") > 0 ? get("container-fps") : 24;
+            const double length = get("duration") > 0 ? get("duration") : 1;
+            double last = get("time-pos"), played = 0;
+            if (last >= 0) {
+                t0 = now();
+                auto shown = t0;
+                while (secs(now() - t0) < 2.5) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                    const double t = get("time-pos");
+                    if (t < 0)
+                        continue;
+                    played += t >= last ? t - last : length - last + t;   // looped
+                    last = t;
+                    fps = played * rate / secs(now() - t0);
+                    if (secs(now() - shown) > 0.2) {
+                        shown = now();
+                        report(fps, false);
+                    }
+                }
+            }
+        }
+        mpv_terminate_destroy(m);
+        report(fps, true);
+    }).detach();
 }

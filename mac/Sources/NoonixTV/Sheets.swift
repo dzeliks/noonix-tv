@@ -1,6 +1,4 @@
-import CoreMedia
 import SwiftUI
-import VideoToolbox
 
 /// the dim behind a sheet: a click on it closes the sheet
 private struct SheetFloor: View {
@@ -274,11 +272,7 @@ final class SpeedCheckModel {
     var net = State.none
     var dev = State.none
     var live = 0.0
-    var liveDev = 0.0          // with a hardware decoder lifted to the top
-    var liveFps = 0.0
-    /// what the cpu decodes (4k hevc 10-bit fps) and whether a hardware decoder carries it
-    var devFps: Double?
-    var hardware = false
+    var liveDev = 0.0
     var choice = 1
     /// the first answer's in: the caller shows it
     @ObservationIgnored var measured: () -> Void = {}
@@ -296,7 +290,6 @@ final class SpeedCheckModel {
                   let d = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let s = (d["score"] as? NSNumber)?.doubleValue else { return }
             self.liveDev = s
-            self.liveFps = (d["fps"] as? NSNumber)?.doubleValue ?? s
         }
     }
 
@@ -312,7 +305,7 @@ final class SpeedCheckModel {
         }
     }
     var netZones: [Zone] { zones("needMbps", top: 600) }
-    var devZones: [Zone] { zones("needDevice", top: 80) }
+    var devZones: [Zone] { zones("needDevice", top: 120) }
     static func zone(_ zs: [Zone], _ v: Double) -> Int { zs.lastIndex { v >= $0.from } ?? -1 }
 
     private func number(_ s: State) -> Double? { if case .value(let v) = s { return v } else { return nil } }
@@ -334,11 +327,7 @@ final class SpeedCheckModel {
     /// only said when it's worth knowing: without internet the device alone decides
     var why: String { !running && netFailed && devValue != nil ? L("No internet, so it follows the device") : "" }
 
-    static func devText(fps: Double, hardware: Bool) -> String {
-        let n = String(Int(fps.rounded()))
-        return hardware ? L("%1 fps (4K HDR, 40 Mbit/s) + hardware decoder", n) : L("%1 fps (4K HDR, 40 Mbit/s)", n)
-    }
-    var devText: String { devValue.map { Self.devText(fps: devFps ?? $0, hardware: hardware) } ?? "" }
+    static func devText(_ fps: Double) -> String { L("%1 fps (4K HDR, 40 Mbit/s)", String(Int(fps.rounded()))) }
 
     private func json(_ m: String, _ args: [String: Any] = [:]) async -> [String: Any]? {
         guard let d = try? await Core.shared.raw(m, args) else { return nil }
@@ -354,8 +343,6 @@ final class SpeedCheckModel {
             if net == .none, let m = (d["mbps"] as? NSNumber)?.doubleValue { net = .value(m) }
             if dev == .none, let s = (d["device"] as? NSNumber)?.doubleValue {
                 dev = .value(s)
-                devFps = (d["deviceFps"] as? NSNumber)?.doubleValue
-                hardware = d["hardware"] as? Bool ?? false
             }
             if auto { run() }
         }
@@ -367,7 +354,6 @@ final class SpeedCheckModel {
         let request = generation
         live = 0
         liveDev = 0
-        liveFps = 0
         net = .running
         dev = .next
         // one after the other: the cpu test would slow the download down
@@ -376,12 +362,19 @@ final class SpeedCheckModel {
             guard request == generation else { return }
             if net != .skipped { net = (n?["mbps"] as? NSNumber).map { .value($0.doubleValue) } ?? .failed(L("No connection")) }
             dev = .running
-            // every apple silicon mac (and intel ones from 2017) decodes hevc main10 in hardware
-            hardware = VTIsHardwareDecodeSupported(kCMVideoCodecType_HEVC)
-            let d = await json("bench.device", ["hardware": hardware])
+            // the player decodes a 4k hdr clip the way it plays; no clip (no internet): the cpu test
+            var args: [String: Any] = [:]
+            if !netFailed, let path = await json("bench.sample")?["path"] as? String {
+                let fps = await withCheckedContinuation { (done: CheckedContinuation<Double, Never>) in
+                    DecodeBench.run(path) { [weak self] fps, finished in
+                        if finished { done.resume(returning: fps) } else if self?.generation == request { self?.liveDev = fps }
+                    }
+                }
+                if fps > 0 { args["fps"] = fps }
+            }
             guard request == generation else { return }
-            devFps = (d?["fps"] as? NSNumber)?.doubleValue
-            hardware = d?["hardware"] as? Bool ?? false
+            let d = await json("bench.device", args)
+            guard request == generation else { return }
             dev = (d?["score"] as? NSNumber).map { .value($0.doubleValue) } ?? .failed(L("Couldn't measure"))
             measured()
         }
@@ -434,7 +427,6 @@ struct GaugeView: View {
     let number: String
     let unit: String
     var note = ""
-    var extra = ""             // a small line under the result
     let u: CGFloat
     let width: CGFloat
 
@@ -453,7 +445,7 @@ struct GaugeView: View {
     var body: some View {
         let r = 104 * u, stroke = 9 * u
         let c = CGPoint(x: width / 2, y: 48 * u + r)
-        let height = c.y + r * 0.5 + 72 * u + (extra.isEmpty ? 0 : 22 * u)
+        let height = c.y + r * 0.5 + 72 * u
         let seg = zones.isEmpty ? sweep : sweep / Double(zones.count)
         ZStack(alignment: .topLeading) {
             Text(title).font(Theme.display(23 * u, .semibold)).foregroundStyle(Theme.fg2).frame(width: width)
@@ -486,9 +478,6 @@ struct GaugeView: View {
                     .frame(height: 48 * u)
                     .animation(.easeOut(duration: 0.38), value: decided && chosen)
                     .animation(.easeInOut(duration: 0.42), value: lit)
-                if !extra.isEmpty {
-                    Text(extra).font(Theme.text(17 * u)).foregroundStyle(Theme.fg3)
-                }
             }
             .frame(width: width)
             .offset(y: c.y + 26 * u)
@@ -525,8 +514,8 @@ struct SpeedCheckView: View {
                               // without internet the device alone decides
                               decided: model.bothDone || (model.netFailed && model.devValue != nil),
                               chosen: model.netValue == nil || model.devZone <= model.netZone,
-                              number: model.devValue.map { String(Int((model.devFps ?? $0).rounded())) } ?? (liveDev && model.liveFps > 0 ? String(Int(model.liveFps)) : ""),
-                              unit: L("fps · 4K HDR, 40 Mbit/s"), note: { if case .failed(let e) = model.dev { return e } else { return "" } }(), extra: model.hardware ? L("+ hardware decoder") : "", u: u, width: gaugeW)
+                              number: model.devValue.map { String(Int($0.rounded())) } ?? (liveDev && model.liveDev > 0 ? String(Int(model.liveDev)) : ""),
+                              unit: L("fps · 4K HDR, 40 Mbit/s"), note: { if case .failed(let e) = model.dev { return e } else { return "" } }(), u: u, width: gaugeW)
                 }
                 .padding(.top, 26 * u)
                 VStack(spacing: 6 * u) {

@@ -108,16 +108,49 @@ async fn measure(url: &'static str) -> Result<f64> {
     Ok(bytes as f64 * 8.0 / from.elapsed().as_secs_f64().max(0.001) / 1e6)
 }
 
-/// how much video this device decodes: software 4k hevc fps from work shaped like a decoder's
-/// (serial arithmetic decoding, integer transforms, 8-tap 10-bit filtering), on every core. plain
-/// scalar rust, the same work on every architecture (x86_64, arm64, windows, android, mac), no
-/// special instructions, so cpus with hash or crypto units don't score better for it.
-/// `hardware`: the client found a hevc main10 decoder, which is what actually carries 4k; it lifts
-/// the score to the top level, `fps` stays what the cpu did
-pub async fn device(hardware: bool) -> Result<Value> {
+// the speed check decodes this the way playback does (the player's hardware decoding, mpv) and
+// counts frames: 1 s of 4k hdr (hevc main10) at 40 mbit/s, a synthetic test pattern, ~5 mb.
+// fetched for each check into the temp folder (the cache where that isn't writable, android) and
+// deleted again when the device step is over; never shipped with the app
+const SAMPLE_URL: &str = "https://github.com/dzeliks/noonix-tv/releases/download/speed-check-sample/4k-hdr-40mbps.mp4";
+const SAMPLE_SHA256: &str = "332602dc0f7e05c3326c11f3ca16a35e987948c5ecbc8f505a2afd1605a68297";
+static SAMPLE: std::sync::Mutex<Option<std::path::PathBuf>> = std::sync::Mutex::new(None);
+
+/// downloads the clip, answers where it is
+pub async fn sample() -> Result<String> {
+    use sha2::{Digest, Sha256};
+    drop_sample();
+    // tests point it at a local copy
+    let url = std::env::var("NOONIX_SPEED_SAMPLE_URL").unwrap_or_else(|_| SAMPLE_URL.into());
+    let bytes = CLIENT.get(url).timeout(Duration::from_secs(30)).send().await?.error_for_status()?.bytes().await?;
+    let hash: String = Sha256::digest(&bytes).iter().map(|b| format!("{b:02x}")).collect();
+    anyhow::ensure!(hash == SAMPLE_SHA256, "the speed check clip didn't match");
+    let name = format!("noonix-tv-speed-check-{}.mp4", std::process::id());
+    for dir in [std::env::temp_dir(), crate::config::PATHS.cache.clone()] {
+        let path = dir.join(&name);
+        if std::fs::write(&path, &bytes).is_ok() {
+            let out = path.to_string_lossy().into_owned();
+            *SAMPLE.lock().unwrap_or_else(|e| e.into_inner()) = Some(path);
+            return Ok(out);
+        }
+    }
+    anyhow::bail!("nowhere to put the speed check clip")
+}
+
+/// the clip is done with (measured, failed or abandoned)
+pub fn drop_sample() {
+    if let Some(p) = SAMPLE.lock().unwrap_or_else(|e| e.into_inner()).take() {
+        let _ = std::fs::remove_file(p);
+    }
+}
+
+/// without the clip (no internet): software 4k hevc fps from work shaped like a decoder's (serial
+/// arithmetic decoding, integer transforms, 8-tap 10-bit filtering), on every core. calibrated
+/// against decoding the clip in software, so both read on the same scale. plain scalar rust, the
+/// same work on every architecture, no special instructions (hash or crypto units don't help it)
+pub async fn device() -> Result<Value> {
     // no core count (a sandbox, an odd kernel): a quad core, what most tv boxes and phones have
     let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4);
-    let lift = move |fps: u32| if hardware { fps.max(crate::quality::top_device()) } else { fps };
     let rate = tokio::task::spawn_blocking(move || {
         let done = Arc::new(AtomicU64::new(0));
         let start = Instant::now();
@@ -145,7 +178,7 @@ pub async fn device(hardware: bool) -> Result<Value> {
         while !workers.iter().all(|w| w.is_finished()) {
             std::thread::sleep(Duration::from_millis(200));
             let fps = device_fps(done.load(Ordering::Relaxed) as f64 / start.elapsed().as_secs_f64().max(0.001));
-            crate::app::emit("benchDevice", json!({ "fps": fps, "score": lift(fps) }));
+            crate::app::emit("benchDevice", json!({ "score": fps }));
         }
         for w in workers {
             let _ = w.join();
@@ -153,8 +186,7 @@ pub async fn device(hardware: bool) -> Result<Value> {
         done.load(Ordering::Relaxed) as f64 / start.elapsed().as_secs_f64()
     })
     .await?;
-    let fps = device_fps(rate);
-    Ok(json!({ "threads": threads, "fps": fps, "hardware": hardware, "score": lift(fps) }))
+    Ok(json!({ "threads": threads, "score": device_fps(rate), "source": "cpu" }))
 }
 
 const PLANE: usize = 256;

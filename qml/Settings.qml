@@ -151,8 +151,8 @@ FocusScope {
                 out = out.concat(Theme.qualityLines(quality))
                 var q = quality
                 out.push({ label: qsTr("Speed check"), checkable: false, act: "bench", value: qsTr("Run"),
-                           detail: q.mbps !== null && q.mbps !== undefined ? qsTr("Last time: %1 Mbit/s down, %2").arg(q.mbps).arg(q.device !== null && q.device !== undefined ? speedCheck.devText({ score: q.device, fps: q.deviceFps, hardware: q.hardware }) : "–")
-                                 : q.device !== null && q.device !== undefined ? qsTr("Last time: no internet reading, %1").arg(speedCheck.devText({ score: q.device, fps: q.deviceFps, hardware: q.hardware }))
+                           detail: q.mbps !== null && q.mbps !== undefined ? qsTr("Last time: %1 Mbit/s down, %2").arg(q.mbps).arg(q.device !== null && q.device !== undefined ? speedCheck.devText(q.device) : "–")
+                                 : q.device !== null && q.device !== undefined ? qsTr("Last time: no internet reading, %1").arg(speedCheck.devText(q.device))
                                  : qsTr("Not measured yet: the recommendation is a guess") })
             }
         } else if (sectionId === "accounts") {

@@ -23,11 +23,6 @@ pub const LEVELS: &[Level] = &[
     Level { id: "max", max_res: 2160, remux: true, max_mbps: None, net: 120.0, device: 36 },
 ];
 
-/// what a hardware hevc main10 decoder counts as: the top level
-pub fn top_device() -> u32 {
-    LEVELS[LEVELS.len() - 1].device
-}
-
 /// installs from before the levels keep what they had: everything
 pub const DEFAULT: &str = "max";
 
@@ -68,14 +63,13 @@ pub fn over(s: &Stream, l: &Level, runtime_min: Option<f64>) -> bool {
 /// what setup and settings show: the choice, the recommendation and why the ones above it may not play well
 pub async fn options() -> Value {
     let (net, dev, cur) = store::with(|c| {
-        // bench_decode: { fps, hardware, score }. the old bench_device (sha-256 points) is left alone
+        // bench_decode: 4k hdr fps. the old bench_device (sha-256 points) is left alone
         Ok((store::get_setting(c, "app", "bench_net")?, store::get_setting(c, "app", "bench_decode")?, store::get_setting(c, "app", "quality")?))
     })
     .await
     .unwrap_or((None, None, None));
     let mbps = net.as_ref().and_then(Value::as_f64);
-    let dev = dev.unwrap_or(Value::Null);
-    let device = dev.get("score").and_then(Value::as_u64).map(|d| d as u32);
+    let device = dev.as_ref().and_then(Value::as_u64).map(|d| d as u32);
     let rec = recommend(mbps, device);
     let levels: Vec<Value> = LEVELS
         .iter()
@@ -95,8 +89,6 @@ pub async fn options() -> Value {
         "recommended": rec,
         "mbps": mbps,
         "device": device,
-        "deviceFps": dev.get("fps"),
-        "hardware": dev.get("hardware").and_then(Value::as_bool).unwrap_or(false),
         "levels": levels,
     })
 }

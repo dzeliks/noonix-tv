@@ -171,7 +171,7 @@ FocusScope {
             out.push({ label: qsTr("Speed check"), checkable: false, act: "bench", value: speed.running ? "…" : qsTr("Run"),
                        detail: speed.running ? qsTr("Measuring…") : speed.headline ? qsTr("You can watch up to %1").arg(speed.headline) + (speed.why ? "  ·  " + speed.why : "") : qsTr("Not measured yet") })
             if (speed.netDone) out.push({ label: qsTr("Internet"), checkable: false, act: "bench", detail: qsTr("%1 Mbit/s down").arg(bn.mbps), value: speed.label(speed.netZones, bn.mbps) })
-            if (speed.devDone) out.push({ label: speed.deviceName, checkable: false, act: "bench", detail: speed.devText(bd), value: speed.label(speed.devZones, bd.score) })
+            if (speed.devDone) out.push({ label: speed.deviceName, checkable: false, act: "bench", detail: speed.devText(bd.score), value: speed.label(speed.devZones, bd.score) })
         } else if (name === "quality") {
             out = Theme.qualityLines(quality, true)
         } else if (name === "done") {

@@ -151,7 +151,7 @@ final class SettingsModel {
                 out += Self.qualityLines(q, setup: false)
                 let mbps = q["mbps"].flatMap { $0 is NSNull ? nil : $0 }
                 let dev = (q["device"] as? NSNumber).map {
-                    SpeedCheckModel.devText(fps: (q["deviceFps"] as? NSNumber)?.doubleValue ?? $0.doubleValue, hardware: q["hardware"] as? Bool ?? false)
+                    SpeedCheckModel.devText($0.doubleValue)
                 }
                 out.append(Line(label: L("Speed check"),
                                 detail: mbps != nil ? L("Last time: %1 Mbit/s down, %2", "\(mbps!)", dev ?? "–")

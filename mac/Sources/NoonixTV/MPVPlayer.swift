@@ -410,3 +410,48 @@ final class MPVPlayer {
         ticker = nil
     }
 }
+
+/// the speed check: decodes the clip the way playback does (videotoolbox, copied back) on a second,
+/// silent mpv and counts frames. `progress(fps, done)` on the main thread, fps 0 = failed
+enum DecodeBench {
+    static func run(_ path: String, progress: @escaping @MainActor (Double, Bool) -> Void) {
+        Thread.detachNewThread {
+            let report = { (fps: Double, done: Bool) in Task { @MainActor in progress(fps, done) } }
+            guard let m = mpv_create() else { report(0, true); return }
+            for (k, v) in [("config", "no"), ("terminal", "no"), ("load-scripts", "no"), ("ytdl", "no"), ("vo", "null"),
+                           ("ao", "null"), ("audio", "no"), ("untimed", "yes"), ("loop-file", "inf"), ("hwdec", "videotoolbox-copy")] {
+                mpv_set_option_string(m, k, v)
+            }
+            func get(_ p: String) -> Double {
+                var v = -1.0
+                return mpv_get_property(m, p, MPV_FORMAT_DOUBLE, &v) >= 0 ? v : -1
+            }
+            var fps = 0.0
+            var load: [UnsafePointer<CChar>?] = [UnsafePointer(strdup("loadfile")), UnsafePointer(strdup(path)), nil]
+            defer { load.compactMap { $0 }.forEach { free(UnsafeMutablePointer(mutating: $0)) } }
+            if mpv_initialize(m) >= 0, mpv_command(m, &load) >= 0 {
+                // the first frame (the decoder takes a moment to open), then a short warm-up
+                var t0 = Date()
+                while get("time-pos") < 0.2, Date().timeIntervalSince(t0) < 10 { usleep(20_000) }
+                let rate = get("container-fps") > 0 ? get("container-fps") : 24
+                let length = get("duration") > 0 ? get("duration") : 1
+                var last = get("time-pos"), played = 0.0
+                if last >= 0 {
+                    t0 = Date()
+                    var shown = t0
+                    while Date().timeIntervalSince(t0) < 2.5 {
+                        usleep(50_000)
+                        let t = get("time-pos")
+                        if t < 0 { continue }
+                        played += t >= last ? t - last : length - last + t   // looped
+                        last = t
+                        fps = played * rate / Date().timeIntervalSince(t0)
+                        if Date().timeIntervalSince(shown) > 0.2 { shown = Date(); report(fps, false) }
+                    }
+                }
+            }
+            mpv_terminate_destroy(m)
+            report(fps, true)
+        }
+    }
+}

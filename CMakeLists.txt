@@ -46,7 +46,7 @@ endif()
 set(SOURCES
     src/main.cpp
     src/videosurface.h
-    src/player.cpp src/player.h src/hwdecode.cpp
+    src/player.cpp src/player.h
     src/videoglass.cpp src/videoglass.h
     src/videograb.cpp src/videograb.h
     src/remote.cpp src/remote.h

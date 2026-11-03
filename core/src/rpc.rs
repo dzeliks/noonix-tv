@@ -126,13 +126,19 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
             store::with(move |c| store::set_setting(c, "app", "bench_net", &m)).await?;
             Ok(v)
         }
+        "bench.sample" => Ok(json!({ "path": crate::bench::sample().await? })),
         "bench.skipInternet" => {
             crate::bench::skip_internet();
             Ok(json!({ "ok": true }))
         }
         "bench.device" => {
-            let v = crate::bench::device(args.get("hardware").and_then(Value::as_bool).unwrap_or(false)).await?;
-            let d = json!({ "fps": v["fps"], "hardware": v["hardware"], "score": v["score"] });
+            // fps: the client decoded the clip with the player (bench.sample); without it, the cpu test
+            crate::bench::drop_sample();
+            let v = match args.get("fps").and_then(Value::as_f64) {
+                Some(fps) => json!({ "score": fps.round().max(0.0) as u32, "source": "decode" }),
+                None => crate::bench::device().await?,
+            };
+            let d = v["score"].clone();
             store::with(move |c| store::set_setting(c, "app", "bench_decode", &d)).await?;
             Ok(v)
         }
