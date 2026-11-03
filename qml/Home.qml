@@ -46,6 +46,14 @@ FocusScope {
         free = true
         wheel.scroll(w)
     }
+    function fingerDown() {
+        wheel.stop()
+        scrolled = true
+        free = true
+    }
+    function fingerUp() {
+        if (pageY < 0.5) { scrolled = false; topRow = 0 }
+    }
     onPageYChanged: if (scrolled && pageY < 0.5 && (Input.pointing || rows.currentIndex === 0)) { scrolled = false; topRow = 0 }
     Connections {
         target: Input
@@ -246,6 +254,9 @@ FocusScope {
         highlightMoveDuration: 420
         highlightMoveVelocity: -1
         boundsBehavior: Flickable.StopAtBounds
+        // a finger takes the page like the wheel does, the hero goes with it
+        onMovementStarted: home.fingerDown()
+        onMovementEnded: home.fingerUp()
         Keys.onUpPressed: function (e) { if (currentIndex === 0) home.upFromTop(); else decrementCurrentIndex() }
         delegate: MediaRow {
             id: homeRow
@@ -277,6 +288,30 @@ FocusScope {
             }
             onActivated: function (item) { if (modelData.id === "upnext") home.play(item); else home.open(item) }
             onMenu: function (item, index, at) { home.menu(item, modelData.id, at) }
+        }
+    }
+    // the view is only the bottom half of the page: above it a finger still moves the page, the
+    // handler takes nothing from the tiles under it until it's a drag
+    Item {
+        anchors { left: parent.left; right: parent.right; top: parent.top; bottom: rows.top }
+        DragHandler {
+            property real from: 0
+            property real speed: 0
+            target: null
+            acceptedDevices: PointerDevice.TouchScreen
+            xAxis.enabled: false
+            onActiveChanged: {
+                if (active) {
+                    from = rows.contentY
+                    home.fingerDown()
+                    return
+                }
+                wheel.goal = wheel.clamp(rows.contentY - speed * 0.3)
+                wheel.start()
+                home.fingerUp()
+            }
+            onActiveTranslationChanged: rows.contentY = wheel.clamp(from - activeTranslation.y)
+            onCentroidChanged: if (active) speed = centroid.velocity.y
         }
     }
     }

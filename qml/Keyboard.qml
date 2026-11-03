@@ -204,14 +204,17 @@ Item {
                     lit: spec.v === "shift" && (kb.shift || kb.caps)
                     focused: kb.active && rowItem.r === kb.row && index === kb.focusIndex()
                     labelSize: spec.k === "c" ? (rowItem.acc ? 42 : 54) * kb.u : (spec.t.length > 3 ? 34 * kb.u : 38 * kb.u)
-                    TapHandler {
-                        enabled: spec.v === "backspace"
-                        onPressedChanged: { kb.backHeld = pressed; if (!pressed) Qt.callLater(function () { kb.skipTap = false }) }
-                    }
                     Pointer {
                         okKey: false
                         onPointed: kb.pointAt(rowItem.r, index)
                         onTapped: kb.press(spec)
+                        // the press of the tap in here: a second handler on the key doesn't always get it
+                        onDownChanged: {
+                            if (spec.v !== "backspace") return
+                            kb.backHeld = down
+                            if (down) kb.pointAt(rowItem.r, index)
+                            else Qt.callLater(function () { kb.skipTap = false })
+                        }
                     }
                 }
             }

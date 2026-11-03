@@ -306,6 +306,11 @@ bool Input::eventFilter(QObject *obj, QEvent *ev)
         }
         return false;
     }
+    // a finger points too, it just never moves the mouse
+    if (ev->type() == QEvent::TouchBegin) {
+        setPointing(true);
+        return false;
+    }
     if (ev->type() != QEvent::KeyPress && ev->type() != QEvent::KeyRelease)
         return QObject::eventFilter(obj, ev);
     auto *k = static_cast<QKeyEvent *>(ev);

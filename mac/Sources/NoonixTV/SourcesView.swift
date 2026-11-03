@@ -416,12 +416,15 @@ struct SourceRow: View {
     let u: CGFloat
 
     var body: some View {
+        let hdr = s.hdr.filter { $0 != "SDR" }
         HStack(spacing: 16 * u) {
             HStack(spacing: 8 * u) {
                 Badge(text: s.label, strong: true, onLight: focused, tint: focused ? Theme.accent : .white, u: u)
-                ForEach(s.hdr.filter { $0 != "SDR" }, id: \.self) { Badge(text: $0, strong: false, onLight: focused, tint: .white, u: u) }
+                ForEach(hdr, id: \.self) { Badge(text: $0, strong: false, onLight: focused, tint: .white, u: u) }
             }
-            .frame(width: 210 * u, alignment: .leading)
+            .fixedSize()
+            // three marks keep the column, fewer leave their room to the title
+            .frame(minWidth: (hdr.count >= 2 ? 210 : 104) * u, alignment: .leading)
             VStack(alignment: .leading, spacing: 6 * u) {
                 Text(s.filename ?? s.title)
                     .font(Theme.text(23 * u, .medium))

@@ -10,6 +10,7 @@ MouseArea {
     property bool takesFocus: true       // false: pointing at it leaves the focus where it is
     property bool menuOnHold: false      // touch: holding is the right click (a card's menu)
     property bool longDone: false
+    readonly property bool down: tap.pressed
     signal pointed()
     signal tapped()
     anchors.fill: parent

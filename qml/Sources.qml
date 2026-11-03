@@ -308,6 +308,7 @@ FocusScope {
             required property string rowKey
             readonly property bool foc: ListView.isCurrentItem && list.activeFocus
             readonly property var s: sheet.byKey[rowKey] || ({})
+            readonly property var hdr: (s.hdr || []).filter(function (h) { return h !== "SDR" })
             width: list.width
             height: 116 * sheet.u
             Pointer { okKey: false; onTapped: if (rowItem.s.addon !== undefined) sheet.pick(rowItem.s) }
@@ -321,10 +322,11 @@ FocusScope {
                     id: badges
                     anchors { left: parent.left; leftMargin: 26 * sheet.u; verticalCenter: parent.verticalCenter }
                     spacing: 8 * sheet.u
-                    width: 210 * sheet.u
+                    // three marks keep the column, fewer leave their room to the title
+                    width: Math.max(implicitWidth, (rowItem.hdr.length >= 2 ? 210 : 104) * sheet.u)
                     Badge { text: sheet.resLabel(rowItem.s.resolution); strong: true; onLight: rowItem.foc; tint: rowItem.foc ? Theme.accent : "white" }
                     Repeater {
-                        model: (rowItem.s.hdr || []).filter(function (h) { return h !== "SDR" })
+                        model: rowItem.hdr
                         Badge { required property var modelData; text: modelData; onLight: rowItem.foc }
                     }
                 }

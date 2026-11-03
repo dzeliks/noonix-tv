@@ -134,6 +134,8 @@ int main(int argc, char *argv[])
     // artwork comes over qt's https: openssl from the apk (tools/android/libmpv.sh)
     qInfo("tls: %s, %s", qPrintable(QSslSocket::activeBackend()),
           QSslSocket::supportsSsl() ? qPrintable(QSslSocket::sslLibraryVersionString()) : "no ssl");
+    // qt's default is too far for a finger: a slow drag barely moved a list
+    QGuiApplication::styleHints()->setStartDragDistance(12);
 #endif
     // the desktop entry's icon too (Icon=noonix-tv); the grey one while the desktop is dark
     const auto setIcon = [&app] {
