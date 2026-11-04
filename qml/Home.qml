@@ -240,7 +240,12 @@ FocusScope {
         // would vanish as it leaves the view
         displayMarginBeginning: y
         keyNavigationEnabled: true
+        // a held key: the glide keeps up with the repeats instead of starting over a row behind each time
+        property real lastStep: 0
         onCurrentIndexChanged: {
+            var now = Date.now()
+            highlightMoveDuration = now - lastStep < 300 ? 140 : 420
+            lastStep = now
             if (!home.free) home.topRow = currentIndex
             else if (!Input.pointing) home.reveal(currentIndex)
         }
@@ -272,13 +277,16 @@ FocusScope {
             loading: (home.version, home.cache[modelData.id] === undefined)
             // rows above the focus hide behind the hero: one leaving is gone at once, one coming
             // back fades in with its slide (a behavior would pick the duration of the old state)
-            readonly property bool above: index < home.topRow && !home.scrolled
+            // only once the page has carried it up there: a held key runs the selection ahead of the
+            // glide, and the rows it still slides past have to stay
+            readonly property bool above: index < home.topRow && !home.scrolled && y < rows.contentY + 1
             opacity: 1
             onAboveChanged: {
                 fade.stop()
                 fade.to = above ? 0 : 1
-                fade.duration = above ? 100 : 450
-                fade.easing.type = above ? Easing.OutQuad : Easing.InQuad
+                // held key: rows come back as fast as the glide brings them
+                fade.duration = above ? 100 : rows.highlightMoveDuration < 420 ? 160 : 450
+                fade.easing.type = above || rows.highlightMoveDuration < 420 ? Easing.OutQuad : Easing.InQuad
                 fade.start()
             }
             NumberAnimation { id: fade; target: homeRow; property: "opacity" }

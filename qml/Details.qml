@@ -86,7 +86,7 @@ FocusScope {
                 to.forceActiveFocus()
                 Input.holdKey()
             }
-            scroller.contentY = to && to !== actions ? Math.max(0, to.y - page.height * (to === seasonsRow ? 0.35 : 0.3)) : 0
+            scroller.contentY = page.restY(to)
         }
     }
 
@@ -146,6 +146,9 @@ FocusScope {
             if (page.comeBack) page.landBack()
         })
     }
+    // where the page rests for a row with the focus: the buttons, seasons and episodes keep the page as it
+    // opened (episodes the bottom row, the whole story above them), only the row below them scrolls it
+    function restY(to) { return to === more ? Math.max(0, more.y - page.height * 0.3) : 0 }
     // a title opened from this one: where the focus was, so back lands on it again
     property var comeBack: null
     function mark() {
@@ -164,7 +167,7 @@ FocusScope {
         Qt.callLater(function () {
             body.forceLayout()
             snap = true
-            scroller.contentY = to === actions ? 0 : Math.max(0, to.y - page.height * (to === seasonsRow ? 0.35 : 0.3))
+            scroller.contentY = page.restY(to)
             snap = false
         })
     }
@@ -470,7 +473,7 @@ FocusScope {
                 keyNavigationEnabled: true
                 onActiveFocusChanged: {
                     if (!activeFocus) return
-                    if (!Input.pointing) scroller.contentY = Math.max(0, y - page.height * 0.35)
+                    if (!Input.pointing) scroller.contentY = 0
                     // land on the season that's open, not the first one
                     if (!Input.pointing) for (var i = 0; i < seasons.length; ++i)
                         if (seasons[i].number === page.seasonNo) { currentIndex = i; break }
@@ -520,7 +523,7 @@ FocusScope {
                 preferredHighlightEnd: preferredHighlightBegin + 400 * page.u
                 highlightMoveDuration: 380
                 highlightMoveVelocity: -1
-                onActiveFocusChanged: if (activeFocus && !Input.pointing) scroller.contentY = Math.max(0, y - page.height * 0.3)
+                onActiveFocusChanged: if (activeFocus && !Input.pointing) scroller.contentY = 0
                 delegate: Item {
                     required property int index
                     readonly property var modelData: episodes.eps[index] || ({})

@@ -229,9 +229,8 @@ struct DetailsView: View {
         let yMore = shows ? yEpisodes + episodesH + sp : yActions + 90 * u + sp
         let yFor = { (z: DetailsModel.Zone) -> CGFloat in
             switch z {
-            case .actions: 0
-            case .seasons: max(0, ySeasons - H * 0.35)
-            case .episodes: max(0, yEpisodes - H * 0.3)
+            // buttons, seasons and episodes keep the page as it opened: episodes the bottom row, the whole story above
+            case .actions, .seasons, .episodes: 0
             case .more: max(0, yMore - H * 0.3)
             }
         }
