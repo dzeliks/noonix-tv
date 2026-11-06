@@ -58,7 +58,9 @@ FocusScope {
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
                 lineHeight: 1.12
-                text: qsTr("Press Menu while watching to say if the source and subtitles fit.")
+                text: Theme.say(qsTr("Press Menu while watching to say if the source and subtitles fit."),
+                               qsTr("Tap the screen while watching, then the speech bubble, to say if the source and subtitles fit."),
+                               qsTr("Click the speech bubble while watching to say if the source and subtitles fit."))
                 color: Theme.fg2
                 font { family: Theme.text; pixelSize: 27 * tip.u; weight: Font.Medium }
             }
@@ -105,7 +107,7 @@ FocusScope {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
-                text: qsTr("What works is remembered for the next episodes. What doesn't gets fixed where you are.")
+                text: qsTr("What works is remembered for the next episodes.\nWhat doesn't gets fixed where you are.")
                 color: Theme.fg3
                 font { family: Theme.text; pixelSize: 22 * tip.u }
             }
@@ -116,6 +118,7 @@ FocusScope {
                 GlassButton {
                     width: 360 * tip.u
                     text: qsTr("OK")
+                    primary: Theme.touch
                     focused: tip.activeFocus && tip.choice === 0
                     pointerFocus: false
                     onPointed: tip.choice = 0

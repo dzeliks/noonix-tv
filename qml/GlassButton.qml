@@ -8,6 +8,9 @@ Item {
     property string icon: ""
     property bool focused: activeFocus
     property bool primary: false
+    // a finger: the main button is always the white one, the rest light while pressed (no remote focus look)
+    readonly property bool touch: Theme.touch
+    readonly property bool lit: touch ? primary || gbPt.down : focused
     property bool glass: false           // real liquid glass at rest (over video), flat fill otherwise
     property GlassSource source: null    // glass inside the scene: what it refracts (never the scene itself)
     property real iconSize: 34 * u
@@ -23,7 +26,8 @@ Item {
     Item {
         id: body
         anchors.fill: parent
-        scale: b.focused ? 1.08 : 1
+        // a finger down sinks it (Pointer) instead
+        scale: b.focused && !b.touch && !(Theme.android && gbPt.down) ? 1.08 : 1
         Behavior on scale { SpringAnimation { spring: Theme.springK; damping: Theme.springDamp; epsilon: 0.0005 } }
         RectangularShadow {
             anchors.fill: bg
@@ -31,7 +35,7 @@ Item {
             offset.y: 14 * b.u
             blur: 36 * b.u
             color: Qt.rgba(0, 0, 0, 0.5)
-            opacity: b.focused ? 1 : 0
+            opacity: b.lit ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 160 } }
         }
         Glass {
@@ -41,16 +45,16 @@ Item {
             tint: b.primary ? 0.2 : 0.12
             backdrop: b.source ? b.source.tex : win.glassTex(b)
             frostTex: b.source ? b.source.frost : win.glassFrost(b)
-            backdropOn: b.source || win.backdropOn ? 1 : 0
+            backdropOn: b.source || win.backdropOn ? 1 : win.videoThrough ? 0.25 : 0
             radius: height / 2
-            opacity: b.focused ? 0 : 1
+            opacity: b.lit ? 0 : 1
             Behavior on opacity { NumberAnimation { duration: 140 } }
         }
         Rectangle {
             id: bg
             anchors.fill: parent
             radius: height / 2
-            color: b.focused ? "white" : b.glass ? "transparent" : Qt.rgba(1, 1, 1, b.primary ? 0.24 : 0.14)
+            color: b.lit ? "white" : b.glass ? "transparent" : Qt.rgba(1, 1, 1, b.primary ? 0.24 : 0.14)
             Behavior on color { ColorAnimation { duration: 140 } }
         }
         Row {
@@ -62,20 +66,21 @@ Item {
                 width: b.iconSize; height: width
                 name: b.icon
                 weight: 2.2
-                color: b.focused ? Theme.focusFg : Theme.fg
+                color: b.lit ? Theme.focusFg : Theme.fg
             }
             Text {
                 id: label
                 visible: b.text !== ""
                 anchors.verticalCenter: parent.verticalCenter
                 text: b.text
-                color: b.focused ? Theme.focusFg : Theme.fg
+                color: b.lit ? Theme.focusFg : Theme.fg
                 font { family: Theme.display; pixelSize: 27 * b.u; weight: Font.DemiBold }
             }
         }
     }
 
     Pointer {
+        id: gbPt
         okKey: false
         onPointed: { if (b.pointerFocus) b.forceActiveFocus(); b.pointed() }
         onTapped: b.clicked()

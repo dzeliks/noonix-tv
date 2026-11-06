@@ -331,11 +331,14 @@ struct MetaLine: View {
 struct StoryScrim: View {
     let u: CGFloat
     let margin: CGFloat
+    /// height the story could still grow by: the shade is sized for the tallest
+    var extra: CGFloat = 0
     var body: some View {
         GeometryReader { g in
+            let h = g.size.height + extra
             Scrim(strength: 0.55)
-                .frame(width: g.size.width * 1.9 + margin, height: g.size.height * 2.6 + 160 * u)
-                .offset(x: -g.size.width * 0.45, y: -g.size.height * 0.8 - 80 * u)
+                .frame(width: g.size.width * 1.9 + margin, height: h * 2.6 + 160 * u)
+                .offset(x: -g.size.width * 0.45, y: g.size.height - h * 1.8 - 80 * u)
         }
     }
 }

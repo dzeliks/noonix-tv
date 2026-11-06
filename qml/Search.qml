@@ -22,9 +22,26 @@ FocusScope {
     readonly property real columnW: 575 * u
     readonly property real columnX: width - Theme.margin - columnW
     readonly property real topY: 150 * u
-    readonly property real bottomY: height - 44 * u
+    // touch on android: the phone's own keyboard types, ours goes away. the layout ends where it starts
+    readonly property bool ime: Theme.touch
+    readonly property real imeTop: Math.min(height, mapFromItem(null, 0, imeIn.keyboardTop).y)
+    readonly property real bottomY: Math.min(height, imeTop) - 44 * u
     readonly property real gridGap: 40 * u
-    readonly property real posterW: (columnX - 64 * u - Theme.margin - 3 * gridGap) / 4
+    // phone / tablet with its own keyboard: one column over the full width (field, suggestion
+    // chips, results). a docked keyboard leaves less than a row: the results become one row
+    // sideways right above it
+    readonly property real fullW: width - 2 * Theme.margin
+    readonly property int imeCols: Math.max(4, Math.min(8, Math.round((fullW + gridGap) / (230 * u + gridGap))))
+    readonly property real listTop: (chips.visible ? chips.y + chips.height : field.y + field.height) + 26 * u
+    readonly property real fullPosterW: (fullW - (imeCols - 1) * gridGap) / imeCols
+    readonly property bool squeezed: ime && bottomY - listTop < gridTitle.height + 18 * u + 10 * u + fullPosterW * 1.5 + gridGap
+    readonly property real rowPosterW: (bottomY - listTop - 26 * u) / 1.5
+    // too little even for that (a docked keyboard on a phone): the field and the chips only, the
+    // results come back when the keyboard goes (a chip tap sends it away)
+    readonly property bool tight: squeezed && rowPosterW < 110 * u
+    readonly property real posterW: !ime ? (columnX - 64 * u - Theme.margin - 3 * gridGap) / 4
+        : squeezed ? Math.max(110 * u, Math.min(fullPosterW, rowPosterW))
+        : fullPosterW
     readonly property var suggestions: {
         // typing: what people likely mean, from the core's ranking; else what's trending
         var src = searching ? suggested : trending.map(function (x) { return x.title }), out = []
@@ -109,7 +126,9 @@ FocusScope {
     Section {
         id: gridTitle
         x: Theme.margin
-        y: search.topY
+        // touch: under the field (a docked keyboard's single row goes without it)
+        y: search.ime ? search.listTop : search.topY
+        visible: !search.squeezed
         text: search.busy ? qsTr("Searching…") : search.searching ? (search.results.length ? qsTr("Top results") : qsTr("No results")) : qsTr("Popular")
     }
     // new results on the way over the old ones
@@ -123,13 +142,20 @@ FocusScope {
     ListWheel { view: grid; cards: true }
     GridView {
         id: grid
-        x: Theme.margin - search.gridGap / 2
-        y: gridTitle.y + gridTitle.height + 18 * search.u
-        width: cols * cellWidth
-        height: search.bottomY - y
-        readonly property int cols: 4
+        // one row: it runs to the screen's edges, starting in line with the field
+        x: search.squeezed ? 0 : Theme.margin - search.gridGap / 2
+        leftMargin: search.squeezed ? Theme.margin - search.gridGap / 2 : 0
+        rightMargin: leftMargin
+        y: search.squeezed ? search.listTop - 8 * search.u : gridTitle.y + gridTitle.height + 18 * search.u
+        width: search.squeezed ? search.width : search.ime ? search.fullW + search.gridGap : cols * cellWidth
+        height: search.squeezed ? cellHeight : search.bottomY - y
+        readonly property int cols: search.ime ? search.imeCols : 4
+        flow: search.squeezed ? GridView.FlowTopToBottom : GridView.FlowLeftToRight
+        visible: opacity > 0
+        opacity: search.tight ? 0 : 1
+        Behavior on opacity { NumberAnimation { duration: 160 } }
         cellWidth: search.posterW + search.gridGap
-        cellHeight: search.posterW * 1.5 + search.gridGap
+        cellHeight: search.posterW * 1.5 + (search.squeezed ? 24 * search.u : search.gridGap)
         // the wheel stops at any pixel: nothing over the title
         clip: Input.pointing
         model: search.shown.length
@@ -171,7 +197,7 @@ FocusScope {
 
     // popular on its way: placeholder posters where they'll be
     Grid {
-        x: grid.x + search.gridGap / 2
+        x: Theme.margin
         y: grid.y + 10 * search.u
         columns: grid.cols
         columnSpacing: search.gridGap
@@ -180,23 +206,23 @@ FocusScope {
         opacity: !search.searching && search.shown.length === 0 && !search.popularKnown ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 140 } }
         Repeater {
-            model: grid.cols * 2
+            model: grid.cols * (search.squeezed ? 1 : 2)
             Skeleton { cardW: search.posterW }
         }
     }
     // the first results on their way
     Spinner {
         anchors.horizontalCenter: grid.horizontalCenter
-        y: grid.y + 240 * search.u
+        y: grid.y + (search.squeezed ? grid.height / 2 - 36 * search.u : 240 * search.u)
         width: 72 * search.u; height: width
-        visible: search.busy && search.results.length === 0
+        visible: search.busy && search.results.length === 0 && !search.tight
         running: visible && search.visible
     }
     // nothing found: say so where the results would be
     Column {
-        visible: search.searching && !search.busy && search.results.length === 0
+        visible: search.searching && !search.busy && search.results.length === 0 && !search.tight
         anchors.horizontalCenter: grid.horizontalCenter
-        y: grid.y + 160 * search.u
+        y: grid.y + (search.squeezed ? 40 : 160) * search.u
         spacing: 22 * search.u
         Symbol {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -230,9 +256,9 @@ FocusScope {
     // ---- right column: query, suggestions, keyboard
     Rectangle {
         id: field
-        x: search.columnX
+        x: search.ime ? Theme.margin : search.columnX
         y: search.topY - 8 * search.u
-        width: search.columnW
+        width: search.ime ? search.fullW : search.columnW
         height: 64 * search.u
         radius: height / 2
         color: Qt.rgba(1, 1, 1, 0.1)
@@ -245,31 +271,81 @@ FocusScope {
         }
         FieldText {
             anchors { left: glassIcon.right; leftMargin: 16 * search.u; right: parent.right; rightMargin: 24 * search.u; verticalCenter: parent.verticalCenter }
-            text: search.query
+            text: search.ime ? imeIn.displayText : search.query
             placeholder: qsTr("Movies and shows")
-            active: search.visible
+            active: search.visible && (!search.ime || imeIn.activeFocus)
             size: 26 * search.u
+        }
+        ImeInput {
+            id: imeIn
+            value: search.query
+            EnterKey.type: Qt.EnterKeySearch
+            onEdited: function (t) { search.query = t }
+            onDone: if (search.shown.length) { search.zone = "grid"; grid.forceActiveFocus() }
+            Keys.onUpPressed: search.upFromTop()
         }
         Pointer {
             okKey: false
             takesFocus: false
             cursorShape: Qt.IBeamCursor
-            onTapped: { search.zone = "keys"; keys.forceActiveFocus() }
+            onTapped: { if (search.ime) search.imeOpen(); else { search.zone = "keys"; keys.forceActiveFocus() } }
+        }
+    }
+    function imeOpen() { zone = "keys"; imeIn.open() }
+    // opened by touch: typing is what search is for
+    onVisibleChanged: if (visible && ime) Qt.callLater(imeOpen)
+
+    // touch: the suggestions as one row of chips under the field
+    ListView {
+        id: chips
+        visible: search.ime && search.suggestions.length > 0
+        y: field.y + field.height + 18 * search.u
+        width: search.width
+        leftMargin: Theme.margin
+        rightMargin: Theme.margin
+        height: 56 * search.u
+        orientation: ListView.Horizontal
+        spacing: 12 * search.u
+        clip: true
+        boundsBehavior: Flickable.StopAtBounds
+        model: visible ? search.suggestions : []
+        delegate: KeyCap {
+            id: chip
+            required property var modelData
+            u: search.u / 2
+            fn: true
+            radius: height / 2
+            width: chipText.implicitWidth + 48 * search.u
+            height: chips.height
+            Pointer {
+                okKey: false
+                onTapped: { chip.pop(); search.query = chip.modelData; Qt.inputMethod.hide() }
+            }
+            Text {
+                id: chipText
+                anchors.centerIn: parent
+                text: chip.modelData
+                font { family: Theme.display; pixelSize: 24 * search.u; weight: Font.Medium }
+                color: "white"
+            }
         }
     }
 
     FocusScope {
         id: sugBox
+        visible: !search.ime
         x: search.columnX
-        y: field.y + field.height + 30 * search.u
+        y: search.ime ? search.topY : field.y + field.height + 30 * search.u
         width: search.columnW
-        height: kb.y - 22 * search.u - y
+        height: (search.ime ? search.bottomY : kb.y - 22 * search.u) - y
         focus: search.zone === "suggestions"
         onActiveFocusChanged: if (activeFocus) search.zone = "suggestions"
-        readonly property real chipH: Math.min(62 * search.u, (height - sugTitle.height - 12 * search.u - 5 * 8 * search.u) / 6)
+        // as many as fit at a size a finger hits (all six when there's room)
+        readonly property int fits: Math.max(1, Math.min(search.suggestions.length, Math.floor((height - sugTitle.height - 12 * search.u + 8 * search.u) / ((search.ime ? 58 : 46) * search.u + 8 * search.u))))
+        readonly property real chipH: Math.min(62 * search.u, (height - sugTitle.height - 12 * search.u - (fits - 1) * 8 * search.u) / fits)
         Section { id: sugTitle; text: qsTr("Suggestions"); visible: search.suggestions.length > 0 }
         Repeater {
-            model: search.suggestions
+            model: search.suggestions.slice(0, sugBox.fits)
             KeyCap {
                 id: sug
                 required property var modelData
@@ -299,7 +375,7 @@ FocusScope {
         }
         Keys.onUpPressed: { if (search.suggestion > 0) search.suggestion--; else search.upFromTop() }
         Keys.onDownPressed: {
-            if (search.suggestion < search.suggestions.length - 1) search.suggestion++
+            if (search.suggestion < sugBox.fits - 1) search.suggestion++
             else { search.zone = "keys"; kb.enterAt("top", 0.5); keys.forceActiveFocus() }
         }
         Keys.onLeftPressed: if (search.shown.length) { search.zone = "grid"; grid.forceActiveFocus() }
@@ -333,6 +409,7 @@ FocusScope {
     }
     Keyboard {
         id: kb
+        visible: !search.ime
         x: search.columnX
         y: search.bottomY - height
         width: search.columnW
@@ -348,7 +425,7 @@ FocusScope {
         }
         onLeave: function (dir) {
             if (dir === "up") {
-                if (search.suggestions.length) { search.zone = "suggestions"; search.suggestion = search.suggestions.length - 1; sugBox.forceActiveFocus() }
+                if (search.suggestions.length) { search.zone = "suggestions"; search.suggestion = sugBox.fits - 1; sugBox.forceActiveFocus() }
                 else search.upFromTop()
             } else if (dir === "left" && search.shown.length) {
                 search.zone = "grid"

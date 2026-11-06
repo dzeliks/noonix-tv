@@ -215,6 +215,7 @@ struct DetailsView: View {
     let model: DetailsModel
     @State private var infoH: CGFloat = 0
     @State private var heldY: CGFloat?
+    @State private var plotSpare: CGFloat = 0
 
     var body: some View {
         let u = app.u, W = app.size.width, H = app.size.height
@@ -318,7 +319,7 @@ struct DetailsView: View {
                 } else if !model.isMovie {
                     Text(" ").font(Theme.display(26 * u, .semibold))
                 }
-                PlotBox(text: (ep?.overview).flatMap { $0.isEmpty ? nil : $0 } ?? d?.item.overview ?? "", fixed: !model.isMovie, u: u)
+                PlotBox(text: (ep?.overview).flatMap { $0.isEmpty ? nil : $0 } ?? d?.item.overview ?? "", u: u, spare: $plotSpare)
                 let cast = (d?.cast ?? []).prefix(4).compactMap(\.name)
                 if !cast.isEmpty {
                     Text(L("Starring %1", cast.joined(separator: ", "))).font(Theme.text(21 * u)).foregroundStyle(Theme.fg2).lineLimit(1)
@@ -329,7 +330,7 @@ struct DetailsView: View {
                 }
             }
             .frame(width: W * 0.36, alignment: .leading)
-            .background(alignment: .topLeading) { StoryScrim(u: u, margin: margin) }
+            .background(alignment: .topLeading) { StoryScrim(u: u, margin: margin, extra: plotSpare) }
             .padding(.trailing, margin)
         }
         .frame(width: W)
@@ -435,12 +436,13 @@ struct DetailsView: View {
 }
 
 /// a tvos button (qml GlassButton): liquid glass at rest, white and lifted when focused
-/// a plot in a box of at most seven lines. a show's box has one height whatever episode is on: a
-/// longer plot scrolls slowly inside it and comes back, nothing around it moves
+/// a plot in a box of at most seven lines, sitting on the line below it and growing up. a longer
+/// plot scrolls slowly inside it and comes back
 struct PlotBox: View {
     let text: String
-    let fixed: Bool
     let u: CGFloat
+    /// the room left under seven lines (the scrim keeps its size with it)
+    @Binding var spare: CGFloat
     @State private var tall: CGFloat = 0
     @State private var seven: CGFloat = 0
     @State private var y: CGFloat = 0
@@ -452,7 +454,7 @@ struct PlotBox: View {
     var body: some View {
         let pad = 14 * u
         let full = seven + 2 * pad, need = tall + 2 * pad
-        let h = fixed ? full : min(need, full)
+        let h = min(need, full)
         let over = max(0, need - h)
         line(text)
             .foregroundStyle(Theme.fg.opacity(0.86))
@@ -473,6 +475,7 @@ struct PlotBox: View {
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { seven = $0 }
             }
             .padding(.vertical, -pad)
+            .onChange(of: full - h, initial: true) { _, v in spare = max(0, v) }
             .task(id: "\(text)|\(Int(over))") {
                 y = 0
                 guard over > 1 else { return }

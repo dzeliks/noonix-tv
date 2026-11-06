@@ -47,6 +47,8 @@ FocusScope {
     Keys.onEscapePressed: close()
     Keys.onBackPressed: close()
 
+    // a finger needs less height than the tv's lift room
+    readonly property real rowH: (Theme.touch ? 90 : 108) * u
     MouseArea { anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.LeftButton; onClicked: sheet.close() }
     Glass {
         id: panel
@@ -55,7 +57,8 @@ FocusScope {
         x: Math.min(sheet.anchorX, sheet.width - width - Theme.margin)
         // bottom sits just above the osd's button row, like the track picker
         y: sheet.height - 140 * sheet.u - height
-        height: head.height + sheet.lines.length * 108 * sheet.u + 32 * sheet.u + 12 * sheet.u
+        // a phone's short screen: never past the top, the lines scroll instead
+        height: Math.min(head.height + sheet.lines.length * sheet.rowH + 44 * sheet.u, sheet.height - 180 * sheet.u)
         radius: 40 * sheet.u
     }
     MouseArea { anchors.fill: panel; hoverEnabled: true; acceptedButtons: Qt.AllButtons }
@@ -92,8 +95,9 @@ FocusScope {
         x: panel.x + 16 * sheet.u
         y: head.y + head.height
         width: panel.width - 32 * sheet.u
-        height: sheet.lines.length * 108 * sheet.u
-        interactive: false
+        height: panel.y + panel.height - 28 * sheet.u - y
+        clip: contentHeight > height + 1
+        interactive: clip
         model: sheet.lines.length
         keyNavigationEnabled: true
         highlightMoveDuration: 0
@@ -103,9 +107,9 @@ FocusScope {
             id: line
             required property int index
             readonly property var l: sheet.lines[index] || ({})
-            readonly property bool foc: ListView.isCurrentItem && list.activeFocus
+            readonly property bool foc: ListView.isCurrentItem && list.activeFocus && (!Theme.touch || lp.down)
             width: list.width
-            height: 108 * sheet.u
+            height: sheet.rowH
             Rectangle {
                 anchors.fill: parent
                 radius: 24 * sheet.u
@@ -138,6 +142,7 @@ FocusScope {
                 }
             }
             Pointer {
+                id: lp
                 okKey: false
                 onPointed: { list.currentIndex = line.index; list.forceActiveFocus() }
                 onTapped: sheet.pick(line.index)

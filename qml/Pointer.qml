@@ -9,10 +9,12 @@ MouseArea {
     property bool okKey: true            // a click sends ok; false: just tapped()
     property bool takesFocus: true       // false: pointing at it leaves the focus where it is
     property bool menuOnHold: false      // touch: holding is the right click (a card's menu)
+    property bool holdMenuKey: true      // false: a hold is held() instead of the menu key
     property bool longDone: false
     readonly property bool down: tap.pressed
     signal pointed()
     signal tapped()
+    signal held()
     anchors.fill: parent
     hoverEnabled: true
     acceptedButtons: Qt.NoButton
@@ -57,7 +59,17 @@ MouseArea {
     TapHandler {
         id: tap
         acceptedButtons: Qt.LeftButton
-        onPressedChanged: if (pressed) pt.longDone = false
+        onPressedChanged: {
+            if (pressed) {
+                pt.longDone = false
+                // a finger lights what it's on while it's down (a mouse already did by pointing)
+                if (Theme.android && pt.shown()) pt.go()
+                sinkHold.stop(); sinkBack.stop(); sinkIn.restart()
+                if (hold.enabled && Theme.android) sinkHold.restart()
+            } else if (!pt.longDone) {
+                sinkIn.stop(); sinkHold.stop(); sinkBack.restart()
+            }
+        }
         onTapped: {
             if (pt.longDone) { pt.longDone = false; return }
             pt.go()
@@ -65,12 +77,39 @@ MouseArea {
         }
     }
     TapHandler {
+        id: hold
         acceptedDevices: PointerDevice.TouchScreen
         enabled: pt.menuOnHold
         onLongPressed: {
             pt.longDone = true
+            sinkIn.stop(); sinkHold.stop(); sinkBack.restart()
             pt.go()
-            Remote.pointerKey("MENU")
+            if (pt.holdMenuKey) Remote.pointerKey("MENU"); else pt.held()
         }
+    }
+
+    // a press sinks what it's on a little, holding (a card's menu coming) a little more. a few px
+    // at most, so a wide row barely moves
+    property bool sinks: true
+    property real depth: 0
+    readonly property real sinkStep: Math.min(0.03, 9 * Theme.u / Math.max(1, width, height))
+    NumberAnimation { id: sinkIn; target: pt; property: "depth"; to: 1; duration: 110; easing.type: Easing.OutQuad }
+    SequentialAnimation {
+        id: sinkHold
+        PauseAnimation { duration: 140 }
+        NumberAnimation { target: pt; property: "depth"; to: 2.2; duration: Math.max(200, hold.longPressThreshold * 1000 - 140); easing.type: Easing.InOutQuad }
+    }
+    SpringAnimation { id: sinkBack; target: pt; property: "depth"; to: 0; spring: 5; damping: 0.38; epsilon: 0.005 }
+    Scale {
+        id: press
+        origin.x: pt.width / 2 + pt.x; origin.y: pt.height / 2 + pt.y
+        xScale: 1 - pt.depth * pt.sinkStep; yScale: xScale
+    }
+    Component.onCompleted: {
+        if (!sinks || !parent) return
+        var t = []
+        for (var i = 0; i < parent.transform.length; ++i) t.push(parent.transform[i])
+        t.push(press)
+        parent.transform = t
     }
 }

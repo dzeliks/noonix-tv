@@ -25,6 +25,8 @@ FocusScope {
 
     // left of the tabs is the avatar (-1): ok there asks who's watching
     readonly property bool onAvatar: index < 0 && activeFocus
+    // white capsule for the remote's focus; a finger just sees where it is
+    readonly property bool lit: activeFocus && !Theme.touch
     Keys.onLeftPressed: if (index > 0) { index--; chosen(tabs[index].id) } else if (profile) index = -1
     Keys.onRightPressed: if (index < tabs.length - 1) { index++; chosen(tabs[index].id) }
     // ok on a tab goes into its page, like down
@@ -90,10 +92,10 @@ FocusScope {
             radius: height / 2
             opacity: nav.index < 0 ? 0 : 1
             Behavior on opacity { NumberAnimation { duration: 140 } }
-            color: nav.activeFocus ? "white" : Qt.rgba(1, 1, 1, 0.16)
-            // a small bounce as it lands on the tab (~6 % past it)
-            Behavior on x { enabled: capsule.placed; SpringAnimation { spring: 4.2; damping: 0.32; epsilon: 0.25 } }
-            Behavior on width { enabled: capsule.placed; SpringAnimation { spring: 4.2; damping: 0.32; epsilon: 0.25 } }
+            color: nav.lit ? "white" : Qt.rgba(1, 1, 1, 0.16)
+            // a light bounce as it lands on the tab (~2 % past it)
+            Behavior on x { enabled: capsule.placed; SpringAnimation { spring: 4.2; damping: 0.45; epsilon: 0.25 } }
+            Behavior on width { enabled: capsule.placed; SpringAnimation { spring: 4.2; damping: 0.45; epsilon: 0.25 } }
             Behavior on color { ColorAnimation { duration: 160 } }
         }
         Tabs { id: tabRow; x: 7 * nav.u }
@@ -102,7 +104,7 @@ FocusScope {
             x: capsule.x; y: capsule.y
             width: capsule.width; height: capsule.height
             clip: true
-            opacity: nav.activeFocus && nav.index >= 0 ? 1 : 0
+            opacity: nav.lit && nav.index >= 0 ? 1 : 0
             visible: opacity > 0
             Behavior on opacity { NumberAnimation { duration: 160 } }
             Tabs { x: tabRow.x - parent.x; y: -parent.y; ink: true }

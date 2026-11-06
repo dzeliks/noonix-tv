@@ -44,7 +44,7 @@ Item {
                 var asked = flow.removing === f.path
                 out.push({ label: f.label || f.path, value: asked ? qsTr("Press Again to Remove") : qsTr("Remove"), act: "lib:remove:" + f.path,
                            detail: asked ? qsTr("Takes it out of the library, the files stay")
-                                         : Theme.counted(qsTr("%n video(s)  ·  OK takes it out of the library, the files stay", "", f.files), f.files) })
+                                         : Theme.counted(Theme.say(qsTr("%n video(s)  ·  OK takes it out of the library, the files stay", "", f.files), qsTr("%n video(s)  ·  tap to take it out of the library, the files stay", "", f.files), qsTr("%n video(s)  ·  click to take it out of the library, the files stay", "", f.files)), f.files) })
             })
             out.push({ label: qsTr("Add a folder"), detail: qsTr("Movies and shows, named the usual way: Show/Season 1/Show S01E02.mkv, Movie (2010).mkv"), value: "+", act: "lib:add" })
             if (folders.length)

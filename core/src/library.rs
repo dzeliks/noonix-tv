@@ -156,7 +156,8 @@ pub fn browse(path: &str, files: &[String]) -> Result<Value> {
     let parent = if place { String::new() } else { dir.parent().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default() };
     let name = dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| path.to_owned());
     Ok(json!({
-        "path": path, "name": name, "label": label(path), "parent": parent, "videos": videos,
+        "path": path, "name": name, "label": label(path), "parent": parent,
+        "parentLabel": if parent.is_empty() { String::new() } else { label(&parent) }, "videos": videos,
         "folders": folders.into_iter().map(|(name, path)| json!({ "name": name, "path": path })).collect::<Vec<_>>(),
         "files": found.into_iter().map(|(name, path)| json!({ "name": name, "path": path })).collect::<Vec<_>>(),
     }))

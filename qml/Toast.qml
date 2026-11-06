@@ -64,6 +64,8 @@ Item {
     width: row.width + 72 * u
     height: 78 * u
     Glass { anchors.fill: parent; kind: "panel"; radius: height / 2 }
+    // a finger or the mouse: the toast is its own button
+    TapHandler { enabled: toast.action !== ""; onTapped: toast.trigger() }
     Row {
         id: row
         anchors.centerIn: parent
@@ -81,6 +83,7 @@ Item {
             labelSize: 28 * toast.u
             key: "MENU"
             label: toast.action
+            pointLabel: toast.action
             pad: Remote.inputKind === "pad"
         }
     }

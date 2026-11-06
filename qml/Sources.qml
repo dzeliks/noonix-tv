@@ -58,12 +58,14 @@ FocusScope {
     signal pick(var stream)
     signal closed()
 
-    function start(t, label) {
+    // known: the answer the player already has, shown as is (no second load)
+    function start(t, label, known) {
         target = t; title = label || ""
         rowsModel.clear(); byKey = ({})
         streams = []; addons = []; total = 0; hidden = 0; torrents = 0; done = false; showTemplate = false; only = ""; chip = 0
         req = "src-" + Date.now()
         list.forceActiveFocus()
+        if (known) { req = known.req || req; apply(known); return }
         Api.call("streams.list", Object.assign({ req: req }, t), function (ok, d) {
             if (!ok) { sheet.done = true; return }
             if (d.req !== sheet.req) return
@@ -306,12 +308,12 @@ FocusScope {
             id: rowItem
             required property int index
             required property string rowKey
-            readonly property bool foc: ListView.isCurrentItem && list.activeFocus
+            readonly property bool foc: ListView.isCurrentItem && list.activeFocus && (!Theme.touch || rowPt.down)
             readonly property var s: sheet.byKey[rowKey] || ({})
             readonly property var hdr: (s.hdr || []).filter(function (h) { return h !== "SDR" })
             width: list.width
             height: 116 * sheet.u
-            Pointer { okKey: false; onTapped: if (rowItem.s.addon !== undefined) sheet.pick(rowItem.s) }
+            Pointer { id: rowPt; okKey: false; onTapped: if (rowItem.s.addon !== undefined) sheet.pick(rowItem.s) }
             Rectangle {
                 anchors { fill: parent; leftMargin: 28 * sheet.u; rightMargin: 28 * sheet.u }
                 radius: 26 * sheet.u

@@ -49,7 +49,7 @@ FocusScope {
                                         : qsTr("With what's in the folders inside") })
         if (v.path)
             out.push({ label: qsTr("Up a folder"), act: "up", value: "‹",
-                       detail: v.parent ? v.parent : picker.files.length ? qsTr("Back to where it may be") : qsTr("Back to where your videos may be") })
+                       detail: v.parent ? v.parentLabel || v.parent : picker.files.length ? qsTr("Back to where it may be") : qsTr("Back to where your videos may be") })
         ;(v.files || []).forEach(function (f) {
             out.push({ label: f.name, act: "file", path: f.path, value: qsTr("Open"), detail: "" })
         })
@@ -142,7 +142,8 @@ FocusScope {
             }
         }
         Text {
-            text: picker.files.length ? qsTr("OK opens a folder or the file, Back goes up") : qsTr("OK opens a folder, Back goes up")
+            text: picker.files.length ? Theme.say(qsTr("OK opens a folder or the file, Back goes up"), qsTr("Tap a folder or the file to open it, Back goes up"), qsTr("Click a folder or the file to open it, Back goes up"))
+                                      : Theme.say(qsTr("OK opens a folder, Back goes up"), qsTr("Tap a folder to open it, Back goes up"), qsTr("Click a folder to open it, Back goes up"))
             color: Theme.fg3
             font { family: Theme.text; pixelSize: 24 * picker.u }
         }

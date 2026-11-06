@@ -46,6 +46,11 @@ public:
     Q_INVOKABLE QVariantMap defaults() const;
     // "pad" | "key": the next button / key is reported by captured() instead of acting; "" stops
     Q_INVOKABLE void capture(const QString &what);
+    // a picture from the phone's gallery into dir (android; picturePicked answers, "" = none)
+    Q_INVOKABLE bool canPickPicture() const;
+    // android: the app to the background (the system's back at the top)
+    Q_INVOKABLE void toBackground();
+    Q_INVOKABLE void pickPicture(const QString &dir);
     // a pad button that the remote daemon forwarded (PAD:<button>): pressed through the bindings
     void padKey(const QString &button);
 #ifdef Q_OS_ANDROID
@@ -61,6 +66,7 @@ signals:
     void pointingChanged();
     void okHeldChanged();
     void captured(const QString &what, const QString &name);
+    void picturePicked(const QString &path);
 
 protected:
     bool eventFilter(QObject *obj, QEvent *ev) override;

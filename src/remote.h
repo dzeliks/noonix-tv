@@ -92,11 +92,24 @@ class Desktop : public QObject
     // ui language: "en" | "sr" (serbian, latin). systemLanguage = what the pc's locale suggests
     Q_PROPERTY(QString language READ language NOTIFY languageChanged)
     Q_PROPERTY(QString systemLanguage READ systemLanguage CONSTANT)
+    // a phone (android, smallest width under 600dp): the ui is drawn larger. NOONIX_PHONE=1|0 forces it
+    Q_PROPERTY(bool phone READ phone CONSTANT)
+    // how much larger than the 1920x1080 grid (phones; dev: NOONIX_SCALE)
+    Q_PROPERTY(double boost READ boost CONSTANT)
+    // dev: NOONIX_GRIDW=1000, the narrowest grid before the ui shrinks (0 = the layouts' own)
+    Q_PROPERTY(double gridW READ gridW CONSTANT)
 public:
     using QObject::QObject;
     void setEngine(QQmlEngine *e) { m_engine = e; }
     QString language() const { return m_language; }
     QString systemLanguage() const;
+    bool phone() const;
+    double gridW() const { return qEnvironmentVariable("NOONIX_GRIDW").toDouble(); }
+    double boost() const
+    {
+        const double env = qEnvironmentVariable("NOONIX_SCALE").toDouble();
+        return env > 0 ? env : phone() ? 1.4 : 1.0;
+    }
     // swaps the translation and re-reads every qsTr() on screen
     Q_INVOKABLE void setLanguage(const QString &code);
     bool debug() const { return qEnvironmentVariableIsSet("NOONIX_DEBUG"); }

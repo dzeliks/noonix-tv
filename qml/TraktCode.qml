@@ -72,7 +72,12 @@ FocusScope {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
-                text: tc.code ? qsTr("On your phone, open %1 and enter").arg(tc.code.verification_url) : qsTr("Asking Trakt for a code…")
+                // touch on this device: the page is a tap away, here
+                readonly property bool here: Desktop.phone || Theme.touch
+                text: !tc.code ? qsTr("Asking Trakt for a code…")
+                    : here ? qsTr("Tap to open %1, then enter").arg(tc.code.verification_url)
+                    : qsTr("On your phone, open %1 and enter").arg(tc.code.verification_url)
+                TapHandler { enabled: parent.here && !!tc.code; onTapped: Qt.openUrlExternally(tc.code.verification_url) }
                 color: Theme.fg2
                 font { family: Theme.text; pixelSize: 27 * tc.u; weight: Font.Medium }
             }

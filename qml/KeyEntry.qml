@@ -36,6 +36,7 @@ FocusScope {
         secret = !!o.secret; text = o.text || ""; check = o.check || null; allowEmpty = !!o.allowEmpty
         status = ""; busy = false; ok = false; kb.shift = false
         isOpen = true; keys.forceActiveFocus()
+        if (ime.on) Qt.callLater(ime.open)
     }
     function close() { isOpen = false }
     function submit() {
@@ -60,7 +61,9 @@ FocusScope {
         id: sheet
         anchors.fill: parent
         opacity: Math.min(1, ke.reveal * 1.6)
-        transform: Translate { y: (1 - ke.reveal) * 280 * ke.u }
+        // a docked phone keyboard: up above it
+        readonly property real lift: Math.max(0, ke.height / 2 + card.height / 2 + 24 * ke.u - ke.mapFromItem(null, 0, ime.keyboardTop).y)
+        transform: Translate { y: (1 - ke.reveal) * 280 * ke.u - sheet.lift }
     Glass {
         id: card
         anchors.centerIn: parent
@@ -98,12 +101,21 @@ FocusScope {
             border.color: Qt.rgba(1, 1, 1, 0.14)
             FieldText {
                 anchors { left: parent.left; right: parent.right; margins: 28 * ke.u; verticalCenter: parent.verticalCenter }
-                text: ke.text
                 placeholder: ke.placeholder
                 secret: ke.secret
-                active: ke.isOpen
+                text: ime.on ? ime.displayText : ke.text
+                active: ke.isOpen && (!ime.on || ime.activeFocus)
                 size: 26 * ke.u
             }
+            ImeInput {
+                id: ime
+                value: ke.text
+                maximumLength: 400
+                inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText | (ke.secret ? Qt.ImhSensitiveData : 0)
+                onEdited: function (t) { ke.text = t; ke.status = "" }
+                onDone: ke.submit()
+            }
+            Pointer { okKey: false; takesFocus: false; cursorShape: Qt.IBeamCursor; onTapped: if (ime.on) ime.open(); else keys.forceActiveFocus() }
         }
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -118,7 +130,8 @@ FocusScope {
             readonly property bool typing: true
             property bool typed: false
             width: parent.width
-            height: kb.height
+            height: ime.on ? 0 : kb.height
+            visible: !ime.on
             focus: true
             onActiveFocusChanged: if (!activeFocus) typed = false
             Keys.onPressed: function (e) {
@@ -149,7 +162,16 @@ FocusScope {
                 }
             }
         }
+        // the phone's keyboard has no done of ours; keys are long, pasting is how they arrive
+        Row {
+            visible: ime.on
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: 20 * ke.u
+            GlassButton { text: qsTr("Paste"); pointerFocus: false; onClicked: { ke.text += Desktop.paste(); ke.status = "" } }
+            GlassButton { text: qsTr("Done"); primary: true; pointerFocus: false; onClicked: ke.submit() }
+        }
         Text {
+            visible: !ime.on
             anchors.horizontalCenter: parent.horizontalCenter
             width: parent.width
             horizontalAlignment: Text.AlignHCenter

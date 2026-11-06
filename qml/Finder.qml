@@ -10,19 +10,24 @@ FocusScope {
     property string episodeTitle: ""
     property string status: ""
     property string detail: ""
+    property bool active: false
     signal cancel()
-    visible: opacity > 0
+    // held from the press on (keys, back), drawn only once the search takes a moment:
+    // nothing found right away goes straight to the sources sheet without a flash
+    visible: opacity > 0 || active
     opacity: 0
+    Timer { id: grace; interval: 350; onTriggered: f.opacity = 1 }
     // cut, never fade, once the video is up (hdr under a fading window dips)
     Behavior on opacity { enabled: !win.videoUp; NumberAnimation { duration: 220; easing.type: Easing.OutQuad } }
 
-    function open(t, from) {
+    function open(t, from, quick) {
         target = t
         episodeTitle = from && from.episodeTitle ? from.episodeTitle : ""
         details = null
         status = qsTr("Finding the best source…")
         detail = ""
-        opacity = 1
+        active = true
+        if (quick) grace.restart(); else opacity = 1
         forceActiveFocus()
         var want = t.tmdb
         Api.call("tmdb.details", { kind: t.kind === "movie" ? "movie" : "show", id: t.tmdb }, function (ok, d) {
@@ -31,6 +36,7 @@ FocusScope {
     }
     // what was picked, while it opens
     function starting(s) {
+        grace.stop(); opacity = 1
         status = qsTr("Starting")
         var bits = []
         if (s.resolution >= 2160) bits.push("4K")
@@ -42,7 +48,7 @@ FocusScope {
         if (s.group) bits.push(s.group)
         detail = bits.join("  ·  ")
     }
-    function close() { opacity = 0 }
+    function close() { grace.stop(); active = false; opacity = 0 }
 
     Keys.onEscapePressed: cancel()
     Keys.onBackPressed: cancel()

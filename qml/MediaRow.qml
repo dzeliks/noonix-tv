@@ -125,6 +125,7 @@ FocusScope {
         Behavior on opacity { NumberAnimation { duration: 220 } }
         key: "MENU"
         label: qsTr("Options")
+        pointLabel: Qt.platform.os === "android" ? qsTr("Hold an item for options") : qsTr("Right-click for options")
         pad: Remote.inputKind === "pad"
         u: row.u * 0.82
         labelColor: Theme.fg3

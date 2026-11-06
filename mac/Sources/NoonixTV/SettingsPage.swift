@@ -190,10 +190,10 @@ final class SettingsModel {
             out.append(Line(label: L("Add profile"), value: "+", act: "profile-add"))
             out.append(Line(label: L("Sign in automatically"), detail: L("Open on the last profile without asking who's watching"),
                             checkable: true, checked: app.autoLogin, act: "auto-login"))
-            out.append(Line(label: L("Another computer"), header: true))
-            out.append(Line(label: L("Export this profile"), detail: L("%1's languages, sources and history as a file, for Noonix TV on another computer", app.currentProfile?.name ?? ""),
+            out.append(Line(label: L("Another device"), header: true))
+            out.append(Line(label: L("Export this profile"), detail: L("%1's languages, sources and history as a file, for Noonix TV on another device", app.currentProfile?.name ?? ""),
                             value: "›", act: "profile-export"))
-            out.append(Line(label: L("Import a profile"), detail: L("A .noonix file from another computer, as a new profile"), value: "+", act: "profile-import"))
+            out.append(Line(label: L("Import a profile"), detail: L("A .noonix file from another device, as a new profile"), value: "+", act: "profile-import"))
         case "audio":
             guard let p = prefs, let opts = langOptions?["audio"] as? [[String: Any]] else { break }
             out.append(Line(label: L("In order of preference: the first one a source has plays"), header: true))

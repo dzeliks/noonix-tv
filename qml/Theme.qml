@@ -4,8 +4,24 @@ import QtQuick
 // design tokens: a 1920x1080 grid scaled to the screen (u = 2 on the 4k tv)
 QtObject {
     property real u: 1
+    // the window in grid units (1920x1080 on a 16:9 screen, ~1630x770 on a phone): layouts that
+    // run short of room ask these instead of assuming the tv's page
+    property real gw: 1920
+    property real gh: 1080
+    // size classes: short = a phone in landscape, compact = narrow (portrait, small windows; later)
+    readonly property bool short: gh < 900
+    readonly property bool compact: gw < 1200
+    // the narrowest grid the layouts are made for (Main sets it); lower it once every page has a
+    // compact layout. phones draw larger (Desktop.boost): their grid is narrower
+    property real minGridW: 1920
     // a phone, tablet or android tv: no desktop parts, a device rather than a pc
     readonly property bool android: Qt.platform.os === "android"
+    // a finger or the mouse was used last (Main keeps it in step with Input.pointing)
+    property bool pointing: false
+    // a finger on a phone or tablet: no focus marks, taps instead
+    readonly property bool touch: android && pointing
+    // the words for what was used last: the remote's, a tap's or a click's
+    function say(remote, tap, click) { return !pointing ? remote : android ? tap : click }
     // how dark the frost behind a full-screen prompt or sheet is
     readonly property real veil: 0.74
     readonly property color skeleton: Qt.rgba(1, 1, 1, 0.1)
@@ -28,7 +44,10 @@ QtObject {
     readonly property color cached: "#FFD60A"
     readonly property color danger: "#FF6F7D"
 
-    readonly property real margin: 96 * u             // tv side margin
+    // a notch or punch hole on a side (android, either landscape): content stays clear of it
+    property real safeSide: 0
+    property real safeBottom: 0         // a gesture bar / nav bar along the bottom
+    readonly property real margin: Math.max(96 * u, safeSide + 20 * u)   // tv side margin
     readonly property real radius: 22 * u
 
     // springs shared by every focus lift, so the whole ui moves alike

@@ -279,6 +279,16 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
             "dir": crate::config::PATHS.data.join("avatars").to_string_lossy(),
             "files": avatar_files(),
         })),
+        // a picture picked from a phone's gallery (only those: the rest are the user's own files)
+        "profiles.removeAvatar" => {
+            let dir = crate::config::PATHS.data.join("avatars");
+            let file = std::path::PathBuf::from(arg_str(&args, "file")?);
+            let picked = file.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with("picture-"));
+            if picked && file.parent() == Some(dir.as_path()) {
+                std::fs::remove_file(&file)?;
+            }
+            Ok(json!({ "files": avatar_files() }))
+        }
         "profiles.setAvatar" => {
             let id = arg_i64(&args, "id")?;
             let file = args.get("file").and_then(Value::as_str).unwrap_or("").to_owned();

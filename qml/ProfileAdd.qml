@@ -1,7 +1,8 @@
 import QtQuick
 
 // a new profile (or an edit of one): a name on the search keyboard and a look: one of the
-// colours or a picture from the avatars folder (~/.local/share/noonix-tv/avatars)
+// colours or a picture from the avatars folder (~/.local/share/noonix-tv/avatars; android: + picks
+// one from the phone's gallery into it)
 FocusScope {
     id: pa
     readonly property real u: Theme.u
@@ -12,15 +13,40 @@ FocusScope {
     property var taken: []
     property var files: []
     property string dir: ""
+    property string fullDir: ""
+    // android: the last look is "+", a picture from the gallery
+    readonly property bool canPick: Theme.android && Input.canPickPicture()
     property int choice: 0
     property int pointedLook: -1           // under the mouse: a click picks it, hovering only shows it
     readonly property var colours: ["green", "pink", "blue", "orange", "purple"]
-    readonly property var choices: colours.concat(files)
-    readonly property bool pictured: choice >= colours.length
-    readonly property string colour: pictured ? lastColour : colours[choice]
+    readonly property var choices: colours.concat(files).concat(canPick ? ["+"] : [])
+    readonly property bool picking: choices[choice] === "+"
+    readonly property bool pictured: choice >= colours.length && !picking
+    readonly property string colour: choice < colours.length ? colours[choice] : lastColour
     readonly property string avatar: pictured ? choices[choice] : ""
     property string lastColour: "green"
-    onChoiceChanged: if (!pictured) lastColour = colours[choice]
+    onChoiceChanged: if (choice < colours.length) lastColour = colours[choice]
+    readonly property bool hasPicked: files.some(function (f) { return /[\/]picture-[^\/]+$/.test(f) })
+    function pick() { Input.pickPicture(fullDir) }
+    // held: a picture picked on this phone goes again
+    function unpick(i) {
+        var f = choices[i]
+        if (i < colours.length || !/[\/]picture-[^\/]+$/.test(f)) return
+        var was = pa.choice
+        Api.call("profiles.removeAvatar", { file: f }, function (ok, d) {
+            if (!ok) return
+            pa.pointedLook = -1
+            pa.files = d.files || []
+            pa.choice = was === i ? Math.max(0, pa.colours.indexOf(pa.lastColour)) : was > i ? was - 1 : was
+        })
+    }
+    Connections {
+        target: Input
+        enabled: pa.visible
+        function onPicturePicked(path) {
+            if (path) pa.loadFiles(function () { var i = pa.files.indexOf(path); if (i >= 0) pa.choice = pa.colours.length + i })
+        }
+    }
     signal done(var profile)
     signal cancel()
     // what the card's glass shows through (the picker when it's open over it)
@@ -30,6 +56,7 @@ FocusScope {
     function loadFiles(then) {
         Api.call("profiles.avatars", {}, function (ok, d) {
             pa.files = ok ? d.files || [] : []
+            pa.fullDir = ok ? d.dir || "" : ""
             pa.dir = ok ? (d.dir || "").replace(/^\/home\/[^\/]+/, "~") : ""
             if (then) then()
         })
@@ -43,12 +70,14 @@ FocusScope {
         choice = free < colours.length ? free : taken.length % colours.length
         loadFiles()
         visible = true; keys.forceActiveFocus()
+        if (ime.on) Qt.callLater(ime.open)
     }
     function openEdit(p) {
         taken = []; name = p.name; editId = p.id
         choice = Math.max(0, colours.indexOf(p.color))
         loadFiles(function () { var i = pa.files.indexOf(p.avatar || ""); if (i >= 0) pa.choice = pa.colours.length + i })
         visible = true; keys.forceActiveFocus()
+        if (ime.on) Qt.callLater(ime.open)
     }
     function create() {
         var n = name.trim()
@@ -71,6 +100,9 @@ FocusScope {
     Glass {
         id: card
         anchors.centerIn: parent
+        // a docked phone keyboard: up above it
+        anchors.verticalCenterOffset: -Math.max(0, pa.height / 2 + height / 2 + 24 * pa.u - pa.mapFromItem(null, 0, ime.keyboardTop).y)
+        Behavior on anchors.verticalCenterOffset { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
         width: 760 * pa.u
         height: col.height + 2 * 48 * pa.u
         radius: 56 * pa.u
@@ -123,13 +155,29 @@ FocusScope {
                 readonly property bool pointed: index === pa.pointedLook
                 width: 72 * pa.u; height: looks.height
                 Avatar {
+                    visible: modelData !== "+"
                     anchors.centerIn: parent
                     size: 64 * pa.u
                     colour: index < pa.colours.length ? modelData : pa.lastColour
-                    image: index < pa.colours.length ? "" : modelData
+                    image: index < pa.colours.length || modelData === "+" ? "" : modelData
                     letter: ""
                     scale: parent.foc || parent.pointed ? 1.14 : 1
                     Behavior on scale { NumberAnimation { duration: 140 } }
+                }
+                // a picture from the gallery
+                Rectangle {
+                    visible: modelData === "+"
+                    anchors.centerIn: parent
+                    width: 64 * pa.u; height: width; radius: width / 2
+                    color: Qt.rgba(1, 1, 1, 0.12)
+                    scale: parent.foc || parent.pointed ? 1.14 : 1
+                    Behavior on scale { NumberAnimation { duration: 140 } }
+                    Text {
+                        anchors.centerIn: parent
+                        text: "+"
+                        color: Theme.fg
+                        font { family: Theme.text; pixelSize: 40 * pa.u; weight: Font.Medium }
+                    }
                 }
                 Rectangle {
                     anchors.centerIn: parent
@@ -142,15 +190,22 @@ FocusScope {
                 Pointer {
                     okKey: false
                     takesFocus: false
+                    menuOnHold: pa.canPick && /[\/]picture-[^\/]+$/.test(modelData)
+                    holdMenuKey: false
+                    onHeld: pa.unpick(index)
                     onContainsMouseChanged: pa.pointedLook = containsMouse ? index : pa.pointedLook === index ? -1 : pa.pointedLook
-                    onTapped: { pa.choice = index; keys.forceActiveFocus() }
+                    onTapped: {
+                        if (modelData === "+") { pa.pick(); return }
+                        pa.choice = index; keys.forceActiveFocus()
+                    }
                 }
             }
+            Keys.onMenuPressed: pa.unpick(pa.choice)
             Keys.onLeftPressed: pa.choice = Math.max(0, pa.choice - 1)
             Keys.onRightPressed: pa.choice = Math.min(pa.choices.length - 1, pa.choice + 1)
             Keys.onDownPressed: keys.forceActiveFocus()
-            Keys.onReturnPressed: keys.forceActiveFocus()
-            Keys.onEnterPressed: keys.forceActiveFocus()
+            Keys.onReturnPressed: pa.picking ? pa.pick() : keys.forceActiveFocus()
+            Keys.onEnterPressed: pa.picking ? pa.pick() : keys.forceActiveFocus()
             // letters on the way: back to the name
             Keys.onPressed: function (e) {
                 if (e.key === Qt.Key_Backspace) { pa.name = pa.name.slice(0, -1); e.accepted = true; return }
@@ -168,19 +223,37 @@ FocusScope {
             border.color: Qt.rgba(1, 1, 1, 0.14)
             FieldText {
                 anchors { left: parent.left; right: parent.right; margins: 28 * pa.u; verticalCenter: parent.verticalCenter }
-                text: pa.name
+                text: ime.on ? ime.displayText : pa.name
                 placeholder: qsTr("Name")
-                active: pa.visible
+                active: pa.visible && (!ime.on || ime.activeFocus)
                 size: 28 * pa.u
             }
-            Pointer { okKey: false; takesFocus: false; cursorShape: Qt.IBeamCursor; onTapped: keys.forceActiveFocus() }
+            ImeInput {
+                id: ime
+                value: pa.name
+                maximumLength: 20
+                inputMethodHints: Qt.ImhNone
+                onEdited: function (t) { pa.name = t }
+                onDone: pa.create()
+            }
+            Pointer { okKey: false; takesFocus: false; cursorShape: Qt.IBeamCursor; onTapped: if (ime.on) ime.open(); else keys.forceActiveFocus() }
+        }
+        // the phone's keyboard has no done of ours
+        GlassButton {
+            visible: ime.on
+            anchors.horizontalCenter: parent.horizontalCenter
+            text: pa.editId ? qsTr("Save") : qsTr("Create")
+            primary: true
+            pointerFocus: false
+            onClicked: pa.create()
         }
         FocusScope {
             id: keys
             // letters came from a real keyboard: its enter is done (a remote's ok presses the focused key)
             property bool typed: false
             width: parent.width
-            height: kb.height
+            height: ime.on ? 0 : kb.height
+            visible: !ime.on
             focus: true
             onActiveFocusChanged: if (!activeFocus) typed = false
             Keys.onPressed: function (e) {
@@ -215,7 +288,10 @@ FocusScope {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
-            text: qsTr("Up to pick a colour or a picture. Pictures: PNG or JPG files in %1").arg(pa.dir)
+            // android: the folder is the app's own, nothing else can put files there
+            text: Theme.android ? (pa.canPick ? Theme.say(qsTr("Up to pick a colour, or + for a picture."), (pa.hasPicked ? qsTr("Tap a colour or + for a picture · hold a picture to remove it") : qsTr("Tap a colour above, or + for a picture.")), qsTr("Click a colour above, or + for a picture."))
+                                              : Theme.say(qsTr("Up to pick a colour."), qsTr("Tap a colour above."), qsTr("Click a colour above.")))
+                : Theme.say(qsTr("Up to pick a colour or a picture. Pictures: PNG or JPG files in %1"), "", qsTr("Click a colour or a picture above. Pictures: PNG or JPG files in %1")).arg(pa.dir)
             color: Theme.fg3
             font { family: Theme.text; pixelSize: 22 * pa.u }
         }

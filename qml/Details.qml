@@ -267,10 +267,12 @@ FocusScope {
                 }
 
                 Scrim {
+                    // sized for the tallest plot: a shorter one doesn't make the shade jump
+                    readonly property real h: story.height - plot.height + plot.full
                     x: story.x - story.width * 0.45
-                    y: story.y - story.height * 0.8 - 80 * page.u
+                    y: story.y + story.height - h * 1.8 - 80 * page.u
                     width: story.width * 1.9 + Theme.margin
-                    height: story.height * 2.6 + 160 * page.u
+                    height: h * 2.6 + 160 * page.u
                     strength: 0.55
                 }
                 Column {
@@ -291,8 +293,8 @@ FocusScope {
                         color: Theme.fg
                         font { family: Theme.display; pixelSize: 26 * page.u; weight: Font.DemiBold }
                     }
-                    // a show's plot sits in a box of one fixed height, whatever episode is on: a longer one
-                    // scrolls slowly inside it and comes back, nothing around it moves
+                    // the plot sits on the starring line and grows up; past seven lines it
+                    // scrolls slowly inside its box and comes back
                     Item {
                         id: plot
                         width: parent.width
@@ -301,7 +303,7 @@ FocusScope {
                         readonly property real pad: 14 * page.u
                         readonly property real full: 7 * line + 2 * pad
                         readonly property real tall: plotText.implicitHeight + 2 * pad
-                        height: seasonsRow.visible ? full : Math.min(tall, full)
+                        height: Math.min(tall, full)
                         clip: true
                         readonly property real over: Math.max(0, tall - height)
                         layer.enabled: over > 1
@@ -402,6 +404,8 @@ FocusScope {
                     // the focus starts on play, left of it is this
                     GlassButton {
                         id: backBtn
+                        // a phone has its own back (gesture or key)
+                        visible: !Theme.touch
                         glass: true
                         source: artGlass
                         icon: "arrowleft"
@@ -411,6 +415,8 @@ FocusScope {
                     }
                     GlassButton {
                         id: playBtn
+                        // a finger: the white one (a remote shows it by focus)
+                        primary: Theme.touch
                         glass: true
                         source: artGlass
                         focus: true
@@ -421,7 +427,7 @@ FocusScope {
                             var t = page.playTarget()
                             return (t.season === 1 && t.episode === 1 ? qsTr("Play") : qsTr("Continue")) + "  S" + t.season + " E" + t.episode
                         }
-                        KeyNavigation.left: backBtn
+                        KeyNavigation.left: backBtn.visible ? backBtn : null
                         KeyNavigation.right: overBtn.visible ? overBtn : srcBtn
                         onClicked: page.play(page.playTarget(), null)
                     }

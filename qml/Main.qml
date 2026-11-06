@@ -19,9 +19,18 @@ Window {
 
     // dev: NOONIX_DEBUG=1 logs where the focus goes
     onActiveFocusItemChanged: if (Desktop.debug) console.log("focus:", activeFocusItem, "active:", active)
-    // the 1920x1080 grid fits either way: a 4:3 or 16:10 tablet gets more height, not a narrower page
-    readonly property real u: Math.min(height / 1080, width / 1920)
-    onUChanged: Theme.u = u
+    // the 1920x1080 grid fits either way: a 4:3 or 16:10 tablet gets more height, not a narrower page.
+    // a narrow window keeps the size until the grid is Theme.minGridW wide (compact layouts below 1200)
+    readonly property real u: Math.min(height / 1080 * Desktop.boost, width / Theme.minGridW)
+    onUChanged: { Theme.u = u; Theme.gw = width / u; Theme.gh = height / u }
+    Binding { target: Theme; property: "minGridW"; value: Desktop.gridW > 0 ? Desktop.gridW : 1920 / Desktop.boost }
+    Binding { target: Theme; property: "pointing"; value: Input.pointing === true }
+    // the window's safe area: backgrounds still go under a cutout, the side margins clear it
+    Item { id: safeProbe; anchors.fill: parent }
+    Binding { target: Theme; property: "safeSide"; value: Math.max(safeProbe.SafeArea.margins.left, safeProbe.SafeArea.margins.right) }
+    Binding { target: Theme; property: "safeBottom"; value: safeProbe.SafeArea.margins.bottom }
+    onWidthChanged: Theme.gw = width / u
+    onHeightChanged: Theme.gh = height / u
 
     // ---- state
     property string page: "home"
@@ -31,6 +40,8 @@ Window {
     readonly property bool playing: Player.state !== "idle"
     property bool videoUp: false          // ui hidden, video visible
     property var playTarget: null
+    // the card or page it came from (its title for the sources sheet)
+    property var playFrom: null
     property var fallbacks: []            // ranked sources left for one automatic retry
     property bool retried: false
     property string autoReq: ""
@@ -60,6 +71,8 @@ Window {
     }
     Component.onCompleted: {
         Theme.u = u
+        Theme.gw = width / u
+        Theme.gh = height / u
         loadProfiles()
         Api.call("setup.state", {}, function (ok, d) {
             if (!ok) return
@@ -110,7 +123,10 @@ Window {
     property alias frostTex: frostV
     readonly property bool videoGlass: videoUp && (osd.glassUp || tracks.visible || subPick.visible || sources.visible || matchSheet.visible || timing.visible || matchTip.visible
                                                 || toast.visible || switching.visible)
-    readonly property bool backdropOn: !videoUp || vglass.ready
+    // android hdr from the decoder has no frames for the glass (it'd keep a stale one)
+    readonly property bool backdropOn: !videoUp || (vglass.ready && Video.colour.decoder !== true)
+    // the decoder draws under a see-through window: no frames to frost, the video shows through
+    readonly property bool videoThrough: videoUp && Video.colour.decoder === true
     readonly property bool backdropLive: !videoUp || videoGlass
     VideoLayer { anchors.fill: parent }
     VideoGlass {
@@ -357,8 +373,10 @@ Window {
             focusPage()
             return
         }
-        if (!nav.activeFocus) { nav.forceActiveFocus(); return }
-        if (page !== "home") { page = "home"; return }
+        // a finger never sees the focus: back goes straight on
+        if (!nav.activeFocus && !Theme.touch) { nav.forceActiveFocus(); return }
+        if (page !== "home") { page = "home"; nav.forceActiveFocus(); return }
+        if (Theme.touch) { Input.toBackground(); return }
         exitPrompt.open()
     }
 
@@ -541,13 +559,14 @@ Window {
     }
 
     // ---- sources sheet
-    function openSources(t) {
+    function openSources(t, known) {
         playTarget = t
         var d = detailStack.length ? detailStack[detailStack.length - 1] : null
-        var label = d ? (d.title || d.showTitle || "") : ""
-        if (t.season) label += "  ·  S" + t.season + " · E" + t.episode
+        var f = playFrom || {}
+        var label = d ? (d.title || d.showTitle || "") : (f.showTitle || f.title || "")
+        if (t.season) label += (label ? "  ·  " : "") + "S" + t.season + " · E" + t.episode
         sources.visible = true
-        sources.start(t, label)
+        sources.start(t, label, known)
     }
 
     // ---- the match sheet's answers: remember a good one, fix a bad one
@@ -610,13 +629,14 @@ Window {
     }
     function startPlay(t, stream, from) {
         playTarget = t
+        playFrom = from || null
         // played before its line ran out: it isn't going anywhere
         var pending = removals[(t.kind === "movie" ? "movie:" : "show:") + t.tmdb]
         if (pending) undoRemoval(pending.item)
         retried = false
         sourceAddon = ""
         if (stream) { fallbacks = []; begin(stream); return }
-        finder.open(t, from)
+        finder.open(t, from, true)
         autoReq = "auto-" + Date.now()
         var req = autoReq
         Api.call("streams.list", Object.assign({ req: req }, t), function (ok, d) {
@@ -625,7 +645,7 @@ Window {
             if (!list.length) {
                 finder.close()
                 toast.show(qsTr("No sources found"))
-                openSources(t)
+                openSources(t, ok && d && d.done ? d : null)
                 return
             }
             win.fallbacks = list.slice(1, 4)
@@ -633,7 +653,7 @@ Window {
         })
     }
     function begin(stream) {
-        if (!finder.visible) finder.open(playTarget)
+        if (!finder.active) finder.open(playTarget)
         finder.starting(stream)
         Player.play(Object.assign({}, playTarget, { stream: stream }))
     }
@@ -710,6 +730,12 @@ Window {
         visible: opacity > 0
         Behavior on opacity { enabled: !win.videoUp; NumberAnimation { duration: 240 } }
         Timer { id: coverOut; interval: 60; onTriggered: cover.opacity = 0 }
+    }
+
+    // the glass can't frost this picture: a sheet over it would show the line through it
+    SubText {
+        anchors.fill: parent
+        covered: tracks.visible || subPick.visible || sources.visible || matchSheet.visible || matchTip.visible || switching.visible
     }
 
     Osd {
@@ -833,8 +859,20 @@ Window {
         id: menuPopup
         anchors.fill: parent
         visible: false
-        onVisibleChanged: if (!visible && win.menuHome) win.menuHome.menuItem = null
+        onVisibleChanged: {
+            if (!visible && win.menuHome) win.menuHome.menuItem = null
+            if (visible) popIn.restart()
+        }
         readonly property real u: win.u
+        // it grows out of the card it's for
+        property real pop: 1
+        NumberAnimation { id: popIn; target: menuPopup; property: "pop"; from: 0; to: 1; duration: 260; easing.type: Easing.OutBack; easing.overshoot: 1.1 }
+        opacity: Math.min(1, pop * 2)
+        transform: Scale {
+            origin.x: Math.max(optPanel.x, Math.min(optPanel.x + optPanel.width, win.menuAt.x + win.menuAt.width / 2))
+            origin.y: optPanel.y > win.menuAt.y ? optPanel.y : optPanel.y + optPanel.height
+            xScale: 0.88 + 0.12 * menuPopup.pop; yScale: xScale
+        }
         // a click beside it only closes it
         Shield { onOutside: win.back() }
         Glass {
@@ -936,7 +974,7 @@ Window {
             delegate: Column {
                 required property var modelData
                 required property int index
-                readonly property bool foc: ListView.isCurrentItem && profList.activeFocus
+                readonly property bool foc: ListView.isCurrentItem && profList.activeFocus && (!Theme.touch || profPt.down)
                 readonly property bool adder: modelData.id === -1
                 readonly property bool current: !!win.profile && win.profile.id === modelData.id
                 width: 240 * win.u
@@ -944,7 +982,7 @@ Window {
                 Item {
                     anchors.horizontalCenter: parent.horizontalCenter
                     width: 200 * win.u; height: width
-                    Pointer {}
+                    Pointer { id: profPt }
                     scale: parent.foc ? 1.12 : 1
                     Behavior on scale { SpringAnimation { spring: Theme.springK; damping: Theme.springDamp; epsilon: 0.0005 } }
                     Avatar {
@@ -982,7 +1020,7 @@ Window {
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
                     text: parent.adder ? qsTr("Add Profile") : modelData.name
-                    color: parent.foc ? Theme.fg : Theme.fg2
+                    color: parent.foc || Theme.touch ? Theme.fg : Theme.fg2
                     font { family: Theme.display; pixelSize: 32 * win.u; weight: Font.DemiBold }
                 }
             }

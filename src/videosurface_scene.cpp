@@ -16,6 +16,12 @@
 
 Q_LOGGING_CATEGORY(lcVideo, "noonix-tv.video")
 
+#ifdef Q_OS_ANDROID
+float androidHdrPeak();
+void androidVideoShown(bool on);
+void androidRegisterVideo(VideoSurface *s);
+#endif
+
 VideoSurface::VideoSurface(QObject *parent)
     : QObject(parent)
 {
@@ -78,6 +84,10 @@ bool VideoSurface::nativeWanted(QScreen *screen)
     const bool on = hdrOn(screen);
     qCInfo(lcVideo) << "windows hdr on" << (screen ? screen->name() : QString()) << on;
     return on;
+#elif defined(Q_OS_ANDROID)
+    // the own surface view: hdr when the panel has it, and no c2d copy per frame either way
+    Q_UNUSED(screen)
+    return true;
 #else
     Q_UNUSED(screen)
     return false;
@@ -86,6 +96,14 @@ bool VideoSurface::nativeWanted(QScreen *screen)
 
 QJsonObject VideoSurface::displayCaps()
 {
+#ifdef Q_OS_ANDROID
+    if (m_nativeMode) {
+        if (m_hdrPeak < 0)
+            m_hdrPeak = androidHdrPeak();
+        // dolby vision: gpu-next reshapes it on android too, but only in the own surface
+        return QJsonObject{{QStringLiteral("hdr"), m_hdrPeak > 0}, {QStringLiteral("dv"), true}};
+    }
+#endif
     // hdr reaches the screen only through mpv's own window (gpu-next, which reshapes dolby vision
     // too); the qt scene tone maps it
     return QJsonObject{{QStringLiteral("hdr"), m_nativeMode}, {QStringLiteral("dv"), m_nativeMode}};
@@ -119,12 +137,24 @@ void VideoSurface::attach(QQuickWindow *window)
         QMetaObject::invokeMethod(this, &VideoSurface::renderReady, Qt::QueuedConnection);
     }
 #endif
+#ifdef Q_OS_ANDROID
+    if (m_nativeMode) {
+        if (m_hdrPeak < 0)
+            m_hdrPeak = androidHdrPeak();
+        qCInfo(lcVideo) << "android video surface, hdr10 peak" << m_hdrPeak;
+        androidRegisterVideo(this);
+        startThread();
+    }
+#endif
     m_active = true;
     emit activeChanged();
 }
 
 void VideoSurface::detach()
 {
+#ifdef Q_OS_ANDROID
+    stopThread();
+#endif
 #ifdef Q_OS_WIN
     if (m_nativeWnd)
         DestroyWindow(static_cast<HWND>(m_nativeWnd));
@@ -144,6 +174,9 @@ void VideoSurface::showNative(bool on)
     }
     restackNative();
     ShowWindow(static_cast<HWND>(m_nativeWnd), SW_SHOWNOACTIVATE);
+#elif defined(Q_OS_ANDROID)
+    if (m_nativeMode)
+        androidVideoShown(on);
 #else
     Q_UNUSED(on)
 #endif
@@ -181,6 +214,36 @@ void VideoSurface::applyDescription()
 {
     const QString gamma = m_params.value(QStringLiteral("gamma")).toString();
     const bool hdr = gamma == QLatin1String("pq") || gamma == QLatin1String("hlg");
+#ifdef Q_OS_ANDROID
+    if (m_nativeMode) {
+        // a decoder reopening (vo switch) reports params without a transfer for a moment
+        if (gamma.isEmpty() && !m_colour.isEmpty())
+            return;
+        // hdr on an hdr panel: the decoder's own output (once the surface view is up). otherwise
+        // mpv tone maps to sdr
+        if (hdr && m_hdrPeak > 0 && m_embedAllowed)
+            enterEmbed();
+        else
+            leaveEmbed();
+        const bool embed = m_embed;
+        if (m_mpv && !embed) {
+            mpv_set_property_string(m_mpv, "target-trc", "gamma2.2");
+            mpv_set_property_string(m_mpv, "target-prim", "bt.709");
+        }
+        QVariantMap c;
+        c[QStringLiteral("hdr")] = embed;
+        c[QStringLiteral("transfer")] = embed ? gamma : QStringLiteral("gamma2.2");
+        c[QStringLiteral("primaries")] = embed ? QStringLiteral("bt.2020") : QStringLiteral("bt.709");
+        c[QStringLiteral("toneMapped")] = hdr && !embed;
+        c[QStringLiteral("decoder")] = embed;   // no frames for the glass, qt draws the subtitles
+        if (c != m_colour) {
+            m_colour = c;
+            qCInfo(lcVideo) << "colour" << c;
+            emit colourChanged();
+        }
+        return;
+    }
+#endif
     if (m_nativeMode) {
         // mpv's own d3d11 window: it tells windows the video's colour space (target-colorspace-hint)
         QVariantMap c;
@@ -220,6 +283,15 @@ void VideoSurface::setGlass(bool on)
     m_grabNow = true;
     if (m_view)
         m_view->update();
+#ifdef Q_OS_ANDROID
+    if (m_nativeMode) {
+        {
+            std::lock_guard lock(m_mutex);
+            m_wake = true;
+        }
+        m_cv.notify_all();
+    }
+#endif
 }
 
 void VideoSurface::setFps(double fps)

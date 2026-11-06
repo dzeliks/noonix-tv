@@ -362,6 +362,14 @@
             <translation>OK otvara folder ili fajl, Nazad ide gore</translation>
         </message>
         <message>
+            <source>Tap a folder to open it, Back goes up</source>
+            <translation>Dodirni folder da ga otvoriš, Nazad ide gore</translation>
+        </message>
+        <message>
+            <source>Click a folder to open it, Back goes up</source>
+            <translation>Klikni folder da ga otvoriš, Nazad ide gore</translation>
+        </message>
+        <message>
             <source>Add a folder</source>
             <translation>Dodaj folder</translation>
         </message>
@@ -380,6 +388,14 @@
         <message>
             <source>No folders or files here</source>
             <translation>Ovde nema foldera ni fajlova</translation>
+        </message>
+        <message>
+            <source>Tap a folder or the file to open it, Back goes up</source>
+            <translation>Dodirni folder ili fajl da ga otvoriš, Nazad ide gore</translation>
+        </message>
+        <message>
+            <source>Click a folder or the file to open it, Back goes up</source>
+            <translation>Klikni folder ili fajl da ga otvoriš, Nazad ide gore</translation>
         </message>
         <message>
             <source>OK opens a folder, Back goes up</source>
@@ -425,6 +441,14 @@
         <message>
             <source>done</source>
             <translation>gotovo</translation>
+        </message>
+        <message>
+            <source>Paste</source>
+            <translation>Nalepi</translation>
+        </message>
+        <message>
+            <source>Done</source>
+            <translation>Gotovo</translation>
         </message>
         <message>
             <source>A real keyboard works too, and Ctrl+V pastes. Back closes this.</source>
@@ -507,6 +531,14 @@
         <message>
             <source>Options</source>
             <translation>Opcije</translation>
+        </message>
+        <message>
+            <source>Hold an item for options</source>
+            <translation>Zadrži stavku za opcije</translation>
+        </message>
+        <message>
+            <source>Right-click for options</source>
+            <translation>Desni klik za opcije</translation>
         </message>
     </context>
     <context>
@@ -794,6 +826,14 @@
             <translation>Tokom gledanja pritisni Meni i reci da li su izvor i titlovi dobri.</translation>
         </message>
         <message>
+            <source>Tap the screen while watching, then the speech bubble, to say if the source and subtitles fit.</source>
+            <translation>Dok gledaš, dodirni ekran pa oblačić da kažeš da li izvor i titlovi odgovaraju.</translation>
+        </message>
+        <message>
+            <source>Click the speech bubble while watching to say if the source and subtitles fit.</source>
+            <translation>Dok gledaš, klikni oblačić da kažeš da li izvor i titlovi odgovaraju.</translation>
+        </message>
+        <message>
             <source>Good match</source>
             <translation>Sve je u redu</translation>
         </message>
@@ -810,8 +850,10 @@
             <translation>Slika ili zvuk</translation>
         </message>
         <message>
-            <source>What works is remembered for the next episodes. What doesn't gets fixed where you are.</source>
-            <translation>Ono što valja pamti se za sledeće epizode. Ono što ne valja sređuje se na licu mesta.</translation>
+            <source>What works is remembered for the next episodes.
+What doesn't gets fixed where you are.</source>
+            <translation>Ono što valja pamti se za sledeće epizode.
+Ono što ne valja sređuje se na licu mesta.</translation>
         </message>
         <message>
             <source>OK</source>
@@ -827,6 +869,14 @@
         <message>
             <source>Options</source>
             <translation>Opcije</translation>
+        </message>
+        <message>
+            <source>Hold an item for options</source>
+            <translation>Zadrži stavku za opcije</translation>
+        </message>
+        <message>
+            <source>Right-click for options</source>
+            <translation>Desni klik za opcije</translation>
         </message>
         <message>
             <source>Nothing here yet</source>
@@ -845,6 +895,10 @@
         <message>
             <source>Off</source>
             <translation>Isključeno</translation>
+        </message>
+        <message>
+            <source>On</source>
+            <translation>Uključeno</translation>
         </message>
         <message>
             <source>Audio</source>
@@ -894,12 +948,52 @@
             <translation>Ime</translation>
         </message>
         <message>
+            <source>Save</source>
+            <translation>Sačuvaj</translation>
+        </message>
+        <message>
+            <source>Create</source>
+            <translation>Napravi</translation>
+        </message>
+        <message>
             <source>done</source>
             <translation>gotovo</translation>
         </message>
         <message>
+            <source>Up to pick a colour, or + for a picture.</source>
+            <translation>Gore biraš boju, ili + za sliku.</translation>
+        </message>
+        <message>
+            <source>Tap a colour or + for a picture · hold a picture to remove it</source>
+            <translation>Dodirni boju ili + za sliku · zadrži sliku da je ukloniš</translation>
+        </message>
+        <message>
+            <source>Tap a colour above, or + for a picture.</source>
+            <translation>Dodirni boju gore, ili + za sliku.</translation>
+        </message>
+        <message>
+            <source>Click a colour above, or + for a picture.</source>
+            <translation>Klikni boju gore, ili + za sliku.</translation>
+        </message>
+        <message>
+            <source>Up to pick a colour.</source>
+            <translation>Gore biraš boju.</translation>
+        </message>
+        <message>
+            <source>Tap a colour above.</source>
+            <translation>Dodirni boju gore.</translation>
+        </message>
+        <message>
+            <source>Click a colour above.</source>
+            <translation>Klikni boju gore.</translation>
+        </message>
+        <message>
             <source>Up to pick a colour or a picture. Pictures: PNG or JPG files in %1</source>
             <translation>Gore biraš boju ili sliku. Slike: PNG ili JPG fajlovi u %1</translation>
+        </message>
+        <message>
+            <source>Click a colour or a picture above. Pictures: PNG or JPG files in %1</source>
+            <translation>Klikni boju ili sliku gore. Slike: PNG ili JPG fajlovi u %1</translation>
         </message>
     </context>
     <context>
@@ -1203,6 +1297,18 @@
             <translation>Ostali nalozi</translation>
         </message>
         <message>
+            <source>Another device</source>
+            <translation>Drugi uređaj</translation>
+        </message>
+        <message>
+            <source>%1's languages, sources and history as a file, for Noonix TV on another device</source>
+            <translation>Jezici, izvori i istorija profila %1 kao fajl, za Noonix TV na drugom uređaju</translation>
+        </message>
+        <message>
+            <source>A .noonix file from another device, as a new profile</source>
+            <translation>.noonix fajl sa drugog uređaja, kao novi profil</translation>
+        </message>
+        <message>
             <source>Built in</source>
             <translation>Ugrađeno</translation>
         </message>
@@ -1399,24 +1505,12 @@
             <translation>Otvara poslednji profil bez pitanja ko gleda</translation>
         </message>
         <message>
-            <source>Another computer</source>
-            <translation>Drugi računar</translation>
-        </message>
-        <message>
             <source>Export this profile</source>
             <translation>Izvezi ovaj profil</translation>
         </message>
         <message>
-            <source>%1's languages, sources and history as a file, for Noonix TV on another computer</source>
-            <translation>Jezici, izvori i istorija profila %1 kao fajl, za Noonix TV na drugom računaru</translation>
-        </message>
-        <message>
             <source>Import a profile</source>
             <translation>Uvezi profil</translation>
-        </message>
-        <message>
-            <source>A .noonix file from another computer, as a new profile</source>
-            <translation>.noonix fajl sa drugog računara, kao novi profil</translation>
         </message>
         <message>
             <source>In order of preference: the first one a source has plays</source>
@@ -1974,6 +2068,26 @@
             <translation>Merim…</translation>
         </message>
         <message>
+            <source>Your own movies and shows, and the sources you add, on this phone. A few steps and you're watching.</source>
+            <translation>Tvoji filmovi i serije, i izvori koje dodaš, na ovom telefonu. Par koraka i gledaš.</translation>
+        </message>
+        <message>
+            <source>Optional: Trakt keeps what you watched in sync. Tap a profile to sign it in or out, or skip it for now.</source>
+            <translation>Opciono: Trakt drži odgledano u sinhronizaciji. Dodirni profil da ga prijaviš ili odjaviš, a možeš i da preskočiš za sad.</translation>
+        </message>
+        <message>
+            <source>Optional: Trakt keeps what you watched in sync. Click a profile to sign it in or out, or skip it for now.</source>
+            <translation>Opciono: Trakt drži odgledano u sinhronizaciji. Klikni profil da ga prijaviš ili odjaviš, a možeš i da preskočiš za sad.</translation>
+        </message>
+        <message>
+            <source>The languages you like to hear, best first. Noonix TV picks the audio track in this order.</source>
+            <translation>Jezici koje voliš da slušaš, od najdražeg. Noonix TV bira zvuk tim redom.</translation>
+        </message>
+        <message>
+            <source>Subtitle languages, best first. Noonix TV turns on the first one a video has and can find the ones it doesn't.</source>
+            <translation>Jezici titlova, od najdražeg. Noonix TV uključuje prvi koji video ima, a one koje nema može sam da nađe.</translation>
+        </message>
+        <message>
             <source>Not measured yet</source>
             <translation>Još nije mereno</translation>
         </message>
@@ -2100,6 +2214,10 @@
         <message>
             <source>Noonix TV is free software (GNU GPL 3.0) and comes with no warranty. Full terms: github.com/dzeliks/noonix-tv › TERMS.md</source>
             <translation>Noonix TV je slobodan softver (GNU GPL 3.0) i dolazi bez ikakve garancije. Puni uslovi: github.com/dzeliks/noonix-tv › TERMS.md</translation>
+        </message>
+        <message>
+            <source>Tap to open %1, then enter</source>
+            <translation>Dodirni da otvoriš %1, pa unesi</translation>
         </message>
         <message>
             <source>On your phone, open %1 and enter</source>
@@ -2297,6 +2415,22 @@
         <message>
             <source>Takes it out of the library, the files stay</source>
             <translation>Uklanja ga iz biblioteke, fajlovi ostaju</translation>
+        </message>
+        <message numerus="yes">
+            <source>%n video(s)  ·  tap to take it out of the library, the files stay</source>
+            <translation>
+                <numerusform>%n snimak  ·  dodirni da ga izvadiš iz biblioteke, fajlovi ostaju</numerusform>
+                <numerusform>%n snimka  ·  dodirni da ga izvadiš iz biblioteke, fajlovi ostaju</numerusform>
+                <numerusform>%n snimaka  ·  dodirni da ga izvadiš iz biblioteke, fajlovi ostaju</numerusform>
+            </translation>
+        </message>
+        <message numerus="yes">
+            <source>%n video(s)  ·  click to take it out of the library, the files stay</source>
+            <translation>
+                <numerusform>%n snimak  ·  klikni da ga izvadiš iz biblioteke, fajlovi ostaju</numerusform>
+                <numerusform>%n snimka  ·  klikni da ga izvadiš iz biblioteke, fajlovi ostaju</numerusform>
+                <numerusform>%n snimaka  ·  klikni da ga izvadiš iz biblioteke, fajlovi ostaju</numerusform>
+            </translation>
         </message>
         <message>
             <source>Add a folder</source>
@@ -2749,6 +2883,10 @@
             <translation>za verziju %1</translation>
         </message>
         <message>
+            <source>Next to the video</source>
+            <translation>Pored snimka</translation>
+        </message>
+        <message>
             <source>Search Subtitles</source>
             <translation>Potraži titlove</translation>
         </message>
@@ -2857,6 +2995,10 @@
         <message>
             <source>Trakt for %1</source>
             <translation>Trakt za profil %1</translation>
+        </message>
+        <message>
+            <source>Tap to open %1, then enter</source>
+            <translation>Dodirni da otvoriš %1, pa unesi</translation>
         </message>
         <message>
             <source>On your phone, open %1 and enter</source>

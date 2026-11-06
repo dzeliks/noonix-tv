@@ -12,6 +12,7 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #ifdef Q_OS_ANDROID
+#include <QCoreApplication>
 #include <QJniEnvironment>
 #include <QJniObject>
 #endif
@@ -113,6 +114,15 @@ void padFromJava(JNIEnv *, jclass, jstring name, jboolean down, jstring kind)
             padTarget->androidPad(n, down, k);
     }, Qt::QueuedConnection);
 }
+
+void pictureFromJava(JNIEnv *, jclass, jstring path)
+{
+    const QString p = QJniObject(path).toString();
+    QMetaObject::invokeMethod(padTarget, [p] {
+        if (padTarget)
+            emit padTarget->picturePicked(p);
+    }, Qt::QueuedConnection);
+}
 }
 
 void Input::androidPad(const QString &name, bool down, const QString &kind)
@@ -177,8 +187,44 @@ Input::Input(Remote *remote, QObject *parent)
 #ifdef Q_OS_ANDROID
     padTarget = this;
     const JNINativeMethod methods[] = {
-        {"padButton", "(Ljava/lang/String;ZLjava/lang/String;)V", reinterpret_cast<void *>(padFromJava)}};
-    QJniEnvironment().registerNativeMethods("io/github/dzeliks/noonixtv/NoonixActivity", methods, 1);
+        {"padButton", "(Ljava/lang/String;ZLjava/lang/String;)V", reinterpret_cast<void *>(padFromJava)},
+        {"picturePicked", "(Ljava/lang/String;)V", reinterpret_cast<void *>(pictureFromJava)}};
+    QJniEnvironment().registerNativeMethods("io/github/dzeliks/noonixtv/NoonixActivity", methods, 2);
+    // a phone or tablet starts on touch (no focus marks before the first tap); a tv on the remote
+    const QJniObject pm = QJniObject(QNativeInterface::QAndroidApplication::context())
+                              .callObjectMethod("getPackageManager", "()Landroid/content/pm/PackageManager;");
+    auto has = [&pm](const char *f) {
+        return pm.isValid() && pm.callMethod<jboolean>("hasSystemFeature", "(Ljava/lang/String;)Z",
+                                                      QJniObject::fromString(QString::fromLatin1(f)).object<jstring>());
+    };
+    m_pointing = has("android.hardware.touchscreen") && !has("android.software.leanback");
+#endif
+}
+
+void Input::toBackground()
+{
+#ifdef Q_OS_ANDROID
+    QJniObject(QNativeInterface::QAndroidApplication::context()).callMethod<void>("toBackground");
+#endif
+}
+
+bool Input::canPickPicture() const
+{
+#ifdef Q_OS_ANDROID
+    return QJniObject(QNativeInterface::QAndroidApplication::context()).callMethod<jboolean>("canPickPicture", "()Z");
+#else
+    return false;
+#endif
+}
+
+void Input::pickPicture(const QString &dir)
+{
+#ifdef Q_OS_ANDROID
+    QJniObject(QNativeInterface::QAndroidApplication::context())
+        .callMethod<void>("pickPicture", "(Ljava/lang/String;)V", QJniObject::fromString(dir).object<jstring>());
+#else
+    Q_UNUSED(dir)
+    emit picturePicked(QString());
 #endif
 }
 
@@ -314,8 +360,15 @@ bool Input::eventFilter(QObject *obj, QEvent *ev)
     if (ev->type() != QEvent::KeyPress && ev->type() != QEvent::KeyRelease)
         return QObject::eventFilter(obj, ev);
     auto *k = static_cast<QKeyEvent *>(ev);
+    bool keepPointing = false;
     if (ev->type() == QEvent::KeyPress) {
-        if (k->nativeVirtualKey() != pointerKeyMark) {
+#ifdef Q_OS_ANDROID
+        // back by gesture or a key from the on-screen keyboard: still the finger's turn
+        const bool arrow = k->key() == Qt::Key_Up || k->key() == Qt::Key_Down || k->key() == Qt::Key_Left || k->key() == Qt::Key_Right;
+        keepPointing = m_pointing && !arrow && ev->spontaneous()
+            && QJniObject::callStaticMethod<jboolean>("io/github/dzeliks/noonixtv/NoonixActivity", "lastKeyVirtual", "()Z");
+#endif
+        if (k->nativeVirtualKey() != pointerKeyMark && !keepPointing) {
             const bool fromMouse = m_pointing;
             m_holdKey = false;
             setPointing(false);
@@ -340,10 +393,16 @@ bool Input::eventFilter(QObject *obj, QEvent *ev)
     // background
     if (k->key() == Qt::Key_Back && ev->spontaneous()) {
         if (ev->type() == QEvent::KeyPress) {
-            setPointing(false);
+            const bool virt = QJniObject::callStaticMethod<jboolean>("io/github/dzeliks/noonixtv/NoonixActivity", "lastKeyVirtual", "()Z");
+            if (!virt)
+                setPointing(false);
             m_keyBack = QString::number(k->key());
             if (!k->isAutoRepeat()) {
-                m_remote->Key(QStringLiteral("BACK"));
+                // a gesture back keeps the finger's turn (the escape it becomes too)
+                if (virt && m_pointing)
+                    m_remote->pointerKey(QStringLiteral("BACK"));
+                else
+                    m_remote->Key(QStringLiteral("BACK"));
                 m_escDown.start();
                 m_escFired = false;
             } else if (!m_escFired && m_escDown.isValid() && m_escDown.elapsed() >= holdMs) {
@@ -368,7 +427,7 @@ bool Input::eventFilter(QObject *obj, QEvent *ev)
 #else
         const QString kind = QStringLiteral("keyboard");
 #endif
-        if (m_remote->inputKind() != kind)
+        if (m_remote->inputKind() != kind && !keepPointing)
             m_remote->InputKind(kind);
         // a text field takes the keys as typed (enter, escape and the arrows still work there)
         bool typing = false;

@@ -9,7 +9,7 @@ Item {
     readonly property bool hovered: pt.containsMouse
     readonly property real u: Theme.u
     width: size * u; height: width
-    scale: pt.containsMouse ? 1.08 : 1
+    scale: pt.containsMouse && !(Theme.android && pt.down) ? 1.08 : 1
     Behavior on scale { SpringAnimation { spring: Theme.springK; damping: Theme.springDamp; epsilon: 0.0005 } }
     Glass { anchors.fill: parent; kind: "chip"; radius: width / 2; visible: !pt.containsMouse }
     Rectangle { anchors.fill: parent; radius: width / 2; color: "white"; visible: pt.containsMouse }

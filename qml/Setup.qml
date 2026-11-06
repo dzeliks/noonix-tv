@@ -99,13 +99,13 @@ FocusScope {
     })
     readonly property var blurb: ({
         language: qsTr("You can change it any time in Settings."),
-        welcome: qsTr("Your own movies and shows, and the sources you add, on this TV. A few steps and you're watching."),
+        welcome: (Desktop.phone ? qsTr("Your own movies and shows, and the sources you add, on this phone. A few steps and you're watching.") : qsTr("Your own movies and shows, and the sources you add, on this TV. A few steps and you're watching.")),
         terms: qsTr("Please read this, then agree to go on."),
         profiles: qsTr("Everyone gets their own Up Next, progress and language choices."),
         videos: (Theme.android ? qsTr("Noonix TV plays the videos on this device and the sources you add yourself. Pick the folders your movies and shows are in; an addon or extension is optional.") : qsTr("Noonix TV plays the videos on this PC and the sources you add yourself. Pick the folders your movies and shows are in; an addon or extension is optional.")),
-        trakt: qsTr("Optional: Trakt keeps what you watched in sync. OK on a profile signs it in or out, or skip it for now."),
-        audio: qsTr("The languages you like to hear, best first. Noonix TV picks the audio track in this order. Right jumps to Continue."),
-        subtitles: qsTr("Subtitle languages, best first. Noonix TV turns on the first one a video has and can find the ones it doesn't. Right jumps to Continue."),
+        trakt: Theme.say(qsTr("Optional: Trakt keeps what you watched in sync. OK on a profile signs it in or out, or skip it for now."), qsTr("Optional: Trakt keeps what you watched in sync. Tap a profile to sign it in or out, or skip it for now."), qsTr("Optional: Trakt keeps what you watched in sync. Click a profile to sign it in or out, or skip it for now.")),
+        audio: Theme.pointing ? qsTr("The languages you like to hear, best first. Noonix TV picks the audio track in this order.") : qsTr("The languages you like to hear, best first. Noonix TV picks the audio track in this order. Right jumps to Continue."),
+        subtitles: Theme.pointing ? qsTr("Subtitle languages, best first. Noonix TV turns on the first one a video has and can find the ones it doesn't.") : qsTr("Subtitle languages, best first. Noonix TV turns on the first one a video has and can find the ones it doesn't. Right jumps to Continue."),
         background: qsTr("Logins expire when nothing uses them for a while. Noonix TV can check them once a day."),
         playback: qsTr("These can be changed any time in Settings."),
         benchmark: qsTr("How fast this internet connection and this device are. The next step picks a picture quality from it."),
@@ -279,6 +279,8 @@ FocusScope {
         codeProfile = id
         Api.call("trakt.deviceCode", {}, function (ok, d) {
             if (!ok) { toast.show(qsTr("Trakt isn't answering")); return }
+            // skipped on while it was asked for: the code is no one's now
+            if (setup.name !== "trakt" || turn.running) return
             setup.code = d
             poll.interval = (d.interval || 5) * 1000
             poll.left = Math.ceil((d.expires_in || 600) / (d.interval || 5))
@@ -330,12 +332,15 @@ FocusScope {
     property bool benchAsked: false
     function loadQuality() { Api.call("quality.options", {}, function (ok, d) { if (ok) setup.quality = d }) }
     onNameChanged: {
+        scroller.contentY = 0
         // comes up by itself once, while the step slides in
         if (name === "benchmark" && !benchAsked) { benchAsked = true; speed.open(true) }
         if (name === "quality") loadQuality()
     }
     function go(n) {
         if (turn.running) return
+        // a code still waiting belongs to the trakt step only
+        if (code) { poll.stop(); code = null }
         target = n
         turn.dir = n > step ? 1 : -1
         turn.start()
@@ -400,9 +405,38 @@ FocusScope {
         id: pane
         anchors.fill: parent
         transform: Translate { id: shift }
+    // a step taller than the screen (a phone): it scrolls, by finger or after the focus
+    Flickable {
+        id: scroller
+        anchors.fill: parent
+        contentWidth: width
+        // the last buttons clear a phone's gesture bar
+        contentHeight: Math.max(height, col.height + 40 * setup.u + Math.max(40 * setup.u, Theme.safeBottom + 28 * setup.u))
+        interactive: contentHeight > height + 1
+        boundsBehavior: Flickable.StopAtBounds
+        clip: interactive
+        Behavior on contentY { enabled: !scroller.moving; NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        Connections {
+            target: setup.Window.window
+            function onActiveFocusItemChanged() {
+                var it = setup.Window.activeFocusItem
+                if (!scroller.interactive || !it) return
+                var inCol = false
+                for (var p = it; p; p = p.parent) {
+                    // a list scrolls itself: its box is what has to show
+                    if (p === list) it = list.parent
+                    if (p === col) { inCol = true; break }
+                }
+                if (!inCol) return
+                var top = it.mapToItem(col, 0, 0).y + col.y, bottom = top + it.height, pad = 40 * setup.u
+                if (top - pad < scroller.contentY) scroller.contentY = Math.max(0, top - pad)
+                else if (bottom + pad > scroller.contentY + scroller.height) scroller.contentY = Math.min(scroller.contentHeight - scroller.height, bottom + pad - scroller.height)
+            }
+        }
     Column {
         id: col
-        anchors.centerIn: parent
+        x: (scroller.width - width) / 2
+        y: Math.max(40 * setup.u, (scroller.height - height) / 2)
         width: 1100 * setup.u
         spacing: 22 * setup.u
         Text {
@@ -428,7 +462,8 @@ FocusScope {
         Item { width: 1; height: 8 * setup.u }
         Item {
             width: parent.width
-            height: setup.lines.length ? Math.min(530 * setup.u, list.contentHeight) + 32 * setup.u : 0
+            // a finger: the whole list, the page scrolls (a list scrolling inside a scrolling page traps the swipe)
+            height: setup.lines.length ? Math.min(Theme.touch ? list.contentHeight : 530 * setup.u, list.contentHeight) + 32 * setup.u : 0
             visible: height > 0
             Glass { anchors.fill: parent; kind: "panel"; radius: 40 * setup.u }
             ListWheel { view: list }
@@ -436,6 +471,7 @@ FocusScope {
                 id: list
                 anchors { fill: parent; margins: 16 * setup.u }
                 clip: true
+                interactive: !Theme.touch
                 model: setup.lines
                 onModelChanged: {
                     var i = setup.keepIndex < 0 ? setup.firstLine() : Math.min(setup.keepIndex, setup.lines.length - 1)
@@ -533,7 +569,10 @@ FocusScope {
                 spacing: 12 * setup.u
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
-                    text: setup.code ? qsTr("On your phone, open %1 and enter").arg(setup.code.verification_url) : ""
+                    readonly property bool here: Desktop.phone || Theme.touch
+                    text: !setup.code ? "" : here ? qsTr("Tap to open %1, then enter").arg(setup.code.verification_url)
+                        : qsTr("On your phone, open %1 and enter").arg(setup.code.verification_url)
+                    TapHandler { enabled: parent.here && !!setup.code; onTapped: Qt.openUrlExternally(setup.code.verification_url) }
                     color: Theme.fg2
                     font { family: Theme.text; pixelSize: 27 * setup.u }
                 }
@@ -547,25 +586,50 @@ FocusScope {
             }
         }
         Item { width: 1; height: 10 * setup.u }
-        Row {
-            spacing: 24 * setup.u
-            GlassButton {
-                id: continueBtn
-                primary: true
-                text: setup.name === "done" ? qsTr("Start Watching") : setup.name === "welcome" ? qsTr("Get Started") : setup.name === "terms" ? qsTr("I Agree")
-                    : setup.name === "trakt" && !((setup.info && setup.info.profiles) || []).some(function (p) { return p.trakt === "own" }) ? qsTr("Skip for Now") : qsTr("Continue")
-                onClicked: setup.next()
-                KeyNavigation.right: backBtn.visible ? backBtn : null
-                Keys.onUpPressed: setup.enterList()
+        // a finger scrolling a long step: the buttons stay at the screen's bottom, over a shade
+        Item {
+            id: buttons
+            width: parent.width
+            height: buttonRow.height
+            z: 1
+            readonly property real lift: !Theme.touch || !scroller.interactive ? 0
+                : Math.min(0, scroller.contentY + scroller.height - Math.max(40 * setup.u, Theme.safeBottom + 28 * setup.u) - (col.y + y + height))
+            transform: Translate { y: buttons.lift }
+            Rectangle {
+                x: -col.x
+                width: scroller.width
+                y: -64 * setup.u
+                height: parent.height + 64 * setup.u + Math.max(40 * setup.u, Theme.safeBottom + 28 * setup.u)
+                opacity: buttons.lift < -1 ? 1 : 0
+                Behavior on opacity { NumberAnimation { duration: 160 } }
+                gradient: Gradient {
+                    GradientStop { position: 0; color: "transparent" }
+                    GradientStop { position: 0.4; color: Qt.rgba(0.03, 0.03, 0.05, 0.88) }
+                    GradientStop { position: 1; color: Qt.rgba(0.03, 0.03, 0.05, 0.94) }
+                }
             }
-            GlassButton {
-                id: backBtn
-                visible: setup.step > 0
-                text: qsTr("Back")
-                onClicked: setup.back()
-                Keys.onUpPressed: setup.enterList()
+            Row {
+                id: buttonRow
+                spacing: 24 * setup.u
+                GlassButton {
+                    id: continueBtn
+                    primary: true
+                    text: setup.name === "done" ? qsTr("Start Watching") : setup.name === "welcome" ? qsTr("Get Started") : setup.name === "terms" ? qsTr("I Agree")
+                        : setup.name === "trakt" && !((setup.info && setup.info.profiles) || []).some(function (p) { return p.trakt === "own" }) ? qsTr("Skip for Now") : qsTr("Continue")
+                    onClicked: setup.next()
+                    KeyNavigation.right: backBtn.visible ? backBtn : null
+                    Keys.onUpPressed: setup.enterList()
+                }
+                GlassButton {
+                    id: backBtn
+                    visible: setup.step > 0
+                    text: qsTr("Back")
+                    onClicked: setup.back()
+                    Keys.onUpPressed: setup.enterList()
+                }
             }
         }
+    }
     }
 
     }
@@ -591,10 +655,11 @@ FocusScope {
         onChanged: setup.refresh()
         onBack: list.forceActiveFocus()
     }
+    // in setup, not the scene's sheet layer: setup is drawn over that
     SpeedCheck {
         id: speed
-        parent: win.sheetLayer
         anchors.fill: parent
+        z: 10
         onMeasured: setup.loadQuality()
         onClosed: continueBtn.forceActiveFocus()
     }

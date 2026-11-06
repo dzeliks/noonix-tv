@@ -676,13 +676,18 @@ final class AppModel {
         finder = f
         if let stream { begin(stream); return }
         Task {
+            try? await Task.sleep(for: .milliseconds(350))
+            if finder === f { f.shown = true }
+        }
+        Task {
             let req = "auto-\(Int(Date().timeIntervalSince1970 * 1000))"
             let data = try? await Core.shared.raw("streams.list", t.args(req: req))
             guard finder === f else { return }
-            let list = (data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }?["streams"] as? [[String: Any]]) ?? []
+            let o = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            let list = (o?["streams"] as? [[String: Any]]) ?? []
             guard let first = list.first else {
                 finder = nil
-                openSources(t)
+                openSources(t, known: (o?["done"] as? Bool) == true ? data : nil)
                 return
             }
             begin(first)
@@ -710,8 +715,8 @@ final class AppModel {
         if playing { player.stop(); playing = false }
     }
 
-    func openSources(_ t: PlayTarget) {
-        sources = SourcesModel(target: t)
+    func openSources(_ t: PlayTarget, known: Data? = nil) {
+        sources = SourcesModel(target: t, known: known)
     }
 
     func stopPlayback() {

@@ -11,6 +11,8 @@ Item {
     property string badge: ""            // a rank number for ordered choices
     property url icon: ""                // a wide logo before the label (credits)
     property bool focused: false
+    // a finger lights a row only while it's down: no remote highlight left behind on a phone
+    readonly property bool lit: focused && (!Theme.touch || tPt.down)
     property bool wrapLabel: false
     property real radius: 24 * u
     property real grow: 1.02             // focus lift; 1 inside tight popovers
@@ -26,8 +28,8 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: t.radius
-        color: t.focused ? "white" : "transparent"
-        scale: t.focused ? t.grow : 1
+        color: t.lit ? "white" : "transparent"
+        scale: t.lit && !(Theme.android && tPt.down) ? t.grow : 1
         Behavior on scale { SpringAnimation { spring: Theme.springK; damping: Theme.springDamp; epsilon: 0.0005 } }
     }
     Image {
@@ -50,7 +52,7 @@ Item {
             text: t.label
             wrapMode: t.wrapLabel ? Text.WordWrap : Text.NoWrap
             elide: t.wrapLabel ? Text.ElideNone : Text.ElideRight
-            color: t.focused ? Theme.focusFg : Theme.fg
+            color: t.lit ? Theme.focusFg : Theme.fg
             font { family: Theme.text; pixelSize: 26 * t.u; weight: Font.Medium }
         }
         Text {
@@ -59,9 +61,9 @@ Item {
             text: t.detail
             // release names have no spaces: break them anywhere rather than run under the value
             wrapMode: Text.WrapAtWordBoundaryOrAnywhere
-            maximumLineCount: t.focused ? 8 : 2
+            maximumLineCount: t.lit ? 8 : 2
             elide: Text.ElideRight
-            color: t.focused ? Qt.rgba(0.1, 0.1, 0.12, 0.6) : Theme.fg3
+            color: t.lit ? Qt.rgba(0.1, 0.1, 0.12, 0.6) : Theme.fg3
             font { family: Theme.text; pixelSize: 20 * t.u }
         }
     }
@@ -76,7 +78,7 @@ Item {
             visible: !t.checkable && t.value !== ""
             anchors { right: parent.right; verticalCenter: parent.verticalCenter }
             text: t.value
-            color: t.focused ? Theme.focusFg : Theme.fg2
+            color: t.lit ? Theme.focusFg : Theme.fg2
             font { family: Theme.text; pixelSize: 24 * t.u }
         }
         Rectangle {
@@ -92,7 +94,7 @@ Item {
             visible: t.checkable
             anchors { right: parent.right; verticalCenter: parent.verticalCenter }
             width: 84 * t.u; height: 48 * t.u; radius: height / 2
-            color: t.checked ? "#30D158" : (t.focused ? Qt.rgba(0, 0, 0, 0.18) : Qt.rgba(1, 1, 1, 0.2))
+            color: t.checked ? "#30D158" : (t.lit ? Qt.rgba(0, 0, 0, 0.18) : Qt.rgba(1, 1, 1, 0.2))
             Behavior on color { ColorAnimation { duration: 160 } }
             Rectangle {
                 width: parent.height - 8 * t.u; height: width; radius: width / 2
@@ -104,5 +106,5 @@ Item {
         }
     }
 
-    Pointer {}
+    Pointer { id: tPt }
 }

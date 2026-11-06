@@ -108,7 +108,7 @@ final class MPVPlayer {
         for (k, v) in [
             ("vo", "gpu-next"), ("gpu-api", "vulkan"), ("gpu-context", "moltenvk"), ("hwdec", "videotoolbox"),
             ("target-colorspace-hint", "yes"), ("ytdl", "no"), ("keep-open", "yes"), ("input-default-bindings", "no"),
-            ("cache", "yes"), ("demuxer-max-bytes", "400MiB"), ("sub-auto", "fuzzy"), ("subs-fallback", "yes"),
+            ("cache", "yes"), ("demuxer-max-bytes", "400MiB"), ("sub-auto", "fuzzy"),
             ("osd-level", "0"), ("ao", ProcessInfo.processInfo.environment["NOONIX_MUTE"] == "1" ? "null" : "coreaudio"),
         ] {
             mpv_set_option_string(m, k, v)

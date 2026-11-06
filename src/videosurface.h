@@ -3,7 +3,9 @@
 // separate egl thread, with its own colour description (pq for hdr10, gamma 2.2 for sdr).
 // windows: VideoView draws it inside qt quick's opengl scene, in sdr (hdr is tone mapped). with
 // windows hdr on for the screen, mpv draws in its own d3d11 window right under the app instead
-// (native: real hdr10), and the app is see-through while video is up. android: in the scene too
+// (native: real hdr10), and the app is see-through while video is up. android (native): a surface
+// view under qt's, rendered on an egl thread like linux, pq / bt.2020 while hdr plays on an hdr
+// panel (NOONIX_VIDEO=scene: in the scene, tone mapped)
 #include <QImage>
 #include <QJsonObject>
 #include <QObject>
@@ -106,6 +108,40 @@ private:
     QPointer<QQuickItem> m_view;
     void *m_nativeWnd = nullptr;   // HWND
     void restackNative();
+#ifdef Q_OS_ANDROID
+public:
+    // the activity's video surface view (java thread): window null = gone, returns once the
+    // render thread (or the decoder) let go of the old one
+    void androidWindow(void *window, int w, int h);
+    // hdr on an hdr panel goes from the decoder straight into the surface view (vo=mediacodec_embed):
+    // the panel's own hdr mode, no frames for the glass, qt draws the subtitles. not for picture
+    // subtitles or dolby vision 5 (Player: allowed), those stay on the gl path, tone mapped
+    void setEmbedAllowed(bool on);
+    void leaveEmbed();
+private:
+    void syncEmbed();
+    bool enterEmbed();
+    void holdWindow(bool hold);
+    void startThread();
+    void stopThread();
+    void renderLoop();
+    float m_hdrPeak = -1;           // the panel's hdr10 peak in nits, 0 = no hdr10, -1 = not asked yet
+    bool m_embedAllowed = true;
+    std::atomic<bool> m_embed{false};
+    std::recursive_mutex m_embedMutex;   // gui thread and the java thread (surface gone)
+    void *m_surfaceRef = nullptr;   // jobject global ref, mpv's wid while embedded
+    std::thread m_thread;
+    std::mutex m_mutex;
+    std::condition_variable m_cv;
+    bool m_wake = false;
+    bool m_quit = false;
+    void *m_anw = nullptr;          // ANativeWindow from the surface view
+    bool m_anwNew = false;
+    bool m_anwTaken = true;         // the render thread is done with the last window
+    bool m_hold = false;            // the render thread keeps off the window (the decoder has it)
+    bool m_held = true;
+    QSize m_anwSize;
+#endif
 #else
     bool bindGlobals();
     bool createSurfaces(wl_surface *parent);

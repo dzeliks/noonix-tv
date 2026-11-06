@@ -71,7 +71,7 @@ struct RootView: View {
             if app.playing {
                 PlayerView(player: app.player).transition(.opacity).zIndex(3)
             }
-            if let f = app.finder {
+            if let f = app.finder, f.shown {
                 FinderView(model: f).transition(.opacity).zIndex(4)
             }
             if let m = app.menu {
@@ -140,7 +140,7 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.26), value: app.detailStack.count)
         .animation(.easeOut(duration: 0.22), value: app.sources == nil)
-        .animation(.easeOut(duration: 0.22), value: app.finder == nil)
+        .animation(.easeOut(duration: 0.22), value: app.finder?.shown == true)
         .animation(.easeInOut(duration: 0.3), value: app.playing)
         .animation(.easeOut(duration: 0.22), value: app.picker == nil)
         .animation(.easeOut(duration: 0.18), value: app.choices == nil)
@@ -263,8 +263,8 @@ struct TopNav: View {
         .frame(height: 78 * u)
         .glassEffect(.regular.tint(.black.opacity(0.25)), in: .capsule)
         .overlay { GlassRim(shape: Capsule(), u: u, glint: false) }
-        // a small bounce as the capsule lands on the tab (qml's spring, ~6 % past it)
-        .animation(.spring(response: 0.36, dampingFraction: 0.68), value: app.navIndex)
+        // a light bounce as the capsule lands on the tab (qml's spring, ~2 % past it)
+        .animation(.spring(response: 0.36, dampingFraction: 0.78), value: app.navIndex)
         .animation(.easeOut(duration: 0.16), value: focus)
     }
 

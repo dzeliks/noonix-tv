@@ -392,6 +392,24 @@ QString Desktop::systemLanguage() const
     return QLocale::system().language() == QLocale::Serbian ? QStringLiteral("sr") : QStringLiteral("en");
 }
 
+bool Desktop::phone() const
+{
+    static const bool on = [] {
+        if (qEnvironmentVariableIsSet("NOONIX_PHONE"))
+            return qEnvironmentVariable("NOONIX_PHONE") == QLatin1String("1");
+#ifdef Q_OS_ANDROID
+        const int sw = QJniObject(QNativeInterface::QAndroidApplication::context())
+                           .callObjectMethod("getResources", "()Landroid/content/res/Resources;")
+                           .callObjectMethod("getConfiguration", "()Landroid/content/res/Configuration;")
+                           .getField<jint>("smallestScreenWidthDp");
+        return sw > 0 && sw < 600;
+#else
+        return false;
+#endif
+    }();
+    return on;
+}
+
 void Desktop::setLanguage(const QString &code)
 {
     const QString lang = code == QLatin1String("sr") ? code : QStringLiteral("en");

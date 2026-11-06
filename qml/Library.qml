@@ -200,6 +200,6 @@ FocusScope {
     KeyHint {
         anchors { right: parent.right; rightMargin: Theme.margin; top: parent.top; topMargin: 190 * library.u }
         visible: grid.activeFocus && library.items.length > 0
-        key: "MENU"; label: qsTr("Options"); pad: Remote.inputKind === "pad"; u: library.u * 0.82
+        key: "MENU"; label: qsTr("Options"); pointLabel: Qt.platform.os === "android" ? qsTr("Hold an item for options") : qsTr("Right-click for options"); pad: Remote.inputKind === "pad"; u: library.u * 0.82
     }
 }

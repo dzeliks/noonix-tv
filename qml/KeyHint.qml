@@ -10,6 +10,9 @@ Row {
     property string label: ""
     property bool pad: false                 // unused: the hint follows Remote.inputKind itself
     property real u: 1
+    // touch, a mouse or a phone: no key to show. this says it instead (empty: no hint at all)
+    property string pointLabel: ""
+    readonly property bool pointed: Input.pointing === true || Desktop.phone
     property real labelSize: 33 * u
     property color labelColor: Qt.rgba(1, 1, 1, 0.62)
     spacing: 14 * u
@@ -29,6 +32,7 @@ Row {
     readonly property color line: Qt.rgba(1, 1, 1, 0.45)
 
     Item {
+        visible: !h.pointed
         anchors.verticalCenter: parent.verticalCenter
         width: h.round ? 50 * h.u : cap.width; height: 46 * h.u
         // a cap: the remote's square-ish key, a keyboard key, or a pad's named button as a pill
@@ -91,8 +95,9 @@ Row {
         }
     }
     Text {
+        visible: text !== ""
         anchors.verticalCenter: parent.verticalCenter
-        text: h.label
+        text: h.pointed ? h.pointLabel : h.label
         font.family: Theme.display; font.pixelSize: h.labelSize
         color: h.labelColor
     }

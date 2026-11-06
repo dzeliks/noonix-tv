@@ -9,7 +9,10 @@ Item {
     property var known: ({})              // details home fetched ahead of the focus
     property int knownVersion: 0
     readonly property real u: Theme.u
-    readonly property real logoHeight: 190 * u
+    // grid units between the top bar (with air under it) and the info's bottom: a short screen
+    // gets a smaller logo and fewer lines of story instead of text running into the bar
+    readonly property real room: (height - infoBottom) / u - 165
+    readonly property real logoHeight: Math.max(96, Math.min(190, room - 95 - (curEpisode ? 45 : 0))) * u
     readonly property bool episode: item && item.kind === "episode"
     readonly property string kind: !item ? "" : (item.kind === "movie" ? "movie" : "show")
     readonly property int tmdbId: !item ? 0 : (episode ? item.show : item.id) || 0
@@ -217,7 +220,7 @@ Item {
             font { family: Theme.text; pixelSize: 24 * hero.u }
             lineHeight: 1.16
             wrapMode: Text.WordWrap
-            maximumLineCount: 7
+            maximumLineCount: Math.max(2, Math.min(7, Math.floor((hero.room - 78) / 28)))
             elide: Text.ElideRight
             style: Text.Raised
             styleColor: Qt.rgba(0, 0, 0, 0.25)

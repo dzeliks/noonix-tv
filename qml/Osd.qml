@@ -20,12 +20,16 @@ FocusScope {
     readonly property var buttons: ["subs", "audio", "match", "rew", "play", "fwd"].concat(nextButton ? ["next"] : [], Theme.android ? [] : ["hz"], ["exit"])
     property bool pickerOpen: false          // a track picker covers the left side
     readonly property bool chromeShown: shown || Player.state === "ended"
-    onChromeShownChanged: Player.setSubtitleLift(chromeShown)
+    // lifted, the line's foot sits a little above the seek bar (77 % on a tv, higher on a phone)
+    readonly property real subLift: height > 0 ? (height - 254 * u) / height * 100 : 77
+    onChromeShownChanged: Player.setSubtitleLift(chromeShown, subLift)
+    onSubLiftChanged: if (chromeShown) Player.setSubtitleLift(true, subLift)
     // the glass over video runs while any of this is on screen
     readonly property bool glassUp: chrome.visible || pill.visible
     readonly property string subLabel: {
         var t = (Player.subtitleTracks || []).filter(function (x) { return x.selected })[0]
-        return t ? Theme.langName(t.lang) : qsTr("Off")
+        // a file without a language in its name: on, not "unknown"
+        return !t ? qsTr("Off") : t.lang && t.lang !== "und" ? Theme.langName(t.lang) : qsTr("On")
     }
     readonly property string audioLabel: {
         var t = (Player.audioTracks || []).filter(function (x) { return x.selected })[0]
@@ -253,8 +257,10 @@ FocusScope {
         show()
     }
 
-    // the mouse: moving shows the controls, a click on the picture plays / pauses
+    // the mouse: moving shows the controls, a click on the picture plays / pauses. a finger: a tap
+    // shows or hides them (like phone players), a double tap on a side jumps 10 s
     MouseArea {
+        id: pic
         anchors.fill: parent
         hoverEnabled: true
         acceptedButtons: Qt.NoButton
@@ -263,9 +269,25 @@ FocusScope {
         // a handler: mouse areas skip presses qt tags as a touchpad's
         TapHandler {
             acceptedButtons: Qt.LeftButton
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
             onTapped: {
                 if (osd.pickerOpen) win.closePickers()
                 else if (osd.shown) Player.togglePause()
+                else osd.show()
+            }
+        }
+        TapHandler {
+            acceptedDevices: PointerDevice.TouchScreen
+            onTapped: function (point) {
+                if (osd.pickerOpen) { win.closePickers(); return }
+                const side = point.position.x < pic.width / 3 ? -1 : point.position.x > pic.width * 2 / 3 ? 1 : 0
+                if (tapCount >= 2 && side !== 0) {
+                    // the first tap of the pair toggled the controls: keep them up while jumping
+                    Player.seek(side * 10)
+                    osd.show()
+                    return
+                }
+                if (osd.shown) osd.hide()
                 else osd.show()
             }
         }
@@ -471,7 +493,9 @@ FocusScope {
                     model: ["rew", "play", "fwd"]
                     Item {
                         required property var modelData
-                        readonly property bool foc: osd.zone === "row" && osd.buttons[osd.rowIndex] === modelData
+                        // touch: play is the white one, the others light while pressed
+                        readonly property bool foc: Theme.touch ? modelData === "play" || tp.down
+                                                                : osd.zone === "row" && osd.buttons[osd.rowIndex] === modelData
                         width: (modelData === "play" ? 84 : 76) * osd.u
                         height: width
                         anchors.verticalCenter: parent.verticalCenter
@@ -491,6 +515,7 @@ FocusScope {
                             name: modelData === "play" ? (Player.paused ? "play" : "pause") : modelData === "rew" ? "back10" : "fwd10"
                         }
                         Pointer {
+                            id: tp
                             okKey: false
                             onPointed: { osd.zone = "row"; osd.rowIndex = osd.buttons.indexOf(modelData); osd.show() }
                             onTapped: osd.act(modelData)

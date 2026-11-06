@@ -211,6 +211,11 @@ int main(int argc, char *argv[])
     auto *window = qobject_cast<QQuickWindow *>(engine.rootObjects().first());
     window->setScreen(pickScreen());
     window->setGeometry(window->screen()->geometry());
+#ifdef Q_OS_ANDROID
+    // qt's surface goes over the video's (a media overlay), see-through where the video shows
+    if (nativeVideo)
+        window->setFlag(Qt::WindowStaysOnTopHint);
+#endif
     auto *core = engine.singletonInstance<Core *>(QStringLiteral("Noonix.Core"), QStringLiteral("Core"));
     remote.setWindow(window);
 #ifdef Q_OS_ANDROID

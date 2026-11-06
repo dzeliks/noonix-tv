@@ -1,6 +1,9 @@
 #include "player.h"
 #ifdef Q_OS_ANDROID
+#include <QJniObject>
 #include <sys/system_properties.h>
+#include <EGL/egl.h>
+#include <mpv/render_gl.h>
 #endif
 #include "remote.h"
 #include "videosurface.h"
@@ -21,11 +24,12 @@
 
 #include <chrono>
 #include <clocale>
+#include <atomic>
 #include <thread>
 
 namespace {
 
-enum Prop : uint64_t { TimePos = 1, Duration, Pause, VideoParams, CacheWait, Seeking, CacheDur, EofReached, TrackList, ChapterList, Sid };
+enum Prop : uint64_t { TimePos = 1, Duration, Pause, VideoParams, CacheWait, Seeking, CacheDur, EofReached, TrackList, ChapterList, Sid, SubText };
 
 QVariant fromNode(const mpv_node &n)
 {
@@ -71,6 +75,7 @@ Player::Player(bool nativeVideo, QObject *parent)
     : QObject(parent)
 {
     std::setlocale(LC_NUMERIC, "C"); // libmpv needs it
+    m_native = nativeVideo;
     m_mpv = mpv_create();
     auto opt = [this](const char *k, const char *v) { mpv_set_option_string(m_mpv, k, v); };
 #ifdef Q_OS_WIN
@@ -88,18 +93,22 @@ Player::Player(bool nativeVideo, QObject *parent)
     // d3d11va / dxva2, copied back where the opengl interop is missing
     opt("hwdec", "auto-safe");
 #elif defined(Q_OS_ANDROID)
-    Q_UNUSED(nativeVideo)
     opt("vo", "libmpv");
-    // mediacodec's frames copied back for the gl render (the direct one wants its own surface);
-    // phones and tv boxes keep the default scalers, high-quality is too much for most of them
+    // own surface: mediacodec's frames straight into gl (aimagereader). the copy variant costs a
+    // colour conversion per frame (qualcomm's c2d: 4k hevc 10-bit at 11 fps). phones and tv boxes
+    // keep the default scalers, high-quality is too much for most of them.
     // the emulator's decoder hangs inside android and takes mpv's core with it
     char qemu[PROP_VALUE_MAX] = {}, oldQemu[PROP_VALUE_MAX] = {};
     __system_property_get("ro.boot.qemu", qemu);
     __system_property_get("ro.kernel.qemu", oldQemu);
-    opt("hwdec", qemu[0] == '1' || oldQemu[0] == '1' ? "no" : "mediacodec-copy");
+    opt("hwdec", qemu[0] == '1' || oldQemu[0] == '1' ? "no" : nativeVideo ? "mediacodec,mediacodec-copy" : "mediacodec-copy");
     // the decoder on its own thread: a stuck mediacodec must not hold mpv's core, the ui's property
     // reads wait for the core and android kills an app that stops answering
     opt("vd-queue-enable", "yes");
+    // zero copy: each queued frame keeps one of the decoder's few output buffers, a full queue
+    // starves it (ffmpeg then spins inside receive and everything waiting on the decoder hangs)
+    if (nativeVideo)
+        opt("vd-queue-max-samples", "2");
 #else
     Q_UNUSED(nativeVideo)
     opt("vo", "libmpv");
@@ -125,6 +134,19 @@ Player::Player(bool nativeVideo, QObject *parent)
     opt("network-timeout", "30");
     opt("terminal", "yes");
     opt("msg-level", "all=warn");
+#ifdef Q_OS_ANDROID
+    // device debugging: NOONIX_MPVLOG=1 writes mpv's verbose log into the app's external files
+    // (Android/data/<app>/files/mpv.log, adb can read it)
+    if (qEnvironmentVariable("NOONIX_MPVLOG") == QLatin1String("1")) {
+        const QJniObject dir = QJniObject(QNativeInterface::QAndroidApplication::context())
+            .callObjectMethod("getExternalFilesDir", "(Ljava/lang/String;)Ljava/io/File;", nullptr);
+        if (dir.isValid()) {
+            const QString path = dir.callObjectMethod<jstring>("getAbsolutePath").toString() + QStringLiteral("/mpv.log");
+            opt("log-file", path.toUtf8().constData());
+            opt("msg-level", "all=v");
+        }
+    }
+#endif
 #ifdef NOONIX_DEFAULT_MUTE
     const bool mute = qEnvironmentVariable("NOONIX_MUTE") != QLatin1String("0");
 #else
@@ -149,6 +171,9 @@ Player::Player(bool nativeVideo, QObject *parent)
     mpv_observe_property(m_mpv, TrackList, "track-list/count", MPV_FORMAT_INT64);
     mpv_observe_property(m_mpv, ChapterList, "chapter-list/count", MPV_FORMAT_INT64);
     mpv_observe_property(m_mpv, Sid, "sid", MPV_FORMAT_STRING);
+#ifdef Q_OS_ANDROID
+    mpv_observe_property(m_mpv, SubText, "sub-text", MPV_FORMAT_STRING);
+#endif
     mpv_set_wakeup_callback(m_mpv, [](void *ctx) {
         QMetaObject::invokeMethod(static_cast<Player *>(ctx), &Player::drain, Qt::QueuedConnection);
     }, this);
@@ -280,6 +305,11 @@ void Player::loadFile(const QString &url, double start)
         m_addedSubs.clear();
         m_subSig.clear();
         setSubDelay(0);
+#ifdef Q_OS_ANDROID
+        // every file starts on the gl path, hdr moves to the decoder's own output once it shows
+        if (m_video)
+            m_video->leaveEmbed();
+#endif
         Desktop::devMark(QStringLiteral("play: loadfile"));
         const char *cmd[] = {"loadfile", u.constData(), "replace", nullptr};
         mpv_command_async(m_mpv, 0, cmd);
@@ -295,6 +325,7 @@ void Player::play(const QVariantMap &request)
     // the core closes the previous session itself when it opens the new one
     m_tickTimer.stop();
     m_session = 0;
+    m_request = request;
     m_next.clear();
     m_segments.clear();
     emit nextChanged();
@@ -326,6 +357,7 @@ void Player::play(const QVariantMap &request)
 void Player::playUrl(const QString &url)
 {
     m_session = 0;
+    m_request.clear();
     m_ending = false;
     m_item = {{QStringLiteral("title"), url.section(QLatin1Char('/'), -1)}};
     emit itemChanged();
@@ -478,6 +510,9 @@ void Player::refreshTracks()
 {
     m_audio.clear();
     m_subs.clear();
+#ifdef Q_OS_ANDROID
+    bool pictureSub = false, dv5 = false;
+#endif
     for (const QVariant &t : getNode("track-list").toList()) {
         QVariantMap m = t.toMap();
         const QString type = m.value(QStringLiteral("type")).toString();
@@ -495,7 +530,22 @@ void Player::refreshTracks()
             m_audio << out;
         else if (type == QLatin1String("sub"))
             m_subs << out;
+#ifdef Q_OS_ANDROID
+        // only the gl path draws picture subtitles and reshapes dolby vision 5 (no hdr10 base)
+        static const QStringList pictures{QStringLiteral("hdmv_pgs_subtitle"), QStringLiteral("dvd_subtitle"),
+                                          QStringLiteral("dvb_subtitle"), QStringLiteral("xsub")};
+        if (m.value(QStringLiteral("selected")).toBool()) {
+            if (type == QLatin1String("sub"))
+                pictureSub = pictures.contains(m.value(QStringLiteral("codec")).toString());
+            else if (type == QLatin1String("video"))
+                dv5 = m.value(QStringLiteral("dolby-vision-profile")).toInt() == 5;
+        }
+#endif
     }
+#ifdef Q_OS_ANDROID
+    if (m_video)
+        m_video->setEmbedAllowed(!pictureSub && !dv5);
+#endif
     m_chapters = getNode("chapter-list").toList();
     emit tracksChanged();
     subChanged();
@@ -634,6 +684,14 @@ void Player::drain()
                 if (m_state == QLatin1String("playing"))
                     refreshTracks();
                 break;
+            case SubText: {
+                const QString s = p->format == MPV_FORMAT_STRING && p->data ? QString::fromUtf8(*static_cast<char **>(p->data)) : QString();
+                if (s != m_subText) {
+                    m_subText = s;
+                    emit subTextChanged();
+                }
+                break;
+            }
             case VideoParams:
                 m_vp = p->format == MPV_FORMAT_NODE ? fromNode(*static_cast<mpv_node *>(p->data)).toMap() : QVariantMap();
                 if (m_video && !m_vp.isEmpty())
@@ -665,10 +723,23 @@ void Player::setRefreshMatch(bool on)
     });
 }
 
+bool Player::reopenAt(double pos)
+{
+    // the session closed at the end: watching on needs a new one (progress, scrobbles, subtitles)
+    if (m_state != QLatin1String("ended") || m_request.isEmpty())
+        return false;
+    QVariantMap req = m_request;
+    req.insert(QStringLiteral("start"), qBound(0.0, pos, qMax(0.0, m_dur - 5)));
+    play(req);
+    return true;
+}
+
 void Player::togglePause()
 {
     // while it loads the file sits paused on purpose and unpauses itself
     if (m_state != QLatin1String("playing") && m_state != QLatin1String("ended"))
+        return;
+    if (reopenAt(0))
         return;
     setPaused(!m_paused);
 }
@@ -681,6 +752,8 @@ void Player::setPaused(bool p)
 
 void Player::seek(double secs)
 {
+    if (reopenAt(m_dur + secs))
+        return;
     const QByteArray s = QByteArray::number(secs);
     const char *cmd[] = {"seek", s.constData(), "relative+exact", nullptr};
     mpv_command_async(m_mpv, 0, cmd);
@@ -689,6 +762,8 @@ void Player::seek(double secs)
 
 void Player::seekTo(double secs)
 {
+    if (reopenAt(secs))
+        return;
     const QByteArray s = QByteArray::number(secs);
     const char *cmd[] = {"seek", s.constData(), "absolute+exact", nullptr};
     mpv_command_async(m_mpv, 0, cmd);
@@ -715,9 +790,15 @@ void Player::setSubtitleTrack(int id)
     refreshTracks();
 }
 
-void Player::setSubtitleLift(bool on)
+void Player::setSubtitleLift(bool on, double pos)
 {
-    mpv_set_property_string(m_mpv, "sub-pos", on ? "77" : "100");
+    pos = qBound(40.0, pos, 100.0);
+    mpv_set_property_string(m_mpv, "sub-pos", on ? QByteArray::number(qRound(pos)).constData() : "100");
+    if (on != m_subLifted || pos != m_subLiftPos) {
+        m_subLifted = on;
+        m_subLiftPos = pos;
+        emit subTextChanged();
+    }
 }
 
 void Player::addSubtitle(const QString &url, const QString &title, const QString &lang, bool select)
@@ -743,10 +824,84 @@ void Player::stop()
     mpv_command_async(m_mpv, 0, cmd);
 }
 
+#ifdef Q_OS_ANDROID
+namespace {
+// the bench decodes the way playback does: zero-copy mediacodec needs a gl context to land in,
+// a small pbuffer here (nothing shows)
+struct BenchGl {
+    EGLDisplay dpy = EGL_NO_DISPLAY;
+    EGLContext ctx = EGL_NO_CONTEXT;
+    EGLSurface surf = EGL_NO_SURFACE;
+    mpv_render_context *rc = nullptr;
+    std::atomic<bool> update{false};
+
+    bool init(mpv_handle *m)
+    {
+        dpy = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+        if (dpy == EGL_NO_DISPLAY || !eglInitialize(dpy, nullptr, nullptr))
+            return false;
+        eglBindAPI(EGL_OPENGL_ES_API);
+        const EGLint want[] = {EGL_SURFACE_TYPE, EGL_PBUFFER_BIT, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES3_BIT,
+                               EGL_RED_SIZE, 8, EGL_GREEN_SIZE, 8, EGL_BLUE_SIZE, 8, EGL_NONE};
+        EGLConfig config = nullptr;
+        EGLint n = 0;
+        if (!eglChooseConfig(dpy, want, &config, 1, &n) || n < 1)
+            return false;
+        const EGLint ctxAttr[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
+        ctx = eglCreateContext(dpy, config, EGL_NO_CONTEXT, ctxAttr);
+        const EGLint pb[] = {EGL_WIDTH, 64, EGL_HEIGHT, 36, EGL_NONE};
+        surf = eglCreatePbufferSurface(dpy, config, pb);
+        if (ctx == EGL_NO_CONTEXT || surf == EGL_NO_SURFACE || !eglMakeCurrent(dpy, surf, surf, ctx))
+            return false;
+        mpv_opengl_init_params gl{[](void *, const char *name) { return reinterpret_cast<void *>(eglGetProcAddress(name)); }, nullptr};
+        mpv_render_param params[] = {
+            {MPV_RENDER_PARAM_API_TYPE, const_cast<char *>(MPV_RENDER_API_TYPE_OPENGL)},
+            {MPV_RENDER_PARAM_OPENGL_INIT_PARAMS, &gl},
+            {MPV_RENDER_PARAM_INVALID, nullptr},
+        };
+        if (mpv_render_context_create(&rc, m, params) < 0)
+            return false;
+        mpv_render_context_set_update_callback(rc, [](void *c) { static_cast<BenchGl *>(c)->update = true; }, this);
+        return true;
+    }
+    // draws what mpv has, else waits a little
+    void pump(int ms)
+    {
+        if (!rc || !update.exchange(false)) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+            return;
+        }
+        if (mpv_render_context_update(rc) & MPV_RENDER_UPDATE_FRAME) {
+            mpv_opengl_fbo fbo{0, 64, 36, 0};
+            mpv_render_param rp[] = {{MPV_RENDER_PARAM_OPENGL_FBO, &fbo}, {MPV_RENDER_PARAM_INVALID, nullptr}};
+            mpv_render_context_render(rc, rp);
+            eglSwapBuffers(dpy, surf);
+        }
+    }
+    void release()
+    {
+        if (rc) {
+            mpv_render_context_set_update_callback(rc, nullptr, nullptr);
+            mpv_render_context_free(rc);
+        }
+        if (dpy != EGL_NO_DISPLAY) {
+            eglMakeCurrent(dpy, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+            if (surf != EGL_NO_SURFACE)
+                eglDestroySurface(dpy, surf);
+            if (ctx != EGL_NO_CONTEXT)
+                eglDestroyContext(dpy, ctx);
+            eglReleaseThread();
+        }
+    }
+};
+} // namespace
+#endif
+
 void Player::benchDecode(const QString &path)
 {
     QPointer<Player> self(this);
-    std::thread([self, file = path.toStdString()] {
+    std::thread([self, file = path.toStdString(), native = m_native] {
+        Q_UNUSED(native)
         const auto report = [self](double fps, bool done) {
             QMetaObject::invokeMethod(qApp, [self, fps, done] { if (self) emit self->benchDecoded(fps, done); }, Qt::QueuedConnection);
         };
@@ -760,18 +915,38 @@ void Player::benchDecode(const QString &path)
             { "ytdl", "no" }, { "vo", "null" }, { "ao", "null" }, { "audio", "no" }, { "untimed", "yes" }, { "loop-file", "inf" } };
         for (const auto &[k, v] : quiet)
             opt(k, v);
+        const auto pump = [](int ms) { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); };
 #if defined(Q_OS_ANDROID)
         char qemu[PROP_VALUE_MAX] = {}, oldQemu[PROP_VALUE_MAX] = {};
         __system_property_get("ro.boot.qemu", qemu);
         __system_property_get("ro.kernel.qemu", oldQemu);
-        opt("hwdec", qemu[0] == '1' || oldQemu[0] == '1' ? "no" : "mediacodec-copy");
+        const bool emu = qemu[0] == '1' || oldQemu[0] == '1';
+        const bool zeroCopy = native && !emu;
+        if (zeroCopy) {
+            opt("vo", "libmpv");
+            opt("video-sync", "audio");
+        }
+        opt("hwdec", emu ? "no" : zeroCopy ? "mediacodec,mediacodec-copy" : "mediacodec-copy");
+        BenchGl gl;
+        const auto pumpGl = [&gl](int ms) { gl.pump(ms); };
 #else
         // the copy variants work without a video output; they fall back to software by themselves
         opt("hwdec", "auto-copy-safe");
 #endif
         const char *load[] = { "loadfile", file.c_str(), nullptr };
         double fps = 0;
-        if (mpv_initialize(m) >= 0 && mpv_command(m, load) >= 0) {
+        bool up = mpv_initialize(m) >= 0;
+#if defined(Q_OS_ANDROID)
+        // the gl context goes before the file, vo=libmpv waits for it
+        const std::function<void(int)> wait = zeroCopy ? std::function<void(int)>(pumpGl) : std::function<void(int)>(pump);
+        if (up && zeroCopy && !gl.init(m)) {
+            qWarning("bench: no gl context for zero-copy decode");
+            up = false;
+        }
+#else
+        const auto &wait = pump;
+#endif
+        if (up && mpv_command(m, load) >= 0) {
             const auto now = [] { return std::chrono::steady_clock::now(); };
             const auto secs = [](auto d) { return std::chrono::duration<double>(d).count(); };
             const auto get = [m](const char *p) {
@@ -781,7 +956,7 @@ void Player::benchDecode(const QString &path)
             // the first frame (a hardware decoder takes a moment to open), then a short warm-up
             auto t0 = now();
             while (get("time-pos") < 0.2 && secs(now() - t0) < 10)
-                std::this_thread::sleep_for(std::chrono::milliseconds(20));
+                wait(20);
             const double rate = get("container-fps") > 0 ? get("container-fps") : 24;
             const double length = get("duration") > 0 ? get("duration") : 1;
             double last = get("time-pos"), played = 0;
@@ -789,7 +964,8 @@ void Player::benchDecode(const QString &path)
                 t0 = now();
                 auto shown = t0;
                 while (secs(now() - t0) < 2.5) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                    for (const auto until = now() + std::chrono::milliseconds(50); now() < until;)
+                        wait(2);
                     const double t = get("time-pos");
                     if (t < 0)
                         continue;
@@ -803,6 +979,9 @@ void Player::benchDecode(const QString &path)
                 }
             }
         }
+#if defined(Q_OS_ANDROID)
+        gl.release();
+#endif
         mpv_terminate_destroy(m);
         report(fps, true);
     }).detach();

@@ -26,7 +26,7 @@ layout(std140, binding = 0) uniform buf {
     vec4 wash;          // rgb + amount
     float texelX;       // 1 / overlay size
     float texelY;
-    float backdropOn;   // 0: no stream yet -> plain dark glass
+    float backdropOn;   // 0: no stream yet -> plain dark glass, 0.25: video shows through unfrosted
     float soft;         // 0..1: frost from the Gaussian-blurred copy instead of the mip taps
 };
 #define size vec2(w, h)
@@ -123,6 +123,9 @@ void main()
         col = max(c, 0.0);
     } else {
         col = mix(vec3(0.075, 0.075, 0.09), vec3(1.0), tint * 0.85) * (1.0 - dim * 0.4);
+        // video through, nothing to frost: smoked glass, the shoulder catches light, a sheen from the top
+        if (backdropOn > 0.1)
+            col += vec3(0.10 * edge + 0.05 * (1.0 - qt_TexCoord0.y) * (1.0 - qt_TexCoord0.y));
     }
     col = mix(col, wash.rgb, wash.a);
 
@@ -134,6 +137,7 @@ void main()
     float rimLight = clamp(inner * rim * (0.55 + 0.45 * max(facing, 0.0) + 0.25 * max(-facing, 0.0)), 0.0, 1.0);
     col = col + vec3(spec * (0.4 + rim));
     col = mix(col, vec3(1.0), rimLight);
-    float a = backdropOn > 0.5 ? 1.0 : 0.94;
+    // smoked: thin in the middle, thicker towards the rim
+    float a = backdropOn > 0.5 ? 1.0 : backdropOn > 0.1 ? mix(0.64, 0.86, edge) : 0.94;
     fragColor = vec4(clamp(col, 0.0, 1.0) * cov * a, cov * a) * qt_Opacity;
 }

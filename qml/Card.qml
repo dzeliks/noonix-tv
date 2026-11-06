@@ -9,7 +9,8 @@ Item {
     property string style: "poster"          // poster | landscape | episode
     property bool focused: false
     // with the mouse in use only the card under it: moving off lets it down
-    readonly property bool lifted: focused && (Input.pointing !== true || point.containsMouse)
+    // a finger down on it: lit and sunk in (Pointer), not lifted
+    readonly property bool lifted: focused && (Input.pointing !== true || point.containsMouse) && !(Theme.android && point.down)
     readonly property bool wide: style !== "poster"
     readonly property real u: Theme.u
     property real posterW: 214 * u
@@ -97,6 +98,14 @@ Item {
                 radius: parent.radius
                 color: "white"
             }
+        }
+        // pressed: lit
+        Rectangle {
+            anchors.fill: parent
+            radius: card.outerRadius
+            color: "white"
+            opacity: point.down ? 0.16 : 0
+            Behavior on opacity { NumberAnimation { duration: point.down ? 80 : 260 } }
         }
         // the border and the line draining inside it, counter-clockwise from the top
         Rectangle {

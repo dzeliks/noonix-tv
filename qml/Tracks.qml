@@ -59,14 +59,18 @@ FocusScope {
         out.push({ header: true, label: qsTr("Subtitles") })
         out.push({ kind: "sub", id: 0, label: qsTr("Off"), selected: !Player.subtitleTracks.some(function (t) { return t.selected }) })
         Player.subtitleTracks.forEach(function (t) {
-            var label = Theme.langName(t.lang) + (t.forced ? " · " + qsTr("Forced") : t.sdh ? " · SDH" : "")
+            var known = t.lang && t.lang !== "und"
+            var label = (known ? Theme.langName(t.lang) : qsTr("Subtitles")) + (t.forced ? " · " + qsTr("Forced") : t.sdh ? " · SDH" : "")
             // the same language twice without a title: number them
             seen[label] = (seen[label] || 0) + 1
             // an added one: where it's from and the release it was made for, not its file name
             var mine = t.external && /[\\/]import-[^\\/]+$/.test(t.file || "")
-            var made = t.external && !mine ? tr.groupOf(t.title) : ""
-            var detail = (mine ? [t.title] : t.external ? ["OpenSubtitles", made ? qsTr("made for %1").arg(made) : ""]
-                                                        : [t.title, tr.subKind(t.codec)]).filter(function (x) { return x }).join("  ·  ")
+            // opensubtitles downloads live in the cache's subs folder, anything else sits next to the video
+            var os = t.external && !mine && /[\\/]subs[\\/][^\\/]+$/.test(t.file || "")
+            var made = os ? tr.groupOf(t.title) : ""
+            var detail = (mine ? [t.title] : os ? ["OpenSubtitles", made ? qsTr("made for %1").arg(made) : ""]
+                          : t.external ? [qsTr("Next to the video")]
+                          : [t.title, tr.subKind(t.codec)]).filter(function (x) { return x }).join("  ·  ")
             out.push({ kind: "sub", id: t.id, label: seen[label] > 1 && !t.title ? label + " " + seen[label] : label, detail: detail, selected: t.selected })
         })
         out.push({ kind: "search", id: -1, label: qsTr("Search Subtitles"),
@@ -94,7 +98,8 @@ FocusScope {
     Glass {
         id: panel
         kind: "panel"
-        width: tr.anchorW
+        // as wide as the buttons under it, never so narrow the lines get cut (one short button on a phone)
+        width: Math.max(tr.anchorW, 560 * tr.u)
         x: tr.anchorX
         // bottom sits just above the osd's button row
         y: tr.height - 140 * tr.u - height

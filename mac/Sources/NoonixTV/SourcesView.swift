@@ -49,10 +49,16 @@ final class SourcesModel {
     var askTorrents: Bool { torrents > 0 && torrentsAllowed == nil }
     @ObservationIgnored private var req = ""
 
-    init(target: PlayTarget) {
+    /// known: the answer the finder already has, shown as is (no second load)
+    init(target: PlayTarget, known: Data? = nil) {
         self.target = target
         Core.shared.on("streams", key: "sources") { [weak self] data in self?.apply(data) }
-        start()
+        if let known, let o = try? JSONSerialization.jsonObject(with: known) as? [String: Any], let r = o["req"] as? String {
+            req = r
+            apply(known)
+        } else {
+            start()
+        }
     }
 
     /// (again, once torrents were answered)
@@ -500,6 +506,9 @@ final class FinderModel {
     var details: Details?
     var status = L("Finding the best source…")
     var detail = ""
+    /// held from the press on, drawn only once the search takes a moment:
+    /// nothing found right away goes straight to the sources sheet without a flash
+    var shown = false
 
     init(target: PlayTarget) {
         self.target = target
@@ -511,6 +520,7 @@ final class FinderModel {
 
     /// what was picked, while it opens
     func starting(_ s: [String: Any]) {
+        shown = true
         status = L("Starting")
         var bits: [String] = []
         let res = (s["resolution"] as? Int) ?? 0

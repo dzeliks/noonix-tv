@@ -37,6 +37,11 @@ class Player : public QObject
     Q_PROPERTY(bool refreshMatch READ refreshMatch NOTIFY refreshMatchChanged)
     // subtitle timing in seconds (+ = later); follows what was set for this release + subtitle
     Q_PROPERTY(double subDelay READ subDelay NOTIFY subDelayChanged)
+    // the current subtitle as text, and whether it sits lifted over the controls: android hdr comes
+    // straight from the decoder (no mpv drawing on it), qt draws the subtitles then (SubText.qml)
+    Q_PROPERTY(QString subText READ subText NOTIFY subTextChanged)
+    Q_PROPERTY(bool subLifted READ subLifted NOTIFY subTextChanged)
+    Q_PROPERTY(double subLiftPos READ subLiftPos NOTIFY subTextChanged)
 
 public:
     // nativeVideo (windows hdr): mpv draws in its own d3d11 window instead of the qt scene
@@ -44,6 +49,9 @@ public:
     ~Player() override;
 
     mpv_handle *handle() const { return m_mpv; }
+    QString subText() const { return m_subText; }
+    bool subLifted() const { return m_subLifted; }
+    double subLiftPos() const { return m_subLiftPos; }
     void setVideo(VideoSurface *v) { m_video = v; }
     void setWindow(QQuickWindow *w) { m_window = w; }
     // what the screen can show, for the source ranking
@@ -87,7 +95,8 @@ public:
     Q_INVOKABLE void setSubtitleTrack(int id); // 0 = off
     Q_INVOKABLE void addSubtitle(const QString &url, const QString &title, const QString &lang, bool select = true);
     // subtitles move above the controls while they're up
-    Q_INVOKABLE void setSubtitleLift(bool on);
+    // pos: where the lifted line's foot goes, in % of the height (just above the controls)
+    Q_INVOKABLE void setSubtitleLift(bool on, double pos = 77);
     Q_INVOKABLE void stop();
     // the speed check: decodes the clip the way playback does (hardware decoding, copied back) on
     // a second, silent mpv and counts frames. benchDecoded(fps, done) along the way, fps 0 = failed
@@ -107,6 +116,7 @@ signals:
     void videoParamsChanged();
     void refreshMatchChanged();
     void subDelayChanged();
+    void subTextChanged();
     void notice(const QString &text);
     void ended(bool completed);
 
@@ -135,6 +145,10 @@ private:
     QString m_error;
     qint64 m_session = 0;     // rust session id, 0 = no bookkeeping
     bool m_ending = false;
+    bool m_native = false;
+    QString m_subText;
+    double m_subLiftPos = 77;
+    bool m_subLifted = false;   // the video has its own surface (windows hdr, android)
     bool m_renderReady = false;
     std::function<void()> m_pendingLoad;
     double m_pos = 0, m_dur = 0, m_cache = 0;
@@ -145,6 +159,9 @@ private:
     QTimer m_firstFrame;
 #endif
     QVariantMap m_item, m_source, m_next, m_vp;
+    // what opened this playback: after the end, seeking or play opens it again there
+    QVariantMap m_request;
+    bool reopenAt(double pos);
     QVariantList m_segments, m_chapters, m_audio, m_subs;
     bool m_markFrame = false;
     bool m_refresh = false;
