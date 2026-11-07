@@ -8,6 +8,14 @@ FocusScope {
     property var season: null
     property int seasonNo: 1
     readonly property real u: Theme.u
+    // a phone in landscape: the episode cards and their two lines still fit the first screen,
+    // the logo gives up the room, the plot runs down beside the buttons
+    readonly property bool tight: Theme.short
+    // under the episode row's lines: the focused card's lift pushes them down
+    readonly property real edge: (tight ? 36 : 44) * u
+    // tight: smaller buttons and pills rather than the story moving up; one even gap between the rows
+    readonly property real bu: u * (tight ? 0.85 : 1)
+    readonly property real cardW: 400 * u
     readonly property bool isMovie: item && item.kind === "movie"
     readonly property int tmdbId: !item ? 0 : (item.kind === "episode" ? item.show : item.id)
     property bool inLibrary: false
@@ -142,9 +150,35 @@ FocusScope {
             var eps = d.episodes || []
             for (var i = 0; i < eps.length; ++i)
                 if (eps[i].season === t.season && eps[i].episode === t.episode) { episodes.currentIndex = i; break }
+            // stepped over from the season next to it: its first episode (or the last, going back)
+            if (page.landAt) {
+                var last = page.landAt === "last"
+                page.landAt = ""
+                episodes.currentIndex = last ? eps.length - 1 : 0
+                // once the new cards are laid out, margins kept (positionViewAt* drops them)
+                Qt.callLater(function () {
+                    episodes.contentX = last ? episodes.originX + episodes.contentWidth - episodes.width + episodes.rightMargin
+                                             : episodes.originX - episodes.leftMargin
+                })
+            }
             if (page.comeBack && page.comeBack.zone === "episodes") episodes.currentIndex = Math.min(page.comeBack.episode, eps.length - 1)
             if (page.comeBack) page.landBack()
         })
+    }
+    // past a season's last episode (or before its first): the season next to it
+    property string landAt: ""
+    function stepSeason(dir) {
+        var all = seasonsRow.seasons
+        for (var i = 0; i < all.length; ++i) {
+            if (all[i].number !== seasonNo) continue
+            var to = all[i + dir]
+            if (!to) return false
+            landAt = dir > 0 ? "first" : "last"
+            seasonsRow.currentIndex = i + dir
+            loadSeason(to.number)
+            return true
+        }
+        return false
     }
     // where the page rests for a row with the focus: the buttons, seasons and episodes keep the page as it
     // opened (episodes the bottom row, the whole story above them), only the row below them scrolls it
@@ -229,38 +263,46 @@ FocusScope {
         Column {
             id: body
             width: parent.width
-            spacing: 34 * page.u
+            spacing: (page.tight ? 22 : 34) * page.u
             // shows: the episode row's two text lines end a margin above the screen edge, whatever
             // the plot's length (never a sliver of the second line peeking in)
+            readonly property real underInfo: actions.height + seasonsRow.height + page.cardW * 9 / 16 + 92 * page.u + 4 * body.spacing
+            readonly property real headroom: (page.tight ? 36 : 60) * page.u
             Item {
                 width: 1
                 height: !seasonsRow.visible ? page.height * 0.2
-                        : Math.max(60 * page.u, page.height - 44 * page.u - (info.height + actions.height + seasonsRow.height
-                                                                             + (400 * 9 / 16 + 92) * page.u + 4 * body.spacing))
+                        : Math.max(body.headroom, page.height - page.edge - (info.height + body.underInfo))
             }
 
             // identity on the left, the story on the right (room for the whole plot)
             Item {
                 id: info
                 width: page.width
-                height: Math.max(identity.height, story.height)
+                // tight: the story's end sits beside the buttons when they leave it the room
+                readonly property real lend: page.tight && Theme.margin + actionsRow.width + 40 * page.u < story.x
+                                             ? actions.height + body.spacing : 0
+                height: Math.max(identity.height, story.height - lend)
                 Column {
                     id: identity
                     x: Theme.margin
                     anchors.bottom: parent.bottom
-                        width: page.width * 0.44
-                    spacing: 20 * page.u
-                    // room under the logo: a tall one doesn't sit on the line below
+                    width: page.width * 0.44
+                    spacing: (page.tight ? 14 : 20) * page.u
+                    // room under the logo: a tall one doesn't sit on the line below.
+                    // tight: as tall as what's left over the episode row (never under 90)
                     Logo {
-                        width: 600 * page.u
-                        height: 226 * page.u
-                        bottomPad: 16 * page.u
+                        width: (page.tight ? 460 : 600) * page.u
+                        height: !page.tight ? 226 * page.u : !seasonsRow.visible ? 170 * page.u
+                                : Math.max(90 * page.u, Math.min(200 * page.u, page.height - page.edge - body.headroom - body.underInfo
+                                                                 - identity.spacing - metaLine.height))
+                        bottomPad: (page.tight ? 8 : 16) * page.u
                         source: page.details && page.details.logo ? page.details.logo : ""
                         loading: !page.details
                         title: page.details ? page.details.title : (page.item ? page.item.showTitle || page.item.title || "" : "")
-                        titleSize: 72 * page.u
+                        titleSize: (page.tight ? 56 : 72) * page.u
                     }
                     MetaLine {
+                        id: metaLine
                         item: page.details ? Object.assign({}, page.details, page.isMovie && page.details.position ? { position: page.details.position, duration: page.details.duration } : {}) : null
                         details: page.details
                     }
@@ -277,11 +319,16 @@ FocusScope {
                 }
                 Column {
                     id: story
-                    anchors { right: parent.right; rightMargin: Theme.margin; bottom: parent.bottom }
+                    anchors { right: parent.right; rightMargin: Theme.margin; bottom: parent.bottom; bottomMargin: -info.lend }
                     width: page.width * 0.36
                     spacing: 14 * page.u
+                    // the lines round the plot (tight: the plot gets what they leave)
+                    readonly property real fixedH: (tagLine.visible ? tagLine.height + spacing : 0)
+                                                   + (starLine.visible ? starLine.height + spacing : 0)
+                                                   + (netLine.visible ? netLine.height + spacing : 0)
                     // a show keeps this line's place whether an episode is on or not
                     Text {
+                        id: tagLine
                         visible: seasonsRow.visible || text !== ""
                         width: parent.width
                         height: seasonsRow.visible ? 34 * page.u : implicitHeight
@@ -293,7 +340,7 @@ FocusScope {
                         color: Theme.fg
                         font { family: Theme.display; pixelSize: 26 * page.u; weight: Font.DemiBold }
                     }
-                    // the plot sits on the starring line and grows up; past seven lines it
+                    // the plot sits on the starring line and grows up; past seven lines (fewer on a phone) it
                     // scrolls slowly inside its box and comes back
                     Item {
                         id: plot
@@ -301,7 +348,11 @@ FocusScope {
                         // whole lines, measured: the font's line is taller than its pixel size
                         readonly property real line: plotText.lineCount ? plotText.implicitHeight / plotText.lineCount : 32 * page.u
                         readonly property real pad: 14 * page.u
-                        readonly property real full: 7 * line + 2 * pad
+                        // tight with episodes: as many lines as fit above them (two at least)
+                        readonly property real room: page.height - page.edge - body.headroom - body.underInfo + info.lend - story.fixedH
+                        readonly property real full: !page.tight ? 7 * line + 2 * pad
+                                                     : !seasonsRow.visible ? 4 * line + 2 * pad
+                                                     : Math.max(2 * line, Math.min(7 * line, Math.floor((room - 2 * pad) / line) * line)) + 2 * pad
                         readonly property real tall: plotText.implicitHeight + 2 * pad
                         height: Math.min(tall, full)
                         clip: true
@@ -359,6 +410,7 @@ FocusScope {
                         Connections { target: plotText; function onTextChanged() { plot.reset() } }
                     }
                     Text {
+                        id: starLine
                         width: parent.width
                         visible: text !== ""
                         elide: Text.ElideRight
@@ -370,6 +422,7 @@ FocusScope {
                         }
                     }
                     Text {
+                        id: netLine
                         width: parent.width
                         visible: text !== ""
                         elide: Text.ElideRight
@@ -393,12 +446,13 @@ FocusScope {
                 id: actions
                 x: Theme.margin
                 width: page.width - 2 * Theme.margin
-                height: 90 * page.u
+                height: (page.tight ? 66 : 90) * page.u
                 focus: true
                 // back up on the buttons: the page's top (title and all) in view again
                 onActiveFocusChanged: if (activeFocus && !Input.pointing) scroller.contentY = 0
                 Row {
-                    spacing: 26 * page.u
+                    id: actionsRow
+                    spacing: 26 * page.bu
                     anchors.verticalCenter: parent.verticalCenter
                     // the way back on the page itself (the pointer's; the remote has its own key too).
                     // the focus starts on play, left of it is this
@@ -408,6 +462,7 @@ FocusScope {
                         visible: !Theme.touch
                         glass: true
                         source: artGlass
+                        u: page.bu
                         icon: "arrowleft"
                         text: qsTr("Back")
                         KeyNavigation.right: playBtn
@@ -419,6 +474,7 @@ FocusScope {
                         primary: Theme.touch
                         glass: true
                         source: artGlass
+                        u: page.bu
                         focus: true
                         icon: "play"
                         text: {
@@ -435,6 +491,7 @@ FocusScope {
                         id: overBtn
                         glass: true
                         source: artGlass
+                        u: page.bu
                         visible: !!(page.isMovie && page.details && page.details.position > 60)
                         icon: "back10"
                         text: qsTr("Start Over")
@@ -446,6 +503,7 @@ FocusScope {
                         id: srcBtn
                         glass: true
                         source: artGlass
+                        u: page.bu
                         icon: "list"
                         text: qsTr("Sources")
                         KeyNavigation.left: overBtn.visible ? overBtn : playBtn
@@ -456,6 +514,7 @@ FocusScope {
                         id: wlBtn
                         glass: true
                         source: artGlass
+                        u: page.bu
                         icon: page.inLibrary ? "check" : "plus"
                         text: qsTr("Library")
                         opacity: page.libraryBusy || !page.libraryReady ? 0.5 : 1
@@ -471,9 +530,9 @@ FocusScope {
                 visible: !page.isMovie && page.details && (page.details.seasons || []).length > 0
                 x: Theme.margin
                 width: page.width - Theme.margin
-                height: visible ? 60 * page.u : 0
+                height: visible ? (page.tight ? 46 : 60) * page.u : 0
                 orientation: ListView.Horizontal
-                spacing: 16 * page.u
+                spacing: 16 * page.bu
                 readonly property var seasons: page.details ? page.details.seasons || [] : []
                 model: seasons.length
                 keyNavigationEnabled: true
@@ -490,8 +549,8 @@ FocusScope {
                     readonly property bool sel: modelData.number === page.seasonNo
                     readonly property bool foc: ListView.isCurrentItem && seasonsRow.activeFocus
                     readonly property bool lit: foc && (!Input.pointing || sp.containsMouse)
-                    height: 56 * page.u
-                    width: sLabel.implicitWidth + 44 * page.u
+                    height: (page.tight ? 44 : 56) * page.u
+                    width: sLabel.implicitWidth + 44 * page.bu
                     radius: height / 2
                     color: lit ? "white" : sel ? Qt.rgba(1, 1, 1, 0.22) : "transparent"
                     Pointer { id: sp }
@@ -500,7 +559,7 @@ FocusScope {
                         anchors.centerIn: parent
                         text: !modelData.name || /^Season \d+$/.test(modelData.name) ? qsTr("Season %1").arg(modelData.number) : modelData.name
                         color: parent.lit ? Theme.focusFg : parent.sel ? Theme.fg : Theme.fg2
-                        font { family: Theme.display; pixelSize: 25 * page.u; weight: Font.DemiBold }
+                        font { family: Theme.display; pixelSize: 25 * page.bu; weight: Font.DemiBold }
                     }
                 }
                 Keys.onReturnPressed: page.loadSeason(seasons[currentIndex].number)
@@ -509,12 +568,12 @@ FocusScope {
             }
 
             ListWheel { view: seasonsRow; across: true }
-            ListWheel { id: epWheel; view: episodes; across: true; cards: true; restX: Theme.margin + (400 + 44) * page.u; cardW: 400 * page.u }
+            ListWheel { id: epWheel; view: episodes; across: true; cards: true; restX: Theme.margin + page.cardW + 44 * page.u; cardW: page.cardW }
             ListView {
                 id: episodes
                 visible: seasonsRow.visible
                 width: page.width
-                height: visible ? 400 * page.u * 9 / 16 + 150 * page.u : 0
+                height: visible ? page.cardW * 9 / 16 + 150 * page.u : 0
                 orientation: ListView.Horizontal
                 leftMargin: Theme.margin
                 rightMargin: Theme.margin
@@ -526,18 +585,19 @@ FocusScope {
                 // the focus rests on the second card, so the one before stays in view
                 highlightRangeMode: Input.pointing ? ListView.NoHighlightRange : ListView.ApplyRange
                 preferredHighlightBegin: epWheel.heldAt >= 0 ? epWheel.heldAt : epWheel.restX
-                preferredHighlightEnd: preferredHighlightBegin + 400 * page.u
+                preferredHighlightEnd: preferredHighlightBegin + page.cardW
                 highlightMoveDuration: 380
                 highlightMoveVelocity: -1
                 onActiveFocusChanged: if (activeFocus && !Input.pointing) scroller.contentY = 0
                 delegate: Item {
                     required property int index
                     readonly property var modelData: episodes.eps[index] || ({})
-                    width: 400 * page.u
+                    width: page.cardW
                     height: episodes.height
                     Card {
                         id: epCard
                         style: "episode"
+                        wideW: page.cardW
                         media: Object.assign({ kind: "episode" }, modelData, {
                             label: modelData.episode + ".  " + (modelData.episodeTitle || qsTr("Episode %1").arg(modelData.episode)),
                             sublabel: [modelData.runtime ? Theme.runtime(modelData.runtime) : "", modelData.airDate ? Qt.formatDate(new Date(modelData.airDate), "d MMM yyyy") : ""].filter(function (x) { return x }).join("  ·  ")
@@ -564,6 +624,13 @@ FocusScope {
                 }
                 Keys.onUpPressed: seasonsRow.forceActiveFocus()
                 Keys.onDownPressed: more.forceActiveFocus()
+                Keys.onRightPressed: function (e) { e.accepted = currentIndex === count - 1 && page.stepSeason(1) }
+                Keys.onLeftPressed: function (e) { e.accepted = currentIndex === 0 && page.stepSeason(-1) }
+                // a finger pulling on past either end
+                onDragEnded: {
+                    if (horizontalOvershoot > 90 * page.u) page.stepSeason(1)
+                    else if (horizontalOvershoot < -90 * page.u) page.stepSeason(-1)
+                }
             }
 
             MediaRow {
@@ -587,8 +654,8 @@ FocusScope {
             view: episodes
             visible: episodes.visible
             restSlot: 1
-            cardW: 400 * page.u
-            artH: 400 * page.u * 9 / 16
+            cardW: page.cardW
+            artH: page.cardW * 9 / 16
         }
     }
 }

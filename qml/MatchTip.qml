@@ -20,6 +20,7 @@ FocusScope {
     Item {
         id: card
         anchors.centerIn: parent
+        anchors.horizontalCenterOffset: -btns.shift
         width: 1040 * tip.u
         height: body.height + 112 * tip.u
         scale: tip.opacity > 0.5 ? 1 : 0.96
@@ -111,12 +112,15 @@ FocusScope {
                 color: Theme.fg3
                 font { family: Theme.text; pixelSize: 22 * tip.u }
             }
-            Item { width: 1; height: 44 * tip.u }
-            Row {
-                anchors.horizontalCenter: parent.horizontalCenter
+            Item { width: 1; height: btns.side ? 0 : 44 * tip.u }
+            SideButtons {
+                id: btns
+                card: card
+                extra: 44 * tip.u
                 spacing: 24 * tip.u
                 GlassButton {
-                    width: 360 * tip.u
+                    u: btns.side ? btns.bu : tip.u
+                    width: btns.w(360 * tip.u)
                     text: qsTr("OK")
                     primary: Theme.touch
                     focused: tip.activeFocus && tip.choice === 0
@@ -125,7 +129,8 @@ FocusScope {
                     onClicked: tip.pick(false)
                 }
                 GlassButton {
-                    width: 360 * tip.u
+                    u: btns.side ? btns.bu : tip.u
+                    width: btns.w(360 * tip.u)
                     text: qsTr("Don't show again")
                     focused: tip.activeFocus && tip.choice === 1
                     pointerFocus: false
@@ -138,6 +143,8 @@ FocusScope {
 
     Keys.onLeftPressed: choice = 0
     Keys.onRightPressed: choice = 1
+    Keys.onUpPressed: if (btns.side) choice = 0
+    Keys.onDownPressed: if (btns.side) choice = 1
     Keys.onReturnPressed: pick(choice === 1)
     Keys.onEnterPressed: pick(choice === 1)
     Keys.onEscapePressed: pick(false)

@@ -14,7 +14,8 @@ Item {
     readonly property bool wide: style !== "poster"
     readonly property real u: Theme.u
     property real posterW: 214 * u
-    readonly property real artW: wide ? 400 * u : posterW
+    property real wideW: 400 * u
+    readonly property real artW: wide ? wideW : posterW
     readonly property real artH: wide ? artW * 9 / 16 : artW * 1.5
     readonly property real progress: media.progress || 0
     readonly property real inset: 16 * u * shrink

@@ -40,8 +40,31 @@ final class PageScroll {
     @ObservationIgnored var clearY: CGFloat = 0
     @ObservationIgnored var height: CGFloat = 0
     @ObservationIgnored private var goal: CGFloat = 0
+    /// a row pulled on past either end (the episodes: the next or the previous season)
+    @ObservationIgnored var past: ((Int) -> Void)?
+    @ObservationIgnored private var pull: CGFloat = 0
+    @ObservationIgnored private var quiet = Date.distantPast
 
-    func wheel(_ delta: CGFloat, precise: Bool, u: CGFloat) {
+    func wheel(_ delta: CGFloat, precise: Bool, u: CGFloat, coasting: Bool = false) {
+        // the rest of the swipe that switched (and its coasting) doesn't scroll the new cards: a pause first
+        if Date() < quiet { quiet = Date().addingTimeInterval(0.35); return }
+        if let past, !coasting {
+            let at = y == nil ? start : precise ? y! : goal
+            if precise {
+                let want = at - delta
+                pull = want > end ? pull + want - end : want < 0 ? pull + want : 0
+            } else {
+                // a notch once the row is at that end already
+                pull = at >= end - 1 && delta < 0 ? 1e6 : at <= 1 && delta > 0 ? -1e6 : 0
+            }
+            if abs(pull) > 140 * u {
+                let dir = pull > 0 ? 1 : -1
+                pull = 0
+                quiet = Date().addingTimeInterval(0.35)
+                past(dir)
+                return
+            }
+        }
         if y == nil { goal = start; y = start }
         if precise {
             goal = max(0, min(end, (y ?? start) - delta))
@@ -164,7 +187,8 @@ enum Input {
             if PointerMode.shared.on == false { PointerMode.shared.on = true }
             if dy != 0, abs(dy) >= abs(dx), wheel?(e) == true { rehover(); return nil }
             if dx != 0, abs(dx) > abs(dy), let r = row {
-                r.wheel(e.scrollingDeltaX != 0 ? e.scrollingDeltaX : e.scrollingDeltaY, precise: e.hasPreciseScrollingDeltas, u: AppModel.current?.u ?? 1)
+                r.wheel(e.scrollingDeltaX != 0 ? e.scrollingDeltaX : e.scrollingDeltaY, precise: e.hasPreciseScrollingDeltas, u: AppModel.current?.u ?? 1,
+                        coasting: !e.momentumPhase.isEmpty)
                 rehover()
                 return nil
             }

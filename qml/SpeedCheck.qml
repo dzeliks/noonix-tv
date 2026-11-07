@@ -125,7 +125,9 @@ FocusScope {
     Shield { onOutside: sc.close() }
 
     Item {
+        id: card
         anchors.centerIn: parent
+        anchors.horizontalCenterOffset: -btns.shift
         width: 880 * sc.u
         height: body.height + 2 * 44 * sc.u
         scale: sc.opacity > 0.5 ? 1 : 0.96
@@ -202,11 +204,14 @@ FocusScope {
                     }
                 }
             }
-            Row {
-                topPadding: 8 * sc.u
-                anchors.right: parent.right
-                spacing: 20 * sc.u
+            SideButtons {
+                id: btns
+                card: card
+                align: Qt.AlignRight
+                topPad: 8 * sc.u
                 GlassButton {
+                    u: btns.side ? btns.bu : sc.u
+                    width: btns.w(implicitWidth)
                     // while the internet is measured it can be skipped (no connection, or no patience)
                     text: sc.net && sc.net.running ? qsTr("Skip") : qsTr("Run Again")
                     opacity: sc.running && !(sc.net && sc.net.running) ? 0.45 : 1
@@ -216,6 +221,8 @@ FocusScope {
                     onClicked: sc.skipOrRun()
                 }
                 GlassButton {
+                    u: btns.side ? btns.bu : sc.u
+                    width: btns.w(implicitWidth)
                     primary: true
                     text: qsTr("Done")
                     focused: sc.activeFocus && sc.choice === 1
@@ -233,6 +240,9 @@ FocusScope {
     Keys.onEnterPressed: act()
     Keys.onLeftPressed: choice = 0
     Keys.onRightPressed: choice = 1
+    // on the side they're stacked
+    Keys.onUpPressed: if (btns.side) choice = 0
+    Keys.onDownPressed: if (btns.side) choice = 1
     Keys.onEscapePressed: close()
     Keys.onBackPressed: close()
     Keys.onPressed: function (e) { e.accepted = true }

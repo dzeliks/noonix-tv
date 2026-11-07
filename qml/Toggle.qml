@@ -16,7 +16,8 @@ Item {
     property bool wrapLabel: false
     property real radius: 24 * u
     property real grow: 1.02             // focus lift; 1 inside tight popovers
-    readonly property real u: Theme.u
+    // the scale: a line on its own (who's watching) draws larger
+    property real u: Theme.u
     signal toggled()
     height: Math.max((detail ? 108 : 84) * u, texts.implicitHeight + 40 * u)
     // a long detail opens up while the row has the focus. never on the way in: a new row only

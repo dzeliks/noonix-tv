@@ -63,8 +63,23 @@ final class DetailsModel: Identifiable {
         seasonNo = n
         guard let s = try? await Core.shared.call("tmdb.season", ["show": tmdbId, "season": n], as: Season.self), n == seasonNo else { return }
         season = s
+        if let last = landAt {
+            landAt = nil
+            episodeIndex = last ? max(0, s.episodes.count - 1) : 0
+            return
+        }
         let t = playTarget
         if let i = s.episodes.firstIndex(where: { $0.season == t.season && $0.episode == t.episode }) { episodeIndex = i } else { episodeIndex = 0 }
+    }
+
+    /// past the row's end: the next season from its first episode, before the start: the one before from its last
+    private var landAt: Bool?
+    @discardableResult func stepSeason(_ dir: Int) -> Bool {
+        guard let i = seasons.firstIndex(where: { $0.number == seasonNo }), seasons.indices.contains(i + dir) else { return false }
+        landAt = dir < 0
+        seasonIndex = i + dir
+        Task { await loadSeason(seasons[i + dir].number) }
+        return true
     }
 
     /// an episode row item plays itself, else the show's next one (or S1 E1)
@@ -177,8 +192,8 @@ final class DetailsModel: Identifiable {
         case .episodes:
             let n = season?.episodes.count ?? 0
             switch k {
-            case .left: episodeIndex = max(0, episodeIndex - 1)
-            case .right: episodeIndex = min(max(0, n - 1), episodeIndex + 1)
+            case .left: if episodeIndex == 0 { stepSeason(-1) } else { episodeIndex -= 1 }
+            case .right: if episodeIndex >= n - 1 { stepSeason(1) } else { episodeIndex += 1 }
             case .ok: playEpisode(episodeIndex)
             case .menu:
                 if let e = season?.episodes[safe: episodeIndex], let ep = e.episode {
@@ -429,6 +444,7 @@ struct DetailsView: View {
                              return ("\(n).  " + (e.episodeTitle ?? L("Episode %1", n)), sub.joined(separator: "  ·  "))
                          },
                          badge: { $0.watched == true },
+                         pastEnd: { model.stepSeason($0) },
                          point: { i in model.zone = .episodes; model.episodeIndex = i },
                          activate: { i in model.playEpisode(i) })
             .frame(height: height, alignment: .top)

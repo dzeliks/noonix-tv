@@ -15,7 +15,7 @@ FocusScope {
     function open(t) { topic = t || "torrent"; asking = false; show() }
     // torrents found: allow them or not
     function ask() { topic = "torrent"; asking = true; show() }
-    function show() { opacity = 1; buttons.currentIndex = 0; forceActiveFocus() }
+    function show() { opacity = 1; btns.currentIndex = 0; forceActiveFocus() }
     function close() { opacity = 0; closed() }
     function answer(yes) { opacity = 0; answered(yes); closed() }
 
@@ -33,7 +33,9 @@ FocusScope {
     ]
 
     Column {
+        id: col
         anchors.centerIn: parent
+        anchors.horizontalCenterOffset: -btns.shift
         width: 1240 * help.u
         spacing: 34 * help.u
         scale: help.opacity > 0.5 ? 1 : 0.96
@@ -62,24 +64,31 @@ FocusScope {
             color: Theme.fg3
             font { family: Theme.text; pixelSize: 26 * help.u }
         }
-        Item { width: 1; height: 6 * help.u }
-        Row {
-            id: buttons
-            property int currentIndex: 0
+        Item { width: 1; height: 6 * help.u; visible: !btns.side }
+        SideButtons {
+            id: btns
+            card: col
+            align: Qt.AlignLeft
             spacing: 24 * help.u
+            extra: 6 * help.u
+            // no padding below the text: lined up with it, not with the gap under it
+            inset: side ? col.spacing + 1 : 0
+            property int currentIndex: 0
             GlassButton {
+                u: btns.side ? btns.bu : help.u
                 primary: true
-                width: 340 * help.u
+                width: btns.w(340 * help.u)
                 text: help.asking ? qsTr("Allow Torrents") : qsTr("Got It")
-                focused: help.activeFocus && buttons.currentIndex === 0
+                focused: help.activeFocus && btns.currentIndex === 0
                 pointerFocus: false
                 onClicked: help.asking ? help.answer(true) : help.close()
             }
             GlassButton {
+                u: btns.side ? btns.bu : help.u
                 visible: help.asking
-                width: 300 * help.u
+                width: btns.w(300 * help.u)
                 text: qsTr("Not Now")
-                focused: help.activeFocus && buttons.currentIndex === 1
+                focused: help.activeFocus && btns.currentIndex === 1
                 pointerFocus: false
                 onClicked: help.answer(false)
             }
@@ -87,14 +96,16 @@ FocusScope {
     }
 
     function activate() {
-        if (buttons.currentIndex === 1) answer(false)
+        if (btns.currentIndex === 1) answer(false)
         else if (asking) answer(true)
         else close()
     }
     Keys.onReturnPressed: activate()
     Keys.onEnterPressed: activate()
-    Keys.onLeftPressed: buttons.currentIndex = 0
-    Keys.onRightPressed: if (asking) buttons.currentIndex = 1
+    Keys.onLeftPressed: btns.currentIndex = 0
+    Keys.onRightPressed: if (asking) btns.currentIndex = 1
+    Keys.onUpPressed: if (btns.side) btns.currentIndex = 0
+    Keys.onDownPressed: if (btns.side && asking) btns.currentIndex = 1
     Keys.onEscapePressed: asking ? answer(false) : close()
     Keys.onBackPressed: asking ? answer(false) : close()
     Keys.onPressed: function (e) { e.accepted = true }

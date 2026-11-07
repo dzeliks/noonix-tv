@@ -100,8 +100,8 @@ struct ProfilePicker: View {
             .overlay(alignment: .bottom) {
                 SettingsRow(line: .init(label: L("Sign in automatically"), detail: L("Open on the last profile without asking"),
                                         checkable: true, checked: app.autoLogin),
-                            focused: model.onAuto && !editing, u: u)
-                    .frame(width: 640 * u)
+                            focused: model.onAuto && !editing, u: u * 1.25)
+                    .frame(width: 800 * u)
                     .fixedSize(horizontal: false, vertical: true)
                     .alignmentGuide(.bottom) { $0[.top] - 64 * u }
                     .onContinuousHover { phase in if case .active = phase, Input.pointerLive, !editing { model.onAuto = true } }

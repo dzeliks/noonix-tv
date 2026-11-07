@@ -467,19 +467,26 @@ FocusScope {
             font { family: Theme.text; pixelSize: 25 * osd.u; weight: Font.Medium; features: { "tnum": 1 } }
         }
 
+        // a narrow screen (phones): the capsule moves right of the left buttons, and where even that
+        // runs into the right ones, those two go without their labels
+        TextMetrics { id: subM; font: Qt.font({ family: Theme.display, pixelSize: 27 * osd.u, weight: Font.DemiBold }); text: osd.subLabel }
+        TextMetrics { id: audioM; font: subM.font; text: osd.audioLabel }
+        readonly property bool compact: Theme.margin + subM.advanceWidth + audioM.advanceWidth + 2 * (64 + 44) * osd.u + 76 * osd.u
+                                        + 3 * 18 * osd.u + transport.width + 18 * osd.u > rightRow.x
         // the row at H-86: glass at rest, white when focused
         Row {
+            id: leftRow
             x: Theme.margin
             y: parent.height - 86 * osd.u - height / 2
             spacing: 18 * osd.u
-            RowButton { id: subsBtn; key: "subs"; icon: "subtitles"; text: osd.subLabel }
-            RowButton { id: audioBtn; key: "audio"; icon: "audio"; text: osd.audioLabel }
+            RowButton { id: subsBtn; key: "subs"; icon: "subtitles"; text: chrome.compact ? "" : osd.subLabel }
+            RowButton { id: audioBtn; key: "audio"; icon: "audio"; text: chrome.compact ? "" : osd.audioLabel }
             RowButton { id: matchBtn; key: "match"; icon: "feedback" }
         }
         // transport in one glass capsule
         Item {
             id: transport
-            anchors.horizontalCenter: parent.horizontalCenter
+            x: Math.max((parent.width - width) / 2, leftRow.x + leftRow.width + 18 * osd.u)
             y: parent.height - 86 * osd.u - height / 2
             // 14 round the 76 circles and 10 round play: the end circles sit concentric in the capsule
             width: tRow.width + 28 * osd.u
@@ -525,6 +532,7 @@ FocusScope {
             }
         }
         Row {
+            id: rightRow
             anchors { right: parent.right; rightMargin: Theme.margin }
             y: parent.height - 86 * osd.u - height / 2
             spacing: 18 * osd.u

@@ -25,7 +25,9 @@ FocusScope {
     MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons; onClicked: sc.close() }
 
     Item {
+        id: card
         anchors.centerIn: parent
+        anchors.horizontalCenterOffset: -btns.shift
         width: 760 * sc.u
         height: body.height + 120 * sc.u
         scale: sc.opacity > 0.5 ? 1 : 0.96
@@ -66,22 +68,29 @@ FocusScope {
                 color: Theme.fg2
                 font { family: Theme.text; pixelSize: 27 * sc.u; weight: Font.Medium }
             }
-            Item { width: 1; height: 38 * sc.u }
-            Row {
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: 20 * sc.u
+            Item { width: 1; height: btns.side ? 0 : 38 * sc.u }
+            SideButtons {
+                id: btns
+                card: card
+                extra: 38 * sc.u
                 GlassButton {
                     id: openBtn
+                    u: btns.side ? btns.bu : sc.u
+                    width: btns.w(implicitWidth)
                     primary: true
                     text: qsTr("Open in Browser")
                     onClicked: { Qt.openUrlExternally(sc.url); sc.close() }
                     KeyNavigation.right: closeBtn
+                    KeyNavigation.down: closeBtn
                 }
                 GlassButton {
                     id: closeBtn
+                    u: btns.side ? btns.bu : sc.u
+                    width: btns.w(implicitWidth)
                     text: qsTr("Close")
                     onClicked: sc.close()
                     KeyNavigation.left: openBtn
+                    KeyNavigation.up: openBtn
                 }
             }
         }

@@ -955,7 +955,7 @@ Window {
         Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: Theme.veil }
         Shield {}
         Text {
-            anchors { horizontalCenter: parent.horizontalCenter; bottom: profList.top; bottomMargin: 96 * win.u }
+            anchors { horizontalCenter: parent.horizontalCenter; bottom: profList.top; bottomMargin: (Theme.short ? 72 : 96) * win.u }
             text: qsTr("Who's watching?")
             color: Theme.fg
             font { family: Theme.display; pixelSize: 56 * win.u; weight: Font.Bold }
@@ -964,6 +964,8 @@ Window {
         ListView {
             id: profList
             anchors.centerIn: parent
+            // a phone: up a little, the larger sign-in line fits below
+            anchors.verticalCenterOffset: Theme.short ? -40 * win.u : 0
             orientation: ListView.Horizontal
             width: Math.min(parent.width - 2 * Theme.margin, count * 240 * win.u + (count - 1) * 60 * win.u)
             height: 320 * win.u
@@ -1050,8 +1052,9 @@ Window {
         // on: noonix tv opens straight on the last profile; off: it asks here every time
         Toggle {
             id: autoLoginLine
-            anchors { horizontalCenter: parent.horizontalCenter; top: profList.bottom; topMargin: 64 * win.u }
-            width: 640 * win.u
+            anchors { horizontalCenter: parent.horizontalCenter; top: profList.bottom; topMargin: (Theme.short ? 36 : 64) * win.u }
+            u: win.u * 1.25
+            width: 800 * win.u
             label: qsTr("Sign in automatically")
             detail: qsTr("Open on the last profile without asking")
             checked: win.autoLogin

@@ -153,6 +153,8 @@ struct CardStrip: View {
     var badge: ((Item) -> Bool)?
     /// the rows a removal is for: the same title elsewhere (library, search) isn't leaving
     var undoable = false
+    /// pulled on past an end (+1 the last, -1 the first)
+    var pastEnd: ((Int) -> Void)?
     let point: (Int) -> Void
     let activate: (Int) -> Void
 
@@ -246,20 +248,27 @@ struct CardStrip: View {
         .overlay(alignment: .topLeading) { arrows(first) }
         .onHover { inside in
             over = inside
+            side.past = pastEnd
             if inside { Input.row = side } else if Input.row === side { Input.row = nil }
         }
         .onDisappear { if Input.row === side { Input.row = nil } }
         .animation(side.y == nil ? Theme.slide : nil, value: first)
         .onChange(of: first, initial: true) { side.start = CGFloat(first) * step; side.end = CGFloat(lastFirst) * step }
-        // one gone left of the view: the view stays on its cards, nothing moves
-        .onChange(of: items.map(\.id)) { old, new in
-            let gone = old.prefix(first).filter { !new.contains($0) }.count
-            guard gone > 0 else { return }
-            if let y = side.y { side.y = max(0, y - CGFloat(gone) * step) }
-            if let h = held { held = max(0, h - gone) }
-        }
-        .onChange(of: index) { old, new in
-            held = Input.pointerHolds ? (side.y == nil ? held.map { min($0, lastFirst) } ?? firstShown(old) : held) : nil
+        // one gone left of the view: the view stays on its cards, nothing moves. one handler for both: a new
+        // list and its new index come in one go
+        .onChange(of: StripState(ids: items.map(\.id), index: index)) { old, new in
+            if old.ids != new.ids {
+                // a whole new list (another season): the keys' place again
+                if !old.ids.isEmpty, !new.ids.contains(where: old.ids.contains) { side.y = nil; held = nil; return }
+                let gone = old.ids.prefix(first).filter { !new.ids.contains($0) }.count
+                if gone > 0 {
+                    if let y = side.y { side.y = max(0, y - CGFloat(gone) * step) }
+                    if let h = held { held = max(0, h - gone) }
+                }
+            }
+            if old.index != new.index {
+                held = Input.pointerHolds ? (side.y == nil ? held.map { min($0, lastFirst) } ?? firstShown(old.index) : held) : nil
+            }
         }
         // a key: the selection if it's still in view, else the first card in view
         .onChange(of: PointerMode.shared.on) { _, on in
@@ -271,6 +280,8 @@ struct CardStrip: View {
         }
     }
 }
+
+private struct StripState: Equatable { var ids: [String]; var index: Int }
 
 /// a titled row (qml MediaRow): title, then the strip; skeleton cards while it loads
 struct MediaRowView: View {

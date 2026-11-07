@@ -14,7 +14,7 @@ Item {
     property bool glass: false           // real liquid glass at rest (over video), flat fill otherwise
     property GlassSource source: null    // glass inside the scene: what it refracts (never the scene itself)
     property real iconSize: 34 * u
-    readonly property real u: Theme.u
+    property real u: Theme.u             // smaller where room is short
     signal clicked()
     signal pointed()
     property bool pointerFocus: true     // the mouse focuses it; false: the owner keeps the focus (pointed())

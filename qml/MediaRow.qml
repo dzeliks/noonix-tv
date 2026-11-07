@@ -97,8 +97,9 @@ FocusScope {
     }
     signal menu(var item, int index, rect at)
 
-    // the focused card grows 10 %: leave it room under the title
-    readonly property real gap: 40 * u
+    // the focused card grows 10 %: leave it room under the title (less on a short screen: the
+    // cards' lines come first there)
+    readonly property real gap: (Theme.short ? 18 : 40) * u
     height: header.height + gap + cardH + 30 * u
 
     Text {

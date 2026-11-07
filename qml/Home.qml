@@ -222,6 +222,7 @@ FocusScope {
         item: home.shownItem
         known: home.details
         knownVersion: home.detailsVersion
+        band: Math.max(height * 0.475, rows.height)
         visible: home.heroY < height
         transform: Translate { y: -home.heroY }
     }
@@ -229,7 +230,8 @@ FocusScope {
     ListView {
         id: rows
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-        height: parent.height * 0.47
+        // short (a phone): at least a landscape row with both lines under its cards on screen
+        height: Math.max(parent.height * 0.47, Theme.short ? (40 + 18 + 400 * 9 / 16 + 92 + 18) * home.u : 0)
         focus: true
         clip: false
         model: home.shown

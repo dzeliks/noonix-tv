@@ -12,7 +12,7 @@ Item {
     // grid units between the top bar (with air under it) and the info's bottom: a short screen
     // gets a smaller logo and fewer lines of story instead of text running into the bar
     readonly property real room: (height - infoBottom) / u - 165
-    readonly property real logoHeight: Math.max(96, Math.min(190, room - 95 - (curEpisode ? 45 : 0))) * u
+    readonly property real logoHeight: Math.max(Theme.short ? 64 : 96, Math.min(190, room - 95 - (curEpisode ? 45 : 0))) * u
     readonly property bool episode: item && item.kind === "episode"
     readonly property string kind: !item ? "" : (item.kind === "movie" ? "movie" : "show")
     readonly property int tmdbId: !item ? 0 : (episode ? item.show : item.id) || 0
@@ -140,7 +140,9 @@ Item {
         else if (d.status && d.status !== "Released" && d.status !== "Returning Series") f.push(qsTranslate("core", d.status))
         return f.join("  ·  ")
     }
-    readonly property real infoBottom: parent ? height * 0.475 + 34 * u : 0
+    // the rows' share of the page (home makes it larger on a short screen)
+    property real band: height * 0.475
+    readonly property real infoBottom: parent ? band + (Theme.short ? 16 : 34) * u : 0
 
     // nothing to show yet (no profile, no keys, still loading): the layout in grey
     Item {
