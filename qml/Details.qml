@@ -305,6 +305,8 @@ FocusScope {
                         id: metaLine
                         item: page.details ? Object.assign({}, page.details, page.isMovie && page.details.position ? { position: page.details.position, duration: page.details.duration } : {}) : null
                         details: page.details
+                        // up to the story
+                        maxWidth: story.x - identity.x - 24 * page.u
                     }
                 }
 

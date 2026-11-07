@@ -102,8 +102,17 @@ FocusScope {
         })
         if (out.map(function (r) { return r.id }).join() === shown.map(function (r) { return r.id }).join()) return
         var was = rows.currentIndex >= 0 && shown[rows.currentIndex] ? shown[rows.currentIndex].id : ""
+        // at the top of the page a row arriving above takes the hero's place (the view starts over at it)
+        var top = !scrolled && rows.currentIndex <= 0
         shown = out
-        for (var i = 0; i < out.length; ++i) if (out[i].id === was) { rows.currentIndex = i; rows.positionViewAtIndex(i, ListView.Beginning); break }
+        if (top) { rows.currentIndex = 0; topRow = 0; rows.positionViewAtBeginning(); return }
+        for (var i = 0; i < out.length; ++i) if (out[i].id === was) {
+            rows.currentIndex = i
+            rows.positionViewAtIndex(i, ListView.Beginning)
+            // the rows above it hide behind the hero (touch doesn't move topRow by itself)
+            if (!scrolled) topRow = i
+            break
+        }
     }
     property bool marked: false
     function loadRow(id) {
@@ -230,8 +239,9 @@ FocusScope {
     ListView {
         id: rows
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-        // short (a phone): at least a landscape row with both lines under its cards on screen
-        height: Math.max(parent.height * 0.47, Theme.short ? (40 + 18 + 400 * 9 / 16 + 92 + 18) * home.u : 0)
+        // short (a phone): one whole row of either kind (posters are the taller, their own room under
+        // the cards included), clear of the gesture bar; the next row doesn't peek in
+        height: Math.max(parent.height * 0.47, Theme.short ? (40 + 18 + 214 * 1.5 + 30) * home.u + Theme.safeBottom : 0)
         focus: true
         clip: false
         model: home.shown

@@ -196,6 +196,7 @@ Item {
         MetaLine {
             item: hero.cur
             details: hero.curDetails
+            maxWidth: info.width
         }
     }
 
@@ -205,7 +206,8 @@ Item {
         y: story.y - story.height * 0.8 - 80 * hero.u
         width: story.width * 1.9 + Theme.margin
         height: story.height * 2.6 + 160 * hero.u
-        strength: 0.55
+        // (a white backdrop under the plot still has to read)
+        strength: 0.7
         opacity: story.opacity
     }
     Column {
@@ -218,14 +220,14 @@ Item {
             width: parent.width
             text: hero.overview
             color: Theme.fg
-            opacity: 0.86
+            opacity: 0.93
             font { family: Theme.text; pixelSize: 24 * hero.u }
             lineHeight: 1.16
             wrapMode: Text.WordWrap
             maximumLineCount: Math.max(2, Math.min(7, Math.floor((hero.room - 78) / 28)))
             elide: Text.ElideRight
             style: Text.Raised
-            styleColor: Qt.rgba(0, 0, 0, 0.25)
+            styleColor: Qt.rgba(0, 0, 0, 0.45)
         }
         Text {
             width: parent.width

@@ -190,10 +190,10 @@ struct Hero: View {
         VStack(alignment: .leading, spacing: 14 * u) {
             Text(overview)
                 .font(Theme.text(24 * u))
-                .foregroundStyle(Theme.fg.opacity(0.86))
+                .foregroundStyle(Theme.fg.opacity(0.93))
                 .lineSpacing(24 * u * 0.19)
                 .lineLimit(7)
-                .shadow(color: .black.opacity(0.25), radius: 0, y: 1)
+                .shadow(color: .black.opacity(0.45), radius: 0, y: 1)
             if !cast.isEmpty {
                 Text(L("Starring %1", cast.joined(separator: ", ")))
                     .font(Theme.text(21 * u)).foregroundStyle(Theme.fg2).lineLimit(1)
@@ -203,7 +203,7 @@ struct Hero: View {
             }
         }
         .frame(width: size.width * 0.42, alignment: .leading)
-        .background(alignment: .topLeading) { StoryScrim(u: u, margin: margin) }
+        .background(alignment: .topLeading) { StoryScrim(u: u, margin: margin, strength: 0.7) }
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.trailing, margin)
         .padding(.bottom, infoBottom)
@@ -333,10 +333,11 @@ struct StoryScrim: View {
     let margin: CGFloat
     /// height the story could still grow by: the shade is sized for the tallest
     var extra: CGFloat = 0
+    var strength = 0.55
     var body: some View {
         GeometryReader { g in
             let h = g.size.height + extra
-            Scrim(strength: 0.55)
+            Scrim(strength: strength)
                 .frame(width: g.size.width * 1.9 + margin, height: h * 2.6 + 160 * u)
                 .offset(x: -g.size.width * 0.45, y: g.size.height - h * 1.8 - 80 * u)
         }
