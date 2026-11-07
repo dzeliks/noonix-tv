@@ -600,7 +600,8 @@ FocusScope {
                 width: scroller.width
                 y: -64 * setup.u
                 height: parent.height + 64 * setup.u + Math.max(40 * setup.u, Theme.safeBottom + 28 * setup.u)
-                opacity: buttons.lift < -1 ? 1 : 0
+                // stays while the step scrolls, also at its end (the buttons sit on it either way)
+                opacity: Theme.touch && scroller.interactive ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: 160 } }
                 gradient: Gradient {
                     GradientStop { position: 0; color: "transparent" }
