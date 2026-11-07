@@ -1,4 +1,8 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import GameController
 
 /// pad buttons and keyboard keys -> the remote's actions (input.cpp bindings): the defaults with the
@@ -148,6 +152,7 @@ final class Bindings {
         k == "Return" ? "Enter" : k == "PgUp" ? "Page Up" : k == "PgDown" ? "Page Down" : k
     }
 
+    #if os(macOS)
     /// a key as qt's portable text spells it (what the setting holds); nil for the arrows, which
     /// always move
     static func keyName(_ e: NSEvent) -> String? {
@@ -169,6 +174,43 @@ final class Bindings {
             return c
         }
     }
+    #else
+    /// a key as qt's portable text spells it (what the setting holds); nil for the arrows, which
+    /// always move. a hardware keyboard's hid usage
+    static func keyName(_ c: GCKeyCode) -> String? {
+        switch c {
+        case .returnOrEnter, .keypadEnter: return "Return"
+        case .escape: return "Esc"
+        case .deleteOrBackspace: return "Backspace"
+        case .deleteForward: return "Del"
+        case .spacebar: return "Space"
+        case .tab: return "Tab"
+        case .pageUp: return "PgUp"
+        case .pageDown: return "PgDown"
+        case .home: return "Home"
+        case .end: return "End"
+        default:
+            let v = c.rawValue
+            if (0x04...0x1D).contains(v) { return String(UnicodeScalar(UInt8(65 + v - 0x04))) }
+            if (0x1E...0x26).contains(v) { return String(v - 0x1D) }
+            if v == 0x27 { return "0" }
+            return nil
+        }
+    }
+
+    /// what a hardware key types into an on-screen keyboard that's up (nil: a normal key)
+    static func typed(_ c: GCKeyCode, shift: Bool) -> Typed? {
+        switch c {
+        case .returnOrEnter, .keypadEnter: return .submit
+        case .deleteOrBackspace: return .erase
+        case .spacebar: return .text(" ")
+        default:
+            guard let n = keyName(c), n.count == 1 else { return nil }
+            return .text(shift ? n : n.lowercased())
+        }
+    }
+
+    #endif
 
     /// the pad family from the controller's own name (input.cpp padKind)
     static func kind(_ c: GCController) -> String {

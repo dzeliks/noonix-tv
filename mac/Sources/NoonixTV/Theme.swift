@@ -1,4 +1,8 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 
 /// the tv app's design tokens (qml/Theme.qml): a 1920x1080 grid scaled to the window, u = height / 1080 (width / 1920 when taller)
@@ -12,7 +16,15 @@ enum Theme {
     static let danger = Color(red: 1, green: 0x6F / 255, blue: 0x7D / 255)
     static let skeleton = Color.white.opacity(0.1)
 
-    static func margin(_ u: CGFloat) -> CGFloat { 96 * u }
+    /// a notch or the island on a side, the home bar along the bottom (ios, landscape either way):
+    /// content stays clear of them
+    nonisolated(unsafe) static var safeSide: CGFloat = 0
+    nonisolated(unsafe) static var safeBottom: CGFloat = 0
+    /// a finger is what's in use (qml Theme.touch): the system keyboard types, no focus marks
+    @MainActor static var touch: Bool { Platform.ios && PointerMode.shared.on }
+    /// the words for the remote, or for a finger (qml Theme.say)
+    @MainActor static func say(_ remote: String, _ tap: String) -> String { touch ? tap : remote }
+    static func margin(_ u: CGFloat) -> CGFloat { max(96 * u, safeSide + 20 * u) }
 
     // sf pro is the system face: display/text by size, rounded for the clock
     static func display(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font { .system(size: size, weight: weight) }

@@ -1,4 +1,3 @@
-import ServiceManagement
 import SwiftUI
 
 /// first run (and settings › about), qml Setup: a few calm steps over the app itself, blurred in a
@@ -10,7 +9,8 @@ final class SetupModel {
     static let allSteps = ["language", "welcome", "terms", "profiles", "videos", "trakt", "audio", "subtitles", "background", "playback", "benchmark", "quality", "done"]
     /// set up before, the terms are new (or changed): just them
     var termsOnly = false
-    var steps: [String] { termsOnly ? ["terms"] : Self.allSteps }
+    /// ios: nothing runs in the background or at login, the window is the screen
+    var steps: [String] { termsOnly ? ["terms"] : Platform.ios ? Self.allSteps.filter { $0 != "background" && $0 != "playback" } : Self.allSteps }
     static var titles: [String: String] { [
         "language": L("Choose your language"),
         "welcome": L("Welcome to Noonix TV"), "terms": L("Before you start"), "profiles": L("Who watches here?"), "videos": L("Your videos"), "trakt": L("Trakt"),
@@ -38,7 +38,7 @@ final class SetupModel {
     var busy = false
     var code: TraktCodeModel?
     var codeProfile = 0
-    var loginOn = SMAppService.mainApp.status == .enabled
+    var loginOn = LoginItem.on
     // the focus: a line of the list, or the buttons (0 continue, 1 back)
     var index = 0
     var onButtons = true
@@ -90,10 +90,15 @@ final class SetupModel {
         case "welcome": L("Your own movies and shows, and the sources you add, on this Mac. A few steps and you're watching.")
         case "terms": L("Please read this, then agree to go on.")
         case "profiles": L("Everyone gets their own Up Next, progress and language choices.")
-        case "videos": L("Noonix TV plays the videos on this Mac and the sources you add yourself. Pick the folders your movies and shows are in; an addon or extension is optional.")
-        case "trakt": L("Optional: Trakt keeps what you watched in sync. OK on a profile signs it in or out, or skip it for now.")
-        case "audio": L("The languages you like to hear, best first. Noonix TV picks the audio track in this order. Right jumps to Continue.")
-        case "subtitles": L("Subtitle languages, best first. Noonix TV turns on the first one a video has and can find the ones it doesn't. Right jumps to Continue.")
+        case "videos": Platform.ios
+            ? L("Noonix TV plays the videos on this Mac and the sources you add yourself. Copy your movies and shows into Files › Noonix TV; an addon or extension is optional.")
+            : L("Noonix TV plays the videos on this Mac and the sources you add yourself. Pick the folders your movies and shows are in; an addon or extension is optional.")
+        case "trakt": Theme.say(L("Optional: Trakt keeps what you watched in sync. OK on a profile signs it in or out, or skip it for now."),
+                                L("Optional: Trakt keeps what you watched in sync. Tap a profile to sign it in or out, or skip it for now."))
+        case "audio": PointerMode.shared.on ? L("The languages you like to hear, best first. Noonix TV picks the audio track in this order.")
+            : L("The languages you like to hear, best first. Noonix TV picks the audio track in this order. Right jumps to Continue.")
+        case "subtitles": PointerMode.shared.on ? L("Subtitle languages, best first. Noonix TV turns on the first one a video has and can find the ones it doesn't.")
+            : L("Subtitle languages, best first. Noonix TV turns on the first one a video has and can find the ones it doesn't. Right jumps to Continue.")
         case "background": L("Logins expire when nothing uses them for a while. Noonix TV can check them once a day.")
         case "playback": L("These can be changed any time in Settings.")
         case "benchmark": L("How fast this internet connection and this Mac are. The next step picks a picture quality from it.")
@@ -217,7 +222,7 @@ final class SetupModel {
         if let app { await app.flow.load() }
         info = await i as? [String: Any] ?? info
         appS = await st as? [String: Any] ?? appS
-        loginOn = SMAppService.mainApp.status == .enabled
+        loginOn = LoginItem.on
     }
 
     private func setApp(_ k: String, _ v: Any) {
@@ -294,11 +299,11 @@ final class SetupModel {
         } else if a == "login" {
             Task {
                 do {
-                    if loginOn { try await SMAppService.mainApp.unregister() } else { try SMAppService.mainApp.register() }
+                    try await LoginItem.toggle()
                 } catch {
                     app.toast(L("Couldn't change it: move Noonix TV to Applications first"))
                 }
-                loginOn = SMAppService.mainApp.status == .enabled
+                loginOn = LoginItem.on
             }
         } else if a == "keepalive" {
             busy = true
@@ -459,31 +464,39 @@ struct SetupView: View {
     var body: some View {
         let u = app.u
         let lines = model.lines(app: app)
-        VStack(alignment: .leading, spacing: 22 * u) {
-            Text(L("Step %1 of %2", model.step + 1, model.steps.count)).font(Theme.text(23 * u, .medium)).foregroundStyle(Theme.fg3)
-                .opacity(model.termsOnly ? 0 : 1)
-            Text(SetupModel.titles[model.name] ?? "").font(Theme.display(56 * u, .bold)).foregroundStyle(Theme.fg)
-                .fixedSize(horizontal: false, vertical: true)
-            Text(model.blurb(app.flow)).font(Theme.text(28 * u)).foregroundStyle(Theme.fg2)
-                .fixedSize(horizontal: false, vertical: true)
-            Color.clear.frame(height: 8 * u)
-            if !lines.isEmpty { list(lines, u) }
-            if model.name == "terms" { termsPanel(u) }
-            if let c = model.code { codePanel(c, u) }
-            Color.clear.frame(height: 10 * u)
-            HStack(spacing: 24 * u) {
-                GlassButton(text: model.name == "done" ? L("Start Watching") : model.name == "welcome" ? L("Get Started") : model.name == "terms" ? L("I Agree") : model.skippable ? L("Skip for Now") : L("Continue"),
-                            primary: true, focused: model.onButtons && model.button == 0, u: u, flat: true)
-                    .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.onButtons = true; model.button = 0 } }
-                    .onTapGesture { model.next(app: app) }
-                if model.step > 0 {
-                    GlassButton(text: L("Back"), focused: model.onButtons && model.button == 1, u: u, flat: true)
-                        .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.onButtons = true; model.button = 1 } }
-                        .onTapGesture { model.back(app: app) }
+        let bottomPad = max(40 * u, Theme.safeBottom + 28 * u)
+        // a step taller than the screen (a phone): it scrolls, the buttons stay at the bottom over a shade
+        let scrolls = app.short && headH + 22 * u + buttonsH + 80 * u > app.size.height
+        Group {
+            if scrolls {
+                ZStack(alignment: .bottom) {
+                    ScrollView(.vertical) {
+                        head(lines, u)
+                            .frame(width: 1100 * u, alignment: .leading)
+                            .padding(.top, 40 * u)
+                            .padding(.bottom, buttonsH + 64 * u + bottomPad)
+                            .frame(maxWidth: .infinity)
+                    }
+                    .scrollIndicators(.never)
+                    buttons(u)
+                        .frame(width: 1100 * u, alignment: .leading)
+                        .padding(.bottom, bottomPad)
+                        .frame(maxWidth: .infinity)
+                        .background(alignment: .bottom) {
+                            LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: Color(red: 0.03, green: 0.03, blue: 0.05).opacity(0.88), location: 0.4),
+                                                   .init(color: Color(red: 0.03, green: 0.03, blue: 0.05).opacity(0.94), location: 1)],
+                                           startPoint: .top, endPoint: .bottom)
+                                .frame(height: buttonsH + 64 * u + bottomPad)
+                        }
                 }
+            } else {
+                VStack(alignment: .leading, spacing: 22 * u) {
+                    head(lines, u)
+                    buttons(u)
+                }
+                .frame(width: 1100 * u, alignment: .leading)
             }
         }
-        .frame(width: 1100 * u, alignment: .leading)
         .opacity(model.paneOpacity)
         .offset(x: model.shift * u)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -498,6 +511,41 @@ struct SetupView: View {
             }
             model.index = i
         }
+    }
+
+    @State private var headH: CGFloat = 0
+    @State private var buttonsH: CGFloat = 0
+
+    private func head(_ lines: [SettingsModel.Line], _ u: CGFloat) -> some View {
+        VStack(alignment: .leading, spacing: 22 * u) {
+            Text(L("Step %1 of %2", model.step + 1, model.steps.count)).font(Theme.text(23 * u, .medium)).foregroundStyle(Theme.fg3)
+                .opacity(model.termsOnly ? 0 : 1)
+            Text(SetupModel.titles[model.name] ?? "").font(Theme.display(56 * u, .bold)).foregroundStyle(Theme.fg)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(model.blurb(app.flow)).font(Theme.text(28 * u)).foregroundStyle(Theme.fg2)
+                .fixedSize(horizontal: false, vertical: true)
+            Color.clear.frame(height: 8 * u)
+            if !lines.isEmpty { list(lines, u) }
+            if model.name == "terms" { termsPanel(u) }
+            if let c = model.code { codePanel(c, u) }
+            Color.clear.frame(height: 10 * u)
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { headH = $0 }
+    }
+
+    private func buttons(_ u: CGFloat) -> some View {
+        HStack(spacing: 24 * u) {
+            GlassButton(text: model.name == "done" ? L("Start Watching") : model.name == "welcome" ? L("Get Started") : model.name == "terms" ? L("I Agree") : model.skippable ? L("Skip for Now") : L("Continue"),
+                        primary: true, focused: model.onButtons && model.button == 0, u: u, flat: true)
+                .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.onButtons = true; model.button = 0 } }
+                .onTapGesture { model.next(app: app) }
+            if model.step > 0 {
+                GlassButton(text: L("Back"), focused: model.onButtons && model.button == 1, u: u, flat: true)
+                    .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.onButtons = true; model.button = 1 } }
+                    .onTapGesture { model.back(app: app) }
+            }
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { buttonsH = $0 }
     }
 
     private func list(_ lines: [SettingsModel.Line], _ u: CGFloat) -> some View {
@@ -522,7 +570,8 @@ struct SetupView: View {
                 .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { listH = $0 }
             }
             .scrollIndicators(.never)
-            .frame(height: min(530 * u, listH))
+            // a finger on a phone: the whole list, the page scrolls (a list in a scrolling page traps the swipe)
+            .frame(height: app.short && Platform.ios ? listH : min(530 * u, listH))
             .onChange(of: model.index) { if !Input.pointerHolds { withAnimation(.easeOut(duration: 0.14)) { proxy.scrollTo(model.index, anchor: .center) } } }
         }
         .padding(16 * u)
@@ -547,8 +596,7 @@ struct SetupView: View {
     /// the trakt code, big enough to read from the couch
     private func codePanel(_ c: TraktCodeModel, _ u: CGFloat) -> some View {
         VStack(spacing: 12 * u) {
-            Text(c.userCode == nil ? L("Asking Trakt for a code…") : L("On your phone, open %1 and enter", c.url))
-                .font(Theme.text(27 * u)).foregroundStyle(Theme.fg2)
+            TraktCodeLine(code: c.userCode, url: c.url, u: u)
             Text(c.userCode ?? "· · · ·").font(Theme.rounded(84 * u, .bold)).tracking(8 * u).foregroundStyle(Theme.fg)
                 .textSelection(.enabled)
             Spinner(size: 44 * u)

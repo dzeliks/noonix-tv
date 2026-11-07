@@ -1,5 +1,8 @@
+#if os(macOS)
 import AppKit
-import ServiceManagement
+#else
+import UIKit
+#endif
 import SwiftUI
 
 /// settings like the tv (qml Settings): sections on the left, the section's lines on the right
@@ -216,12 +219,15 @@ final class SettingsModel {
         case "playback":
             // the language's own name, whichever one is on
             out.append(Line(label: L("Language"), value: UILang.shared.code == "sr" ? "Srpski" : "English", act: "uilang"))
-            out.append(Line(label: L("Open at login"), detail: L("Starts Noonix TV when you sign in to this Mac"),
-                            checkable: true, checked: loginTick >= 0 && SMAppService.mainApp.status == .enabled, act: "login"))
-            out.append(Line(label: L("Show the title bar"), detail: L("A normal window with the title bar and its buttons"),
-                            checkable: true, checked: appSettings["title_bar"] as? Bool == true, act: "titlebar"))
-            out.append(Line(label: L("Match the screen's refresh rate"), detail: L("Switches the screen to 24 / 25 / 50 / 60 Hz for each video (never the resolution or HDR)"),
-                            checkable: true, checked: appSettings["refresh_match"] as? Bool == true, act: "refresh"))
+            // ios: no login, no window and the screen follows the video by itself
+            if !Platform.ios {
+                out.append(Line(label: L("Open at login"), detail: L("Starts Noonix TV when you sign in to this Mac"),
+                                checkable: true, checked: loginTick >= 0 && LoginItem.on, act: "login"))
+                out.append(Line(label: L("Show the title bar"), detail: L("A normal window with the title bar and its buttons"),
+                                checkable: true, checked: appSettings["title_bar"] as? Bool == true, act: "titlebar"))
+                out.append(Line(label: L("Match the screen's refresh rate"), detail: L("Switches the screen to 24 / 25 / 50 / 60 Hz for each video (never the resolution or HDR)"),
+                                checkable: true, checked: appSettings["refresh_match"] as? Bool == true, act: "refresh"))
+            }
             out.append(Line(label: L("Find extra subtitles"), detail: L("From OpenSubtitles, for your subtitle languages the file doesn't have"),
                             checkable: true, checked: on("extra_subs"), act: "app:extra_subs"))
             let hs = appSettings["hdr_screen"] as? String ?? "auto"
@@ -245,7 +251,11 @@ final class SettingsModel {
             }
             out.append(Line(label: L("Built in"), header: true))
             out.append(Line(label: L("Moving around"), detail: L("The d-pad, the left stick and the arrow keys")))
-            out.append(Line(label: L("Mouse"), detail: L("Point to move, click to select, right click goes back, the wheel scrolls")))
+            if Platform.ios {
+                out.append(Line(label: L("Touch"), detail: L("Tap to select, swipe to scroll, swipe in from the left edge to go back")))
+            } else {
+                out.append(Line(label: L("Mouse"), detail: L("Point to move, click to select, right click goes back, the wheel scrolls")))
+            }
             out.append(Line(label: L("Reset controls"), detail: L("The controller and keyboard as they came"), value: L("Reset"), act: "bind-reset"))
         default:
             // who made it, with the website a press away (qr for the phone)
@@ -256,7 +266,9 @@ final class SettingsModel {
             else if !updateState.isEmpty { det = updateState }
             else if u["available"] as? Bool == true { det = "\(u["latest"] ?? "") is out: download it from the releases page" }
             else { det = u["latest"] != nil ? L("Up to date") : L("Looks for a new version once a day") }
-            out.append(Line(label: L("Updates"), detail: det, value: u["available"] as? Bool == true ? L("Open") : L("Check"), act: "update"))
+            if !Platform.ios {
+                out.append(Line(label: L("Updates"), detail: det, value: u["available"] as? Bool == true ? L("Open") : L("Check"), act: "update"))
+            }
             out.append(Line(label: L("Run setup again"), detail: L("Language, profiles, Trakt, sources, picture quality, subtitles"), value: "›", act: "setup-again"))
             out.append(Line(label: L("License"), detail: L("Free software under the GNU GPL 3.0 or later. Source: github.com/dzeliks/noonix-tv")))
             out.append(Line(label: L("Terms"), detail: L("A player for your own videos and the sources you add; you answer for what you watch. github.com/dzeliks/noonix-tv › TERMS.md")))
@@ -267,7 +279,7 @@ final class SettingsModel {
             out.append(Line(label: "IntroDB", detail: L("Intro, recap and credits times")))
             out.append(Line(label: L("Stremio addons"), detail: L("Noonix TV ships no sources: videos come from your library and the addons and extensions you add")))
             out.append(Line(label: "mpv · FFmpeg", detail: L("Video playback through MPVKit (LGPL)")))
-            out.append(Line(label: L("Licenses"), detail: L("Every bundled library with its license and source: THIRD-PARTY.txt in the app's Resources")))
+            out.append(Line(label: L("Licenses"), detail: L("Every bundled library with its license and source: THIRD-PARTY.txt in the app's " + (Platform.ios ? "files" : "Resources"))))
         }
         return out
     }
@@ -323,8 +335,7 @@ final class SettingsModel {
                 await app.openSetup(again: true)
                 return
             } else if a == "copy-template", let t = template {
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString("\(t["name"] ?? "")\n\n\(t["description"] ?? "")", forType: .string)
+                Platform.copy("\(t["name"] ?? "")\n\n\(t["description"] ?? "")")
                 app.toast(L("Copied"))
                 copied = true
                 copiedTask?.cancel()
@@ -392,7 +403,7 @@ final class SettingsModel {
                 _ = await json("setup.setBalkan", ["on": appSettings["balkan_subs"] as? Bool != true])
             } else if a == "update" {
                 if update?["available"] as? Bool == true, let url = URL(string: "https://github.com/dzeliks/noonix-tv/releases/latest") {
-                    NSWorkspace.shared.open(url)
+                    Platform.open(url)
                     return
                 }
                 updateState = "checking"
@@ -431,7 +442,7 @@ final class SettingsModel {
                 _ = await json("settings.setApp", ["key": "title_bar", "value": v])
             } else if a == "login" {
                 do {
-                    if SMAppService.mainApp.status == .enabled { try await SMAppService.mainApp.unregister() } else { try SMAppService.mainApp.register() }
+                    try await LoginItem.toggle()
                 } catch {
                     app.toast(L("Couldn't change it: move Noonix TV to Applications first"))
                 }
@@ -578,6 +589,10 @@ struct SettingsHeader: View {
 struct BrandRow: View {
     let version: String
     let focused: Bool
+    /// a finger down on it (reset when a scroll takes the touch)
+    @GestureState private var down = false
+    /// a finger sees no focus, only the press (qml foc)
+    private var lit: Bool { Theme.touch ? down : focused }
     let u: CGFloat
 
     /// "Created by **aleksa.sh**", the name bold wherever the language puts it
@@ -588,27 +603,30 @@ struct BrandRow: View {
 
     var body: some View {
         HStack(spacing: 36 * u) {
-            Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 140 * u, height: 140 * u)
+            Image(nsImage: Platform.icon ?? NSImage()).resizable().frame(width: 140 * u, height: 140 * u)
             VStack(alignment: .leading, spacing: 6 * u) {
-                Text("Noonix TV").font(Theme.display(44 * u, .bold)).foregroundStyle(focused ? Theme.focusFg : Theme.fg)
+                Text("Noonix TV").font(Theme.display(44 * u, .bold)).foregroundStyle(lit ? Theme.focusFg : Theme.fg)
                 if !version.isEmpty {
                     Text(L("Version %1", version)).font(Theme.text(22 * u))
-                        .foregroundStyle(focused ? Color(red: 0.1, green: 0.1, blue: 0.12).opacity(0.6) : Theme.fg3)
+                        .foregroundStyle(lit ? Color(red: 0.1, green: 0.1, blue: 0.12).opacity(0.6) : Theme.fg3)
                 }
                 createdBy.font(Theme.text(26 * u))
-                    .foregroundStyle(focused ? Theme.focusFg : Theme.fg2)
+                    .foregroundStyle(lit ? Theme.focusFg : Theme.fg2)
                     .padding(.top, 8 * u)
             }
             Spacer(minLength: 0)
-            Text("›").font(Theme.text(34 * u)).foregroundStyle(focused ? Theme.focusFg : Theme.fg2)
+            Text("›").font(Theme.text(34 * u)).foregroundStyle(lit ? Theme.focusFg : Theme.fg2)
         }
         .padding(.leading, 34 * u)
         .padding(.trailing, 40 * u)
         .frame(height: 220 * u)
-        .background { RoundedRectangle(cornerRadius: 34 * u).fill(focused ? Color.white : Color.white.opacity(0.06)) }
-        .scaleEffect(focused ? 1.02 : 1)
-        .animation(Theme.lift, value: focused)
+        .background { RoundedRectangle(cornerRadius: 34 * u).fill(lit ? Color.white : Color.white.opacity(0.06)) }
+        .scaleEffect(lit ? 1.02 : 1)
+        .animation(Theme.lift, value: lit)
         .contentShape(.rect)
+        #if os(iOS)
+        .simultaneousGesture(DragGesture(minimumDistance: 0).updating($down) { _, d, _ in d = true })
+        #endif
     }
 }
 
@@ -616,6 +634,10 @@ struct BrandRow: View {
 struct SettingsRow: View {
     let line: SettingsModel.Line
     let focused: Bool
+    /// a finger down on it (reset when a scroll takes the touch)
+    @GestureState private var down = false
+    /// a finger sees no focus, only the press (qml foc)
+    private var lit: Bool { Theme.touch ? down : focused }
     let u: CGFloat
     /// the focus lift; 1 inside tight panels (the setup list)
     var grow: CGFloat = 1.02
@@ -623,19 +645,19 @@ struct SettingsRow: View {
     var body: some View {
         HStack(spacing: 18 * u) {
             // a wide logo before the text (the tmdb credit)
-            if line.kind == "tmdb", let url = Bundle.main.url(forResource: "tmdb", withExtension: "pdf"), let img = NSImage(contentsOf: url) {
+            if line.kind == "tmdb", let img = Platform.bundled("tmdb", "pdf") {
                 Image(nsImage: img).resizable().aspectRatio(contentMode: .fit).frame(height: 30 * u)
                     .padding(.trailing, 8 * u)
             }
             VStack(alignment: .leading, spacing: 4 * u) {
                 if !line.label.isEmpty {
-                    Text(line.label).font(Theme.text(26 * u, .medium)).foregroundStyle(focused ? Theme.focusFg : Theme.fg)
+                    Text(line.label).font(Theme.text(26 * u, .medium)).foregroundStyle(lit ? Theme.focusFg : Theme.fg)
                         .lineLimit(1)
                 }
                 if !line.detail.isEmpty {
                     Text(line.detail).font(Theme.text(20 * u))
-                        .foregroundStyle(focused ? Theme.focusFg.opacity(0.6) : Theme.fg3)
-                        .lineLimit(focused ? 8 : 2)
+                        .foregroundStyle(lit ? Theme.focusFg.opacity(0.6) : Theme.fg3)
+                        .lineLimit(lit ? 8 : 2)
                 }
             }
             // the text sets the height (qml Toggle), the switch sits inside it
@@ -647,23 +669,26 @@ struct SettingsRow: View {
             }
             if line.checkable {
                 Capsule()
-                    .fill(line.checked ? Color(red: 0x30 / 255, green: 0xD1 / 255, blue: 0x58 / 255) : focused ? Color.black.opacity(0.18) : Color.white.opacity(0.2))
+                    .fill(line.checked ? Color(red: 0x30 / 255, green: 0xD1 / 255, blue: 0x58 / 255) : lit ? Color.black.opacity(0.18) : Color.white.opacity(0.2))
                     .frame(width: 84 * u, height: 48 * u)
                     .overlay(alignment: line.checked ? .trailing : .leading) {
                         Circle().fill(.white).frame(width: 40 * u, height: 40 * u).padding(4 * u)
                     }
                     .animation(.spring(response: 0.3, dampingFraction: 0.6), value: line.checked)
             } else if !line.value.isEmpty {
-                Text(line.value).font(Theme.text(24 * u)).foregroundStyle(focused ? Theme.focusFg : Theme.fg2)
+                Text(line.value).font(Theme.text(24 * u)).foregroundStyle(lit ? Theme.focusFg : Theme.fg2)
                     // copy turning into copied can't push the text next to it onto a new line
                     .frame(minWidth: 100 * u, alignment: .trailing)
             }
         }
         .padding(.horizontal, 30 * u)
         .frame(maxWidth: .infinity, minHeight: (line.detail.isEmpty ? 84 : 108) * u, alignment: .leading)
-        .background { RoundedRectangle(cornerRadius: 24 * u).fill(focused ? Color.white : .clear) }
-        .scaleEffect(focused ? grow : 1)
-        .animation(Theme.lift, value: focused)
+        .background { RoundedRectangle(cornerRadius: 24 * u).fill(lit ? Color.white : .clear) }
+        .scaleEffect(lit ? grow : 1)
+        .animation(Theme.lift, value: lit)
         .contentShape(.rect)
+        #if os(iOS)
+        .simultaneousGesture(DragGesture(minimumDistance: 0).updating($down) { _, d, _ in d = true })
+        #endif
     }
 }

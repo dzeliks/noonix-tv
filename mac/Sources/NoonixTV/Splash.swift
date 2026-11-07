@@ -1,4 +1,8 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 
 /// launch splash (qml Splash): the pink blooms out of the black window while the lockup rises
@@ -80,7 +84,7 @@ struct SplashView: View {
         var out: [String: NSImage] = [:]
         for n in ["plate", "antenna-left", "antenna-right", "head", "eye-left", "eye-right", "eye-happy-left",
                   "eye-happy-right", "features", "mouth", "smile", "blush"] {
-            if let u = Bundle.main.url(forResource: n, withExtension: "svg", subdirectory: "kitty"), let i = NSImage(contentsOf: u) {
+            if let i = Platform.bundled(n, "svg", in: "kitty") {
                 out[n] = i
             }
         }

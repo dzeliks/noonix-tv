@@ -1,4 +1,8 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import Libmpv
 import Observation
 
@@ -97,7 +101,7 @@ final class MPVPlayer {
 
     init() {
         layer.framebufferOnly = true
-        layer.backgroundColor = NSColor.black.cgColor
+        layer.backgroundColor = CGColor(gray: 0, alpha: 1)
     }
 
     private func create() -> Bool {
@@ -109,7 +113,7 @@ final class MPVPlayer {
             ("vo", "gpu-next"), ("gpu-api", "vulkan"), ("gpu-context", "moltenvk"), ("hwdec", "videotoolbox"),
             ("target-colorspace-hint", "yes"), ("ytdl", "no"), ("keep-open", "yes"), ("input-default-bindings", "no"),
             ("cache", "yes"), ("demuxer-max-bytes", "400MiB"), ("sub-auto", "fuzzy"),
-            ("osd-level", "0"), ("ao", ProcessInfo.processInfo.environment["NOONIX_MUTE"] == "1" ? "null" : "coreaudio"),
+            ("osd-level", "0"), ("ao", ProcessInfo.processInfo.environment["NOONIX_MUTE"] == "1" ? "null" : Platform.ios ? "audiounit" : "coreaudio"),
         ] {
             mpv_set_option_string(m, k, v)
         }
@@ -183,6 +187,8 @@ final class MPVPlayer {
     }
 
     func togglePause() { set("pause", paused ? "no" : "yes") }
+    /// the app went to the background (ios): the video waits
+    func background() { if mpv != nil, !paused { set("pause", "yes") } }
     /// the player's hz button: on / off now and from now on
     func setRefreshMatch(_ on: Bool) {
         refreshMatch = on
@@ -276,9 +282,14 @@ final class MPVPlayer {
         var fps = 0.0
         mpv_get_property(mpv, "container-fps", MPV_FORMAT_DOUBLE, &fps)
         // the screen under the window, matched only when it's ours (full screen)
+        #if os(macOS)
         let window = NSApp.keyWindow ?? NSApp.windows.first
         let output = (window?.screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.stringValue ?? ""
         let full = window?.styleMask.contains(.fullScreen) ?? false
+        #else
+        // a phone or tablet doesn't switch its refresh rate for us
+        let output = "", full = false
+        #endif
         let args: [String: Any] = ["duration": duration, "fps": fps, "output": output, "refresh": full,
                                    "chapters": chapters(), "tracks": tracks.filter { $0.type == "sub" && !$0.external }.map(\.json),
                                    "dvProfile": 0]

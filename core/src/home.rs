@@ -5,7 +5,7 @@ use anyhow::{bail, Result};
 use serde_json::{json, Value};
 
 /// the library's row: a phone, tablet or tv box is a device, not a pc
-const LOCAL: &str = if cfg!(target_os = "android") { "On This Device" } else { "On This PC" };
+const LOCAL: &str = if cfg!(any(target_os = "android", target_os = "ios")) { "On This Device" } else { "On This PC" };
 
 /// the kodi home rows, in kodi's order
 pub fn rows() -> Value {

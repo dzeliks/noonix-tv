@@ -1,7 +1,12 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 
 /// hosts the player's metal layer; mpv draws into it on its own threads
+#if os(macOS)
 struct VideoSurface: NSViewRepresentable {
     let player: MPVPlayer
 
@@ -27,6 +32,37 @@ struct VideoSurface: NSViewRepresentable {
         }
     }
 }
+#else
+struct VideoSurface: UIViewRepresentable {
+    let player: MPVPlayer
+
+    func makeUIView(context: Context) -> UIView {
+        let v = Surface()
+        v.video = player.layer
+        v.layer.addSublayer(player.layer)
+        v.backgroundColor = .black
+        return v
+    }
+
+    func updateUIView(_ v: UIView, context: Context) {}
+
+    final class Surface: UIView {
+        var video: CAMetalLayer?
+
+        override func layoutSubviews() {
+            super.layoutSubviews()
+            guard let video else { return }
+            let scale = window?.screen.nativeScale ?? 3
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            video.frame = bounds
+            video.contentsScale = scale
+            video.drawableSize = CGSize(width: bounds.width * scale, height: bounds.height * scale)
+            CATransaction.commit()
+        }
+    }
+}
+#endif
 
 /// the osd's state and keys (qml Osd): zones bar / row, a track picker over the left side
 @MainActor @Observable
@@ -36,8 +72,9 @@ final class Osd {
     enum Zone { case bar, row, skip }
     enum Button: String { case subs, audio, match, rew, play, fwd, next, hz, exit }
     var buttons: [Button] {
-        player.next != nil && player.state != .ended ? [.subs, .audio, .match, .rew, .play, .fwd, .next, .hz, .exit]
-            : [.subs, .audio, .match, .rew, .play, .fwd, .hz, .exit]
+        // no refresh switching on ios
+        [.subs, .audio, .match, .rew, .play, .fwd] + (player.next != nil && player.state != .ended ? [.next] : [])
+            + (Platform.ios ? [] : [.hz]) + [.exit]
     }
     /// "how's this one?" and the subtitle timing, over the left of the row
     var match: MatchModel?
@@ -575,6 +612,8 @@ struct MatchSheet: View {
     let osd: Osd
     let model: MatchModel
     let u: CGFloat
+    /// the line a finger is down on
+    @GestureState private var downAt: Int?
 
     /// the timing line says where it's set now
     private func detail(_ l: MatchModel.Line) -> String {
@@ -595,7 +634,8 @@ struct MatchSheet: View {
             .padding(.top, 14 * u)
             .padding(.bottom, 18 * u)
             ForEach(Array(model.lines.enumerated()), id: \.offset) { i, l in
-                let foc = model.index == i
+                // a finger sees no focus, only the press
+                let foc = Theme.touch ? downAt == i : model.index == i
                 HStack(spacing: 24 * u) {
                     Image(systemName: l.icon).font(.system(size: 30 * u, weight: .medium))
                         .foregroundStyle(foc ? Theme.focusFg : l.id == "good" && model.liked ? Theme.accent : Theme.fg)
@@ -607,11 +647,14 @@ struct MatchSheet: View {
                     .lineLimit(1)
                 }
                 .padding(.horizontal, 30 * u)
-                .frame(maxWidth: .infinity, minHeight: 108 * u, alignment: .leading)
+                .frame(maxWidth: .infinity, minHeight: (Theme.touch ? 90 : 108) * u, alignment: .leading)
                 .background { RoundedRectangle(cornerRadius: 24 * u).fill(foc ? Color.white : .clear) }
                 .contentShape(.rect)
                 .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.index = i } }
                 .onTapGesture { osd.choose(l.id) }
+                #if os(iOS)
+                .simultaneousGesture(DragGesture(minimumDistance: 0).updating($downAt) { _, d, _ in d = i })
+                #endif
             }
         }
         .padding(16 * u)
@@ -657,6 +700,8 @@ struct PlayerView: View {
     @Environment(AppModel.self) private var app
     let player: MPVPlayer
     @State private var osd: Osd?
+    /// the last tap on the picture: two on one side jump
+    @State private var lastTap: (at: Date, side: Int)?
 
     var body: some View {
         ZStack {
@@ -688,11 +733,32 @@ struct PlayerView: View {
         }
         .contentShape(.rect)
         .onContinuousHover { _ in if Input.pointerLive { osd?.show() } }
+        #if os(macOS)
         .onTapGesture(count: 2) { NSApp.keyWindow?.toggleFullScreen(nil) }
+        #endif
+        #if os(iOS)
+        // a finger: a tap shows or hides them (like phone players), a double tap on a side jumps 10 s
+        .onTapGesture(coordinateSpace: .local) { at in
+            if osd?.picker != nil || osd?.match != nil { osd?.closePickers(); return }
+            let W = app.size.width
+            let side = at.x < W / 3 ? -1 : at.x > W * 2 / 3 ? 1 : 0
+            let now = Date()
+            if let last = lastTap, side != 0, last.side == side, now.timeIntervalSince(last.at) < 0.35 {
+                // the first tap of the pair toggled the controls: keep them up while jumping
+                player.seek(by: Double(side * 10))
+                osd?.show()
+                lastTap = (now, side)
+                return
+            }
+            lastTap = (now, side)
+            if osd?.shown == true { osd?.hideNow() } else { osd?.show() }
+        }
+        #else
         .onTapGesture {
             if osd?.picker != nil || osd?.match != nil { osd?.closePickers() }
             else if osd?.shown == true { player.togglePause() } else { osd?.show() }
         }
+        #endif
         .onAppear { osd = Osd(player: player, app: app) }
         // paused: up for good; playing again: down soon
         .onChange(of: player.paused) {
@@ -706,7 +772,9 @@ struct PlayerView: View {
             if player.next != nil { osd?.show(); osd?.zone = .skip } else { app.stopPlayback() }
         }
         .onChange(of: (osd?.shown ?? true) || player.state == .ended, initial: true) { _, up in player.setSubtitleLift(up) }
+        #if os(macOS)
         .onHover { inside in NSCursor.setHiddenUntilMouseMoves(inside && !(osd?.shown ?? true)) }
+        #endif
     }
 }
 
@@ -714,6 +782,10 @@ struct OsdView: View {
     let osd: Osd
     let u: CGFloat
     let size: CGSize
+    @State private var leftW: CGFloat = 0
+    @State private var fullLeftW: CGFloat = 0
+    @State private var rightW: CGFloat = 0
+    @State private var transportW: CGFloat = 0
 
     var body: some View {
         let p = osd.player
@@ -798,46 +870,59 @@ struct OsdView: View {
             let known = !(t.lang ?? "").isEmpty && t.lang != "und"
             return (known ? Lang.name(t.lang) : L("Audio")) + (ch.isEmpty ? "" : "  ·  " + ch)
         }()
-        return ZStack {
+        // a narrow screen (phones): the capsule moves right of the left buttons, and where even that
+        // runs into the right ones, those two go without their labels
+        let compact = margin + fullLeftW + 18 * u + transportW + 18 * u > W - margin - rightW
+        let left = HStack(spacing: 18 * u) {
+            rowButton(.subs, text: compact ? "" : subLabel, icon: "tv.subtitles", focused: focusOf(.subs))
+            rowButton(.audio, text: compact ? "" : audioLabel, icon: "speaker.wave.2", focused: focusOf(.audio))
+            rowButton(.match, text: "", icon: "text.bubble", focused: focusOf(.match))
+        }
+        return ZStack(alignment: .topLeading) {
             GlassEffectContainer(spacing: 18 * u) {
                 HStack(spacing: 18 * u) {
-                    rowButton(.subs, text: subLabel, icon: "tv.subtitles", focused: focusOf(.subs))
-                    rowButton(.audio, text: audioLabel, icon: "speaker.wave.2", focused: focusOf(.audio))
-                    rowButton(.match, text: "", icon: "text.bubble", focused: focusOf(.match))
+                    left
+                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { leftW = $0 }
+                        // the width with the labels, to know when they don't fit
+                        .background(alignment: .leading) {
+                            HStack(spacing: 18 * u) {
+                                GlassButton(text: subLabel, icon: "tv.subtitles", focused: false, u: u)
+                                GlassButton(text: audioLabel, icon: "speaker.wave.2", focused: false, u: u)
+                                GlassButton(text: "", icon: "text.bubble", focused: false, u: u)
+                            }
+                            .fixedSize()
+                            .hidden()
+                            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { fullLeftW = $0 }
+                        }
                     Spacer(minLength: 0)
-                    if osd.buttons.contains(.next) {
-                        rowButton(.next, text: L("Next Episode"), icon: "forward.end.fill", focused: focusOf(.next))
+                    HStack(spacing: 18 * u) {
+                        if osd.buttons.contains(.next) {
+                            rowButton(.next, text: L("Next Episode"), icon: "forward.end.fill", focused: focusOf(.next))
+                        }
+                        if osd.buttons.contains(.hz) {
+                            rowButton(.hz, text: L("Match Hz"), icon: p.refreshMatch ? "checkmark" : "tv", focused: focusOf(.hz))
+                        }
+                        rowButton(.exit, text: "", icon: "xmark", focused: focusOf(.exit))
                     }
-                    rowButton(.hz, text: L("Match Hz"), icon: p.refreshMatch ? "checkmark" : "tv", focused: focusOf(.hz))
-                    rowButton(.exit, text: "", icon: "xmark", focused: focusOf(.exit))
+                    .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rightW = $0 }
                 }
             }
             .padding(.horizontal, margin)
+            .frame(width: W, height: 104 * u)
 
             // transport in one glass capsule: 14 round the 76 circles, 10 round play
             HStack(spacing: 10 * u) {
                 ForEach([Osd.Button.rew, .play, .fwd], id: \.self) { b in
-                    let foc = focusOf(b)
-                    let d = (b == .play ? 84 : 76) * u
-                    Image(systemName: b == .play ? (p.paused ? "play.fill" : "pause.fill") : b == .rew ? "arrow.counterclockwise" : "arrow.clockwise")
-                        .font(.system(size: (b == .play ? 34 : 28) * u, weight: .semibold))
-                        .contentTransition(.symbolEffect(.replace))
-                        .foregroundStyle(foc ? Theme.focusFg : Theme.fg)
-                        .frame(width: d, height: d)
-                        .background { Circle().fill(foc ? Color.white : .clear).scaleEffect(foc ? 1.1 : 1) }
-                        .animation(Theme.lift, value: foc)
-                        .contentShape(.circle)
-                        .onContinuousHover { phase in
-                            if case .active = phase, Input.pointerLive { osd.zone = .row; osd.rowIndex = osd.buttons.firstIndex(of: b) ?? 0; osd.show() }
-                        }
-                        .onTapGesture { osd.act(b) }
+                    TransportKey(osd: osd, b: b, focused: focusOf(b), u: u)
                 }
             }
             .padding(.horizontal, 14 * u)
             .frame(height: 104 * u)
             .glassEffect(.regular, in: .capsule)
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { transportW = $0 }
+            .offset(x: max((W - transportW) / 2, margin + leftW + 18 * u))
         }
-        .frame(width: W, height: 104 * u)
+        .frame(width: W, height: 104 * u, alignment: .topLeading)
         .offset(y: H - 86 * u - 52 * u)
     }
 
@@ -848,6 +933,36 @@ struct OsdView: View {
                 if case .active = phase, Input.pointerLive { osd.zone = .row; osd.rowIndex = osd.buttons.firstIndex(of: b) ?? 0; osd.show() }
             }
             .onTapGesture { osd.act(b) }
+    }
+}
+
+/// rewind / play / forward in the transport capsule
+private struct TransportKey: View {
+    let osd: Osd
+    let b: Osd.Button
+    let focused: Bool
+    let u: CGFloat
+    @GestureState private var down = false
+
+    var body: some View {
+        // touch: play is the white one, the others light while pressed
+        let foc = Theme.touch ? b == .play || down : focused
+        let d = (b == .play ? 84 : 76) * u
+        Image(systemName: b == .play ? (osd.player.paused ? "play.fill" : "pause.fill") : b == .rew ? "arrow.counterclockwise" : "arrow.clockwise")
+            .font(.system(size: (b == .play ? 34 : 28) * u, weight: .semibold))
+            .contentTransition(.symbolEffect(.replace))
+            .foregroundStyle(foc ? Theme.focusFg : Theme.fg)
+            .frame(width: d, height: d)
+            .background { Circle().fill(foc ? Color.white : .clear).scaleEffect(foc ? 1.1 : 1) }
+            .animation(Theme.lift, value: foc)
+            .contentShape(.circle)
+            .onContinuousHover { phase in
+                if case .active = phase, Input.pointerLive { osd.zone = .row; osd.rowIndex = osd.buttons.firstIndex(of: b) ?? 0; osd.show() }
+            }
+            .onTapGesture { osd.act(b) }
+            #if os(iOS)
+            .simultaneousGesture(DragGesture(minimumDistance: 0).updating($down) { _, d, _ in d = true })
+            #endif
     }
 }
 

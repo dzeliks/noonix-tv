@@ -130,10 +130,17 @@ extension AppModel {
 struct KeyEntryView: View {
     @Environment(AppModel.self) private var app
     let model: KeyEntryModel
+    /// the phone's keyboard: up each time this changes
+    @State private var open = 0
+    @State private var cardH: CGFloat = 0
+    private func fit(_ u: CGFloat) -> CGFloat { cardH > 0 ? min(1, (app.size.height - 32 * u) / cardH) : 1 }
 
     var body: some View {
         let u = app.u
         let w = 900 * u, inner = w - 2 * 48 * u
+        let touch = Theme.touch
+        // a docked phone keyboard: up above it
+        let lift = max(0, app.size.height / 2 + cardH / 2 + 24 * u - app.keyboardTop)
         VStack(spacing: 22 * u) {
             Text(model.title).font(Theme.display(40 * u, .bold)).foregroundStyle(Theme.fg)
             if !model.hint.isEmpty {
@@ -141,19 +148,44 @@ struct KeyEntryView: View {
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             }
             EntryField(text: model.text, placeholder: model.placeholder, secret: model.secret, active: model.isOpen, size: 26 * u, u: u)
+                .overlay {
+                    if touch {
+                        ImeField(text: model.text, secret: model.secret, open: open,
+                                 edited: { model.text = $0; model.status = "" }, done: { model.submit() })
+                    }
+                }
+                .contentShape(.rect)
+                .onTapGesture { if touch { open += 1 } }
             Text(model.status).font(Theme.text(24 * u, .medium))
                 .foregroundStyle(model.ok ? Color(red: 0x30 / 255, green: 0xD1 / 255, blue: 0x58 / 255) : model.busy ? Theme.fg2 : Color(red: 1, green: 0x9F / 255, blue: 0x0A / 255))
                 .frame(height: 30 * u)
-            KeyboardView(model: model.kb, u: u / 2, width: inner, active: true)
-            Text(L("A real keyboard works too, and ⌘V pastes. Back closes this."))
-                .font(Theme.text(22 * u)).foregroundStyle(Theme.fg3)
-                .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+            if touch {
+                // the phone's keyboard has no done of ours; keys are long, pasting is how they arrive
+                HStack(spacing: 20 * u) {
+                    GlassButton(text: L("Paste"), focused: false, u: u)
+                        .onTapGesture { model.text += Platform.paste()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""; model.status = "" }
+                    GlassButton(text: L("Done"), primary: true, focused: false, u: u)
+                        .onTapGesture { model.submit() }
+                }
+            } else {
+                KeyboardView(model: model.kb, u: u / 2, width: inner, active: true)
+                Text(L("A real keyboard works too, and ⌘V pastes. Back closes this."))
+                    .font(Theme.text(22 * u)).foregroundStyle(Theme.fg3)
+                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(width: inner)
         .padding(48 * u)
         .panelGlass(56 * u, u: u)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { cardH = $0 }
+        // a phone with the glass keyboard (a pad): the whole card in view
+        .fixedSize()
+        .scaleEffect(fit(u))
+        .frame(width: (inner + 96 * u) * fit(u), height: cardH > 0 ? cardH * fit(u) : nil)
+        .offset(y: -lift)
         // in the middle of the app, part of it (not a window of its own in the corner)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .onAppear { if touch { open += 1 } }
     }
 }
 

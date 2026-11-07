@@ -1,4 +1,8 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 
 /// the library and the user's own sources (qml SourcesFlow), for setup's "your videos" step and
@@ -66,7 +70,7 @@ final class SourcesFlow {
         out.append(Line(label: L("Use the library"),
                         detail: !on ? L("Off: only the sources below play")
                             : scanning ? L("Looking through your folders…")
-                            : folders.isEmpty ? L("Pick the folders your movies and shows are in")
+                            : folders.isEmpty ? (Platform.ios ? L("Copy them into the Files app › Noonix TV") : L("Pick the folders your movies and shows are in"))
                             : Ln("%n video(s) found", files) + (unmatched > 0 ? "  ·  " + Ln("%n not recognized", unmatched) : ""),
                         checkable: true, checked: on, act: "lib:on"))
         if on {
@@ -74,7 +78,8 @@ final class SourcesFlow {
                 let path = f["path"] as? String ?? "", asked = removing == path
                 out.append(Line(label: f["label"] as? String ?? path,
                                 detail: asked ? L("Takes it out of the library, the files stay")
-                                    : Ln("%n video(s)  ·  OK takes it out of the library, the files stay", (f["files"] as? NSNumber)?.intValue ?? 0),
+                                    : (Theme.touch ? Ln("%n video(s)  ·  tap to take it out of the library, the files stay", (f["files"] as? NSNumber)?.intValue ?? 0)
+                                       : Ln("%n video(s)  ·  OK takes it out of the library, the files stay", (f["files"] as? NSNumber)?.intValue ?? 0)),
                                 value: asked ? L("Press Again to Remove") : L("Remove"), act: "lib:remove:" + path))
             }
             out.append(Line(label: L("Add a folder"), detail: L("Movies and shows, named the usual way: Show/Season 1/Show S01E02.mkv, Movie (2010).mkv"), value: "+", act: "lib:add"))

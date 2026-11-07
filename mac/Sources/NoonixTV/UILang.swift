@@ -38,19 +38,27 @@ final class UILang: @unchecked Sendable {
         for (s, t) in Self.mac { sr[s] = t }
     }
 
+    /// what the lines call this device: "Mac", or "iPhone" / "iPad" (set at launch on ios)
+    nonisolated(unsafe) static var deviceWord = "Mac"
+    private static let macWord = try! NSRegularExpression(pattern: "\\bMac\\b")
+
     func tr(_ s: String) -> String {
-        guard code == "sr" else { return s }
-        return sr[s] ?? s
+        Self.named(code == "sr" ? sr[s] ?? s : s)
+    }
+
+    static func named(_ s: String) -> String {
+        guard deviceWord != "Mac", s.contains("Mac") else { return s }
+        return macWord.stringByReplacingMatches(in: s, range: NSRange(s.startIndex..., in: s), withTemplate: deviceWord)
     }
 
     func core(_ s: String) -> String {
-        let s = Self.device[s] ?? s
-        guard code == "sr" else { return s }
-        return srCore[s] ?? sr[s] ?? s
+        // only the device's own labels get its name (a title could say mac)
+        guard let d = Self.device[s] else { return code == "sr" ? srCore[s] ?? sr[s] ?? s : s }
+        return Self.named(code == "sr" ? srCore[d] ?? sr[d] ?? d : d)
     }
 
     /// the core names this computer a pc: here it's a mac
-    static let device = ["On This PC": "On This Mac", "This PC": "This Mac"]
+    static let device = ["On This PC": "On This Mac", "On This Device": "On This Mac", "This PC": "This Mac"]
 
     /// an addon on this computer (the core adds "(this PC)" to its name)
     static func addonName(_ s: String) -> String {
@@ -73,6 +81,8 @@ final class UILang: @unchecked Sendable {
             "Tvoji filmovi i serije, i izvori koje dodaš, na ovom Mac-u. Par koraka i gledaš.",
         "Noonix TV plays the videos on this Mac and the sources you add yourself. Pick the folders your movies and shows are in; an addon or extension is optional.":
             "Noonix TV pušta snimke sa ovog Mac-a i izvore koje sam dodaš. Izaberi foldere u kojima su ti filmovi i serije; addon ili ekstenzija nisu obavezni.",
+        "Noonix TV plays the videos on this Mac and the sources you add yourself. Copy your movies and shows into Files › Noonix TV; an addon or extension is optional.":
+            "Noonix TV pušta snimke sa ovog Mac-a i izvore koje sam dodaš. Kopiraj filmove i serije u Fajlovi › Noonix TV; addon ili ekstenzija nisu obavezni.",
         "Noonix TV is only a player. It comes with no videos and no sources: it plays the files on your Mac and whatever addons or extensions you add yourself.":
             "Noonix TV je samo plejer. Ne dolazi ni sa jednim snimkom ni izvorom: pušta fajlove sa tvog Mac-a i addone ili ekstenzije koje sam dodaš.",
         "On this Mac": "Na ovom Mac-u",
@@ -101,6 +111,12 @@ final class UILang: @unchecked Sendable {
         "Match the screen's refresh rate": "Uskladi osvežavanje ekrana",
         "Switches the screen to 24 / 25 / 50 / 60 Hz for each video (never the resolution or HDR)":
             "Prebacuje ekran na 24 / 25 / 50 / 60 Hz za svaki video (rezoluciju i HDR nikad ne dira)",
+        // ios
+        "Touch": "Dodir",
+        "Tap to select, swipe to scroll, swipe in from the left edge to go back":
+            "Dodir bira, prevlačenje pomera, prevlačenje od leve ivice vraća nazad",
+        "No player app found: the link is copied": "Nema aplikacije za puštanje: link je kopiran",
+        "Copy them into the Files app › Noonix TV": "Kopiraj ih u aplikaciju Fajlovi › Noonix TV",
     ]
 }
 

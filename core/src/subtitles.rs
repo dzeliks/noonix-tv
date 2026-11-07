@@ -114,6 +114,34 @@ fn decode(bytes: &[u8]) -> Option<String> {
     (!text.contains('\0')).then_some(text)
 }
 
+/// italics / bold / underline tags typed with spaces (< / i >, < i>), or closing what never
+/// opened in that cue: players show those as text
+fn tidy(text: &str) -> String {
+    static TAG: std::sync::LazyLock<regex::Regex> =
+        std::sync::LazyLock::new(|| regex::Regex::new(r"<\s*(/?)\s*([iIbBuU])\s*>").unwrap());
+    let nl = if text.contains("\r\n") { "\r\n" } else { "\n" };
+    let cue_gap = format!("{nl}{nl}");
+    text.split(cue_gap.as_str())
+        .map(|cue| {
+            let mut open = [0usize; 3];
+            TAG.replace_all(cue, |c: &regex::Captures| {
+                let t = c[2].to_lowercase();
+                let k = "ibu".find(&t).unwrap_or(0);
+                if c[1].is_empty() {
+                    open[k] += 1;
+                } else if open[k] == 0 {
+                    return String::new();
+                } else {
+                    open[k] -= 1;
+                }
+                format!("<{}{t}>", &c[1])
+            })
+            .into_owned()
+        })
+        .collect::<Vec<_>>()
+        .join(cue_gap.as_str())
+}
+
 /// the last word of the name, past the marks that aren't a language: movie.sr-Latn.forced.srt
 fn guess_lang(name: &str) -> String {
     const LANGS: [(&str, &[&str]); 16] = [
@@ -144,7 +172,7 @@ pub fn import(path: &str) -> Result<Found> {
     let dir = PATHS.cache.join("subs");
     std::fs::create_dir_all(&dir)?;
     let copy = dir.join(format!("import-{:016x}.{ext}", hash.finish()));
-    std::fs::write(&copy, text)?;
+    std::fs::write(&copy, tidy(&text))?;
     Ok(Found {
         path: copy.to_string_lossy().into_owned(),
         lang: guess_lang(&name),
@@ -363,6 +391,12 @@ async fn download(src: &Src) -> Result<String> {
         Src::Addon(_, url) => Some(url.clone()),
     };
     if path.exists() {
+        // saved before the tidy-up: once more through it
+        if let Ok(bytes) = std::fs::read(&path) {
+            if let Some(t) = decode(&bytes).filter(|t| tidy(t) != *t) {
+                let _ = std::fs::write(&path, tidy(&t));
+            }
+        }
         return Ok(path.to_string_lossy().into_owned());
     }
     let link = match (src, link) {
@@ -373,7 +407,10 @@ async fn download(src: &Src) -> Result<String> {
     let (status, bytes) = http::send(&Req::get(link).timeout(15)).await?;
     http::ensure(status.is_success() && !bytes.is_empty(), "subtitle download failed")?;
     std::fs::create_dir_all(&dir)?;
-    std::fs::write(&path, &bytes)?;
+    match decode(&bytes) {
+        Some(t) => std::fs::write(&path, tidy(&t))?,
+        None => std::fs::write(&path, &bytes)?,
+    }
     Ok(path.to_string_lossy().into_owned())
 }
 
@@ -671,6 +708,16 @@ pub async fn next(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn spaced_tags_are_closed_up() {
+        assert_eq!(tidy("1\n00:00:01,000 --> 00:00:02,000\n< i >Engines.< / i >\n"), "1\n00:00:01,000 --> 00:00:02,000\n<i>Engines.</i>\n");
+        assert_eq!(tidy("< I >Hi</i> <b>x< /B>"), "<i>Hi</i> <b>x</b>");
+        assert_eq!(tidy("a < b and c > d"), "a < b and c > d");
+        // a closing tag with nothing open in its cue goes; the next cue starts fresh
+        assert_eq!(tidy("2\r\nI have started the main engines. </i>\r\n\r\n3\r\n<i>Four</i>"),
+                   "2\r\nI have started the main engines. \r\n\r\n3\r\n<i>Four</i>");
+    }
 
     #[test]
     fn imported_files_read_right() {

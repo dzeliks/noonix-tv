@@ -52,3 +52,7 @@ qt = ["dep:cxx", "dep:cxx-qt", "dep:cxx-qt-lib", "dep:cxx-qt-build"]
 lto = "thin"
 codegen-units = 4
 debug = 1
+
+# ios: the published one has no ios branch for binding to a device (its macos one works there)
+[patch.crates-io]
+librqbit-dualstack-sockets = { path = "vendor/librqbit-dualstack-sockets" }

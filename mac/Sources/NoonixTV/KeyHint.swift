@@ -11,13 +11,24 @@ struct KeyHint: View {
     let u: CGFloat
     var labelSize: CGFloat = 33
     var labelColor = Color.white.opacity(0.62)
+    /// touch or a phone (ios): no key to show, this says it instead (empty: no hint at all)
+    var pointLabel = ""
+    private var pointed: Bool { Platform.ios && (PointerMode.shared.on || Platform.phone) }
 
     private static let keys = ["MENU": "M", "OK": "Return", "BACK": "Esc"]
     private static let positions = ["MENU": "north", "OK": "south", "BACK": "east"]
 
     var body: some View {
+        if pointed {
+            if !pointLabel.isEmpty { Text(pointLabel).font(Theme.display(labelSize * u)).foregroundStyle(labelColor) }
+        } else {
+            keyed
+        }
+    }
+
+    private var keyed: some View {
         let line = Color.white.opacity(0.45)
-        HStack(spacing: 14 * u) {
+        return HStack(spacing: 14 * u) {
             if app.inputKind == "pad" {
                 Circle().stroke(line, lineWidth: 1.8 * u)
                     .frame(width: 50 * u, height: 50 * u)

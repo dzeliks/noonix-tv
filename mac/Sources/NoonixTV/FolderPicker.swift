@@ -144,7 +144,8 @@ struct FolderPickerView: View {
                 }
                 .padding(16 * u)
                 .panelGlass(40 * u, u: u)
-                Text(model.files.isEmpty ? L("OK opens a folder, Back goes up") : L("OK opens a folder or the file, Back goes up")).font(Theme.text(24 * u)).foregroundStyle(Theme.fg3)
+                Text(model.files.isEmpty ? Theme.say(L("OK opens a folder, Back goes up"), L("Tap a folder to open it, Back goes up"))
+                     : Theme.say(L("OK opens a folder or the file, Back goes up"), L("Tap a folder or the file to open it, Back goes up"))).font(Theme.text(24 * u)).foregroundStyle(Theme.fg3)
             }
             .frame(width: 1240 * u, alignment: .leading)
             .scaleEffect(shown ? 1 : 0.96)

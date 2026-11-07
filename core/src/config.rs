@@ -15,7 +15,7 @@ pub struct Paths {
     pub state: PathBuf,
 }
 
-#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
 fn xdg(var: &str, fallback: &str) -> PathBuf {
     match std::env::var_os(var) {
         Some(v) if !v.is_empty() => PathBuf::from(v),
@@ -28,7 +28,7 @@ pub fn home() -> PathBuf {
     std::env::var_os(var).map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"))
 }
 
-#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
 fn paths() -> Paths {
     Paths {
         config: xdg("XDG_CONFIG_HOME", ".config").join("noonix-tv"),
@@ -38,8 +38,9 @@ fn paths() -> Paths {
     }
 }
 
-// apple's places: application support (config + data), caches, logs. NOONIX_HOME moves it all
-#[cfg(target_os = "macos")]
+// apple's places: application support (config + data), caches, logs (ios: the app's own container).
+// NOONIX_HOME moves it all
+#[cfg(any(target_os = "macos", target_os = "ios"))]
 fn paths() -> Paths {
     let lib = home().join("Library");
     if let Some(base) = std::env::var_os("NOONIX_HOME").map(PathBuf::from) {
@@ -95,6 +96,14 @@ pub mod keys {
 static SECRETS: Lazy<RwLock<BTreeMap<String, String>>> = Lazy::new(|| RwLock::new(load_secrets()));
 
 /// loads them now: the first read takes the db lock, so it must not happen inside a db call
+/// custom avatars: on ios where the files app reaches (the app's documents), else the data dir
+pub fn avatars() -> PathBuf {
+    #[cfg(target_os = "ios")]
+    return home().join("Documents").join("Avatars");
+    #[cfg(not(target_os = "ios"))]
+    PATHS.data.join("avatars")
+}
+
 pub fn init_secrets() {
     Lazy::force(&SECRETS);
 }

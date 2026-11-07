@@ -1,4 +1,8 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 import GameController
 import MediaPlayer
@@ -75,6 +79,12 @@ final class PageScroll {
             withAnimation(.smooth(duration: 0.28)) { y = goal }
         }
     }
+    /// a finger let go at v points a second: the page coasts on and settles
+    func fling(_ v: CGFloat) {
+        guard let now = y else { return }
+        goal = max(0, min(end, now - v * 0.32))
+        withAnimation(.timingCurve(0.15, 0.75, 0.3, 1, duration: 0.7)) { y = goal }
+    }
     /// the keys on the scrolled page: row i comes in whole, the top row ends it
     func reveal(_ i: Int) {
         guard let now = y, tops.indices.contains(i) else { return }
@@ -117,6 +127,7 @@ enum Input {
     private static var lastWheel = Date.distantPast
     /// the row of cards under the mouse: sideways, the wheel moves it
     static var row: PageScroll?
+    #if os(macOS)
     /// the page moved under a resting mouse: a move of nothing, so what's under it now takes the hover
     private static var rehoverTask: Task<Void, Never>?
     private static func rehover() {
@@ -134,6 +145,10 @@ enum Input {
             }
         }
     }
+    #else
+    private static func rehover() { lastWheel = Date() }
+    #endif
+
     /// the mouse moved last (no key since): lists don't scroll for it, the wheel and keys do
     /// (qml Input.pointing); the rows show their page arrows meanwhile
     static var pointing: Bool { PointerMode.shared.on }
@@ -144,6 +159,7 @@ enum Input {
         PointerMode.shared.on = false
         return AppModel.current?.leaveMouse() ?? false
     }
+    #if os(macOS)
     /// a page that scrolls in pixels takes the wheel (true: it did)
     static var wheel: ((NSEvent) -> Bool)?
 
@@ -227,13 +243,58 @@ enum Input {
             if key == .back {
                 if !e.isARepeat { escDown = Date(); escFired = false }
                 else {
-                    if !escFired, Date().timeIntervalSince(escDown) >= holdBack { escFired = true; NSApp.terminate(nil) }
+                    if !escFired, Date().timeIntervalSince(escDown) >= holdBack { escFired = true; Platform.quit() }
                     return nil
                 }
             }
             return send(key) ? nil : e
         } as Any)
     }
+    #else
+    /// a page that scrolls in pixels takes a finger's drag (true: it did)
+    static var wheel: ((CGFloat) -> Bool)?
+    /// a hardware keyboard (ipad): arrows, return, escape and the bound keys; letters type into an
+    /// on-screen keyboard that's up
+    private static var keyboardOn = false
+    private static var shift = false
+    /// a touch: the pointer is what's in use (no focus marks, lists don't follow the focus)
+    static func touched() {
+        lastMove = Date()
+        if !PointerMode.shared.on { PointerMode.shared.on = true }
+    }
+    static func install(_ to: @escaping (Key) -> Bool, typed: @escaping (Typed) -> Bool) {
+        guard !keyboardOn else { return }
+        keyboardOn = true
+        let send = { (k: Key) -> Bool in
+            if keyed(), k.picks { return true }
+            return to(k)
+        }
+        func attach(_ kb: GCKeyboard?) {
+            kb?.keyboardInput?.keyChangedHandler = { _, _, code, down in
+                MainActor.assumeIsolated {
+                    if code == .leftShift || code == .rightShift { shift = down; return }
+                    guard down else { return }
+                    let name = Bindings.keyName(code)
+                    if let t = Bindings.typed(code, shift: shift), typed(t) { return }
+                    if let name, Bindings.shared.captured("keys", name) { return }
+                    let key: Key?
+                    switch code {
+                    case .upArrow: key = .up
+                    case .downArrow: key = .down
+                    case .leftArrow: key = .left
+                    case .rightArrow: key = .right
+                    default: key = name.flatMap { Bindings.shared.action("keys", $0) }.flatMap(Bindings.key)
+                    }
+                    if let key { _ = send(key) }
+                }
+            }
+        }
+        attach(GCKeyboard.coalesced)
+        NotificationCenter.default.addObserver(forName: .GCKeyboardDidConnect, object: nil, queue: .main) { n in
+            MainActor.assumeIsolated { attach(n.object as? GCKeyboard) }
+        }
+    }
+    #endif
 }
 
 
@@ -279,7 +340,7 @@ enum Pads {
                         if down {
                             backHold = Task {
                                 try? await Task.sleep(for: .seconds(Input.holdBack))
-                                if !Task.isCancelled { NSApp.terminate(nil) }
+                                if !Task.isCancelled { Platform.quit() }
                             }
                         }
                     }
@@ -376,6 +437,7 @@ enum MediaKeys {
 /// shot:<png path> draws the window into a file (no screen recording permission over ssh; the
 /// system's glass and the video don't show in it)
 enum DevKeys {
+    #if os(macOS)
     @MainActor static func shot(_ path: String) {
         guard let w = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil }) else { return }
         // the app's own window as the screen shows it (the sdk hides the call, the system still has it)
@@ -389,6 +451,10 @@ enum DevKeys {
         v.cacheDisplay(in: v.bounds, to: rep)
         try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
     }
+    #else
+    /// the simulator is shot from outside (simctl io)
+    @MainActor static func shot(_ path: String) {}
+    #endif
 
     static func install(_ send: @escaping @MainActor (Key) -> Bool, typed: @escaping @MainActor (Typed) -> Bool) {
         guard let path = ProcessInfo.processInfo.environment["NOONIX_KEYS"] else { return }
@@ -404,11 +470,19 @@ enum DevKeys {
                     let line = String(cString: buf).trimmingCharacters(in: .whitespacesAndNewlines)
                     DispatchQueue.main.async {
                         MainActor.assumeIsolated {
+                            #if os(iOS)
+                            // a finger, without one: touch mode, a page drag, letting go at a speed
+                            if line == "touch" { Input.touched(); return }
+                            if line.hasPrefix("drag:"), let d = Double(line.dropFirst(5)) { Input.touched(); _ = Input.wheel?(d); return }
+                            if line.hasPrefix("fling:"), let v = Double(line.dropFirst(6)) { AppModel.current?.fling(v); return }
+                            if line.hasPrefix("page:"), let p = Page(rawValue: String(line.dropFirst(5))) { Input.touched(); AppModel.current?.choose(p); AppModel.current?.navFocused = false; return }
+                            #endif
                             if let k = names[line] { if !(Input.keyed() && k.picks) { _ = send(k) } }
                             else if line.hasPrefix("text:") { _ = typed(.text(String(line.dropFirst(5)))) }
                             else if line == "erase" { _ = typed(.erase) }
                             else if line == "submit" { _ = typed(.submit) }
                             else if line.hasPrefix("shot:") { shot(String(line.dropFirst(5))) }
+
                         }
                     }
                 }

@@ -29,7 +29,7 @@ fn arg_i64(args: &Value, k: &str) -> Result<i64> {
 
 /// custom avatars: any png / jpg / webp dropped in ~/.local/share/noonix-tv/avatars
 fn avatar_files() -> Vec<String> {
-    let dir = crate::config::PATHS.data.join("avatars");
+    let dir = crate::config::avatars();
     let _ = std::fs::create_dir_all(&dir);
     let mut out: Vec<String> = std::fs::read_dir(&dir)
         .map(|rd| {
@@ -55,7 +55,7 @@ fn trakt_relogin(c: &rusqlite::Connection, profile: i64) -> Result<bool> {
 
 fn avatar_of(c: &rusqlite::Connection, id: i64) -> Option<String> {
     let name = store::get_setting(c, &format!("profile:{id}"), "avatar").ok().flatten()?;
-    let path = crate::config::PATHS.data.join("avatars").join(name.as_str()?);
+    let path = crate::config::avatars().join(name.as_str()?);
     path.is_file().then(|| path.to_string_lossy().into_owned())
 }
 
@@ -276,12 +276,12 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
             Ok(json!({ "ok": true }))
         }
         "profiles.avatars" => Ok(json!({
-            "dir": crate::config::PATHS.data.join("avatars").to_string_lossy(),
+            "dir": crate::config::avatars().to_string_lossy(),
             "files": avatar_files(),
         })),
         // a picture picked from a phone's gallery (only those: the rest are the user's own files)
         "profiles.removeAvatar" => {
-            let dir = crate::config::PATHS.data.join("avatars");
+            let dir = crate::config::avatars();
             let file = std::path::PathBuf::from(arg_str(&args, "file")?);
             let picked = file.file_name().and_then(|n| n.to_str()).is_some_and(|n| n.starts_with("picture-"));
             if picked && file.parent() == Some(dir.as_path()) {

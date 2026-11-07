@@ -1,4 +1,8 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 
 struct AddonState: Decodable, Hashable {
@@ -174,8 +178,7 @@ final class SourcesModel {
             (try? JSONSerialization.data(withJSONObject: v, options: [.fragmentsAllowed, .withoutEscapingSlashes]))
                 .flatMap { String(data: $0, encoding: .utf8) } ?? "\"\""
         }
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString("{\n  \"name\": \(q(t.name)),\n  \"description\": \(q(t.description))\n}", forType: .string)
+        Platform.copy("{\n  \"name\": \(q(t.name)),\n  \"description\": \(q(t.description))\n}")
         copied = true
     }
 
@@ -419,14 +422,18 @@ struct FlowLayout: Layout {
 struct SourceRow: View {
     let s: Source
     let focused: Bool
+    /// a finger down on it (reset when a scroll takes the touch)
+    @GestureState private var down = false
+    /// a finger sees no focus, only the press (qml foc)
+    private var lit: Bool { Theme.touch ? down : focused }
     let u: CGFloat
 
     var body: some View {
         let hdr = s.hdr.filter { $0 != "SDR" }
         HStack(spacing: 16 * u) {
             HStack(spacing: 8 * u) {
-                Badge(text: s.label, strong: true, onLight: focused, tint: focused ? Theme.accent : .white, u: u)
-                ForEach(hdr, id: \.self) { Badge(text: $0, strong: false, onLight: focused, tint: .white, u: u) }
+                Badge(text: s.label, strong: true, onLight: lit, tint: lit ? Theme.accent : .white, u: u)
+                ForEach(hdr, id: \.self) { Badge(text: $0, strong: false, onLight: lit, tint: .white, u: u) }
             }
             .fixedSize()
             // three marks keep the column, fewer leave their room to the title
@@ -434,12 +441,12 @@ struct SourceRow: View {
             VStack(alignment: .leading, spacing: 6 * u) {
                 Text(s.filename ?? s.title)
                     .font(Theme.text(23 * u, .medium))
-                    .foregroundStyle(focused ? Theme.focusFg : Theme.fg)
+                    .foregroundStyle(lit ? Theme.focusFg : Theme.fg)
                     .lineLimit(1)
                     .truncationMode(.middle)
                 // too long for the row: reads through once it's the selected one
-                Marquee(text: s.detailLine, font: Theme.text(20 * u), active: focused, u: u)
-                    .foregroundStyle(focused ? Color(red: 0.1, green: 0.1, blue: 0.12).opacity(0.7) : Theme.fg3)
+                Marquee(text: s.detailLine, font: Theme.text(20 * u), active: lit, u: u)
+                    .foregroundStyle(lit ? Color(red: 0.1, green: 0.1, blue: 0.12).opacity(0.7) : Theme.fg3)
             }
             Spacer(minLength: 16 * u)
             HStack(spacing: 8 * u) {
@@ -447,31 +454,34 @@ struct SourceRow: View {
                 if let w = s.warn {
                     Text(w == "level" ? L("May not play smoothly here") : w == "seeders" ? L("Few people sharing") : "")
                         .font(Theme.text(19 * u, .semibold))
-                        .foregroundStyle(focused ? Color(red: 0xB4 / 255, green: 0x53 / 255, blue: 0x09 / 255) : Color(red: 1, green: 0xB3 / 255, blue: 0x40 / 255))
+                        .foregroundStyle(lit ? Color(red: 0xB4 / 255, green: 0x53 / 255, blue: 0x09 / 255) : Color(red: 1, green: 0xB3 / 255, blue: 0x40 / 255))
                 }
                 // a torrent: how many people share it, when the addon says
                 if s.url == nil {
                     Text(s.seeders.map { L("%1 sharing", "\($0)") } ?? L("Torrent"))
-                        .font(Theme.text(20 * u, .semibold)).foregroundStyle(focused ? Theme.focusFg : Theme.fg2)
+                        .font(Theme.text(20 * u, .semibold)).foregroundStyle(lit ? Theme.focusFg : Theme.fg2)
                 }
                 if let svc = s.service {
-                    Text(svc).font(Theme.text(20 * u, .bold)).foregroundStyle(focused ? Theme.focusFg : Theme.fg2)
+                    Text(svc).font(Theme.text(20 * u, .bold)).foregroundStyle(lit ? Theme.focusFg : Theme.fg2)
                 }
                 if let c = s.cached {
                     Image(systemName: c ? "bolt.fill" : "hourglass")
                         .font(.system(size: 22 * u, weight: .semibold))
-                        .foregroundStyle(c ? (focused ? Color(red: 0xC7 / 255, green: 0x9A / 255, blue: 0) : Theme.cached)
-                                         : (focused ? Theme.focusFg : Theme.fg3))
+                        .foregroundStyle(c ? (lit ? Color(red: 0xC7 / 255, green: 0x9A / 255, blue: 0) : Theme.cached)
+                                         : (lit ? Theme.focusFg : Theme.fg3))
                         .frame(width: 30 * u, height: 30 * u)
                 }
             }
         }
         .padding(.horizontal, 26 * u)
         .frame(height: 116 * u)
-        .background { RoundedRectangle(cornerRadius: 26 * u).fill(focused ? Color.white : .clear) }
-        .scaleEffect(focused ? 1.02 : 1)
-        .animation(Theme.lift, value: focused)
+        .background { RoundedRectangle(cornerRadius: 26 * u).fill(lit ? Color.white : .clear) }
+        .scaleEffect(lit ? 1.02 : 1)
+        .animation(Theme.lift, value: lit)
         .padding(.horizontal, 28 * u)
+        #if os(iOS)
+        .simultaneousGesture(DragGesture(minimumDistance: 0).updating($down) { _, d, _ in d = true })
+        #endif
     }
 }
 
@@ -577,6 +587,7 @@ struct FinderView: View {
 
 /// a hand-off to another player app (a source's context menu)
 enum HandOff {
+    #if os(macOS)
     static func open(_ url: URL) {
         let ws = NSWorkspace.shared
         if ws.urlForApplication(withBundleIdentifier: "com.colliderli.iina") != nil,
@@ -592,4 +603,21 @@ enum HandOff {
         }
         ws.open(url)
     }
+    #else
+    /// vlc, then infuse, then outplayer; none of them: the link is copied
+    @MainActor static func open(_ url: URL) {
+        let e = url.absoluteString.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? ""
+        let tries = ["vlc-x-callback://x-callback-url/stream?url=" + e, "infuse://x-callback-url/play?url=" + e,
+                     "outplayer://" + url.absoluteString].compactMap(URL.init(string:))
+        func next(_ i: Int) {
+            guard i < tries.count else {
+                Platform.copy(url.absoluteString)
+                AppModel.current?.toast(L("No player app found: the link is copied"))
+                return
+            }
+            UIApplication.shared.open(tries[i]) { ok in if !ok { MainActor.assumeIsolated { next(i + 1) } } }
+        }
+        next(0)
+    }
+    #endif
 }

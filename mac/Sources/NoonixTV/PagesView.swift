@@ -1,4 +1,8 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 
 /// the frosted wallpaper the tv app puts behind library, search and settings: here the mac's own
@@ -19,7 +23,12 @@ struct Wallpaper: View {
         }
         .clipped()
         .task {
+            #if os(macOS)
             guard let screen = NSScreen.main, let url = NSWorkspace.shared.desktopImageURL(for: screen) else { return }
+            #else
+            // no wallpaper to borrow on ios
+            guard let url = URL?.none else { return }
+            #endif
             let got = await ImageStore.shared.load(url, px: 1280)
             withAnimation(.easeOut(duration: 0.3)) { img = got }
         }
@@ -74,7 +83,7 @@ struct LibraryPage: View {
                          : files ? L("No videos from this Mac yet") : L("Save something for later"))
                         .font(Theme.display(32 * u, .medium)).foregroundStyle(Theme.fg2)
                     if !history {
-                        Text(files ? L("Add the folders your movies and shows are in: Settings › Sources") : L("Open a title's options and choose Add to Library"))
+                        Text(files ? (Platform.ios ? L("Copy them into the Files app › Noonix TV") : L("Add the folders your movies and shows are in: Settings › Sources")) : L("Open a title's options and choose Add to Library"))
                             .font(Theme.text(24 * u)).foregroundStyle(Theme.fg3)
                     }
                 }
@@ -84,7 +93,7 @@ struct LibraryPage: View {
                 PosterGrid(model: m, style: history ? "landscape" : "poster", cols: cols, cellW: cellW, cellH: cellH,
                            height: H - 380 * u - 40 * u, active: active && !m.head)
                     .offset(x: margin - 20 * u, y: 380 * u)
-                KeyHint(key: "MENU", label: L("Options"), u: u * 0.82)
+                KeyHint(key: "MENU", label: L("Options"), u: u * 0.82, pointLabel: Platform.ios ? L("Hold an item for options") : "")
                     .frame(width: W - margin, alignment: .trailing)
                     .offset(y: 190 * u)
                     .opacity(active && !m.head && !files ? 1 : 0)
@@ -173,6 +182,13 @@ struct PosterGrid: View {
                         if case .active = phase, Input.pointerLive { app.navFocused = false; model.head = false; model.index = i; if app.page == .search { app.search.zone = "grid" } }
                     }
                     .onTapGesture { model.index = i; app.open(it) }
+                    #if os(iOS)
+                    .onLongPressGesture(minimumDuration: 0.45) {
+                        app.navFocused = false; model.head = false; model.index = i
+                        if app.page == .search { app.search.zone = "grid" }
+                        _ = app.key(.menu)
+                    }
+                    #endif
                     .zIndex(active && model.index == i ? 1 : 0)
                     .geometryGroup()
                     .offset(x: CGFloat(i % cols) * cellW + 20 * u, y: CGFloat(i / cols) * cellH + 20 * u - scroll)
@@ -197,6 +213,8 @@ struct PosterGrid: View {
 /// has a keyboard: the field takes typing, no on-screen keys)
 struct SearchPage: View {
     @Environment(AppModel.self) private var app
+    /// bumped to bring up the system keyboard (touch)
+    @State private var imeOpen = 0
 
     var body: some View {
         let u = app.u, W = app.size.width, H = app.size.height
@@ -204,90 +222,162 @@ struct SearchPage: View {
         let margin = Theme.margin(u)
         let columnW = 575 * u
         let columnX = W - margin - columnW
-        let topY = 150 * u, bottomY = H - 44 * u
+        let topY = 150 * u
+        // touch: the phone's own keyboard types, ours goes away. the layout ends where it starts
+        let ime = Theme.touch
+        let bottomY = (ime ? min(H, app.keyboardTop) : H) - 44 * u
         let gap = 40 * u
-        let posterW = (columnX - 64 * u - margin - 3 * gap) / 4
-        let cellW = posterW + gap, cellH = posterW * 1.5 + gap
         let titleH = 31 * u * 1.3
+        let sugs = s.suggestions
+        // touch: one column over the full width (field, suggestion chips, results). a docked keyboard
+        // leaves less than a row: the results become one row sideways right above it
+        let fullW = W - 2 * margin
+        let imeCols = max(4, min(8, Int(((fullW + gap) / (230 * u + gap)).rounded())))
+        let fieldY = topY - 8 * u
+        let chipsShown = ime && !sugs.isEmpty
+        let chipsY = fieldY + 64 * u + 18 * u, chipsH = 56 * u
+        let listTop = (chipsShown ? chipsY + chipsH : fieldY + 64 * u) + 26 * u
+        let fullPosterW = (fullW - CGFloat(imeCols - 1) * gap) / CGFloat(imeCols)
+        let squeezed = ime && bottomY - listTop < titleH + 18 * u + 10 * u + fullPosterW * 1.5 + gap
+        let rowPosterW = (bottomY - listTop - 26 * u) / 1.5
+        // too little even for that (a docked keyboard on a phone): the field and the chips only, the
+        // results come back when the keyboard goes (a chip tap sends it away)
+        let tight = squeezed && rowPosterW < 110 * u
+        let posterW = !ime ? (columnX - 64 * u - margin - 3 * gap) / 4
+            : squeezed ? max(110 * u, min(fullPosterW, rowPosterW)) : fullPosterW
+        let cols = ime ? imeCols : 4
+        let cellW = posterW + gap, cellH = posterW * 1.5 + gap
+        let titleY = ime ? listTop : topY
+        let gridY = titleY + titleH + 8 * u
+        let gridW = ime ? fullW : columnX - margin
         let active = !app.navFocused && app.detailStack.isEmpty
         // the keyboard on the terminal's 2160 grid, at the bottom of the column
         let ku = u / 2
         let kbH = 2 * 22 * ku + 4 * ((columnW - 2 * 22 * ku - 9 * 14 * ku) / 10 * 1.36) + 3 * 14 * ku
-        let fieldY = topY - 8 * u
         let sugY = fieldY + 64 * u + 30 * u
         let sugH = bottomY - kbH - 22 * u - sugY
         let chipH = min(62 * u, (sugH - titleH - 12 * u - 5 * 8 * u) / 6)
-        let sugs = s.suggestions
+        let fieldX = ime ? margin : columnX, fieldW = ime ? fullW : columnW
+        let keyboardUp = app.keyboardTop < H
         ZStack(alignment: .topLeading) {
             Wallpaper()
-            SearchSection(text: s.busy ? L("Searching…") : s.typing ? (s.grid.items.isEmpty ? L("No results") : L("Top results")) : L("Popular"), u: u)
-                .offset(x: margin, y: topY)
-            PosterGrid(model: s.grid, style: "poster", cols: 4, cellW: cellW, cellH: cellH,
-                       height: bottomY - (topY + titleH + 8 * u), active: active && s.zone == "grid", posterW: posterW)
-                // the grid's 20 of lift room, where qml's cells hold their cards 10 down and centred
-                .offset(x: margin - 20 * u, y: topY + titleH + 8 * u)
+            if !squeezed {
+                SearchSection(text: s.busy ? L("Searching…") : s.typing ? (s.grid.items.isEmpty ? L("No results") : L("Top results")) : L("Popular"), u: u)
+                    .offset(x: margin, y: titleY)
+                PosterGrid(model: s.grid, style: "poster", cols: cols, cellW: cellW, cellH: cellH,
+                           height: bottomY - gridY, active: active && s.zone == "grid", posterW: posterW)
+                    // the grid's 20 of lift room, where qml's cells hold their cards 10 down and centred
+                    .offset(x: margin - 20 * u, y: gridY)
+            } else if !tight {
+                // one row sideways, to the screen's edges, starting in line with the field
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: gap) {
+                        ForEach(Array(s.grid.items.enumerated()), id: \.offset) { i, it in
+                            Card(media: it, style: "poster", focused: false, u: u, posterW: posterW)
+                                .contentShape(.rect)
+                                .onTapGesture { s.grid.index = i; Platform.hideKeyboard(); app.open(it) }
+                        }
+                    }
+                    .padding(.horizontal, margin)
+                    .padding(.vertical, 10 * u)
+                }
+                .frame(width: W, height: posterW * 1.5 + 24 * u)
+                .offset(y: listTop - 8 * u)
+            }
             // new results on the way over the old ones
-            if s.busy && !s.grid.items.isEmpty {
+            if s.busy && !s.grid.items.isEmpty && !squeezed {
                 SearchSection(text: L("Searching…"), u: u).hidden()
                     .overlay(alignment: .trailing) { Spinner(size: 30 * u, color: Theme.fg2).offset(x: 48 * u) }
-                    .offset(x: margin, y: topY)
+                    .offset(x: margin, y: titleY)
             }
             // the first results on their way
-            if s.busy && s.grid.items.isEmpty {
+            if s.busy && s.grid.items.isEmpty && !tight {
                 Spinner(size: 72 * u, color: .white)
-                    .frame(width: columnX - margin)
-                    .offset(x: margin, y: topY + titleH + 18 * u + 240 * u)
+                    .frame(width: gridW)
+                    .offset(x: margin, y: squeezed ? listTop + (bottomY - listTop) / 2 - 36 * u : gridY + 10 * u + 240 * u)
             }
             // popular on its way: placeholder posters where they'll be
-            if !s.typing && s.grid.items.isEmpty && !s.popularKnown {
-                SkeletonGrid(style: "poster", cols: 4, cellW: cellW, cellH: cellH, height: bottomY - (topY + titleH + 8 * u), cardW: posterW, u: u)
-                    .offset(x: margin - 20 * u, y: topY + titleH + 8 * u)
+            if !s.typing && s.grid.items.isEmpty && !s.popularKnown && !squeezed {
+                SkeletonGrid(style: "poster", cols: cols, cellW: cellW, cellH: cellH, height: bottomY - gridY, cardW: posterW, u: u)
+                    .offset(x: margin - 20 * u, y: gridY)
                     .transition(.opacity)
             }
             // nothing found: say so where the results would be
-            if s.typing && !s.busy && s.grid.items.isEmpty {
+            if s.typing && !s.busy && s.grid.items.isEmpty && !tight {
                 VStack(spacing: 22 * u) {
                     Image(systemName: "magnifyingglass").font(.system(size: 64 * u, weight: .light)).foregroundStyle(Theme.fg3)
                     Text(L("No results for “%1”", s.query.trimmingCharacters(in: .whitespaces)))
                         .font(Theme.display(34 * u, .semibold)).foregroundStyle(Theme.fg).lineLimit(1)
                     Text(L("Check the spelling, or try the original title")).font(Theme.text(25 * u)).foregroundStyle(Theme.fg2)
                 }
-                .frame(width: columnX - margin)
-                .offset(x: margin, y: topY + titleH + 18 * u + 160 * u)
+                .frame(width: gridW)
+                .offset(x: margin, y: squeezed ? listTop + 40 * u : gridY + 10 * u + 160 * u)
             }
 
-            // the right column: the query, suggestions, the keyboard
+            // the query (the right column's top; touch: across the page)
             HStack(spacing: 16 * u) {
                 Image(systemName: "magnifyingglass").font(.system(size: 20 * u, weight: .semibold)).foregroundStyle(Theme.fg2)
                     .frame(width: 26 * u, height: 26 * u)
-                FieldLine(text: s.query, placeholder: L("Movies and shows"), active: true, size: 26 * u, u: u)
+                FieldLine(text: s.query, placeholder: L("Movies and shows"), active: !ime || keyboardUp, size: 26 * u, u: u)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 24 * u)
-            .frame(width: columnW, height: 64 * u)
+            .frame(width: fieldW, height: 64 * u)
             .background {
                 Capsule().fill(Color.white.opacity(0.1))
                     .overlay { Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1 * u) }
             }
-            .contentShape(.capsule)
-            .onTapGesture { app.navFocused = false; s.zone = "keys" }
-            .offset(x: columnX, y: fieldY)
-
-            if !sugs.isEmpty {
-                SearchSection(text: L("Suggestions"), u: u).offset(x: columnX, y: sugY)
-                ForEach(Array(sugs.enumerated()), id: \.offset) { i, t in
-                    SuggestionChip(text: t, focused: active && s.zone == "suggestions" && s.suggestion == i, u: u)
-                        .frame(width: columnW, height: chipH)
-                        .offset(x: columnX, y: sugY + titleH + 12 * u + CGFloat(i) * (chipH + 8 * u))
-                        .onContinuousHover { phase in
-                            if case .active = phase, Input.pointerLive { app.navFocused = false; s.zone = "suggestions"; s.suggestion = i }
-                        }
-                        .onTapGesture { s.query = t }
+            .overlay {
+                if ime {
+                    ImeField(text: s.query, open: imeOpen, search: true, edited: { s.query = $0 }, done: {
+                        Platform.hideKeyboard()
+                        if !s.grid.items.isEmpty { s.zone = "grid" }
+                    })
+                    .allowsHitTesting(false)
                 }
             }
-            KeyboardView(model: s.kb, u: ku, width: columnW, active: active && s.zone == "keys")
-                .offset(x: columnX, y: bottomY - kbH)
-                .onContinuousHover { phase in if case .active = phase, Input.pointerLive { app.navFocused = false; s.zone = "keys" } }
+            .contentShape(.capsule)
+            .onTapGesture {
+                app.navFocused = false; s.zone = "keys"
+                if ime { imeOpen += 1 }
+            }
+            .offset(x: fieldX, y: fieldY)
+
+            if chipsShown {
+                // touch: the suggestions as one row of chips under the field
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12 * u) {
+                        ForEach(Array(sugs.enumerated()), id: \.offset) { _, t in
+                            Text(t).font(Theme.display(24 * u, .medium)).foregroundStyle(.white).lineLimit(1)
+                                .padding(.horizontal, 24 * u)
+                                .frame(height: chipsH)
+                                .background { Capsule().fill(Color.white.opacity(0.10)) }
+                                .contentShape(.capsule)
+                                .onTapGesture { s.query = t; Platform.hideKeyboard() }
+                        }
+                    }
+                    .padding(.horizontal, margin)
+                }
+                .frame(width: W, height: chipsH)
+                .offset(y: chipsY)
+            }
+            if !ime {
+                if !sugs.isEmpty {
+                    SearchSection(text: L("Suggestions"), u: u).offset(x: columnX, y: sugY)
+                    ForEach(Array(sugs.enumerated()), id: \.offset) { i, t in
+                        SuggestionChip(text: t, focused: active && s.zone == "suggestions" && s.suggestion == i, u: u)
+                            .frame(width: columnW, height: chipH)
+                            .offset(x: columnX, y: sugY + titleH + 12 * u + CGFloat(i) * (chipH + 8 * u))
+                            .onContinuousHover { phase in
+                                if case .active = phase, Input.pointerLive { app.navFocused = false; s.zone = "suggestions"; s.suggestion = i }
+                            }
+                            .onTapGesture { s.query = t }
+                    }
+                }
+                KeyboardView(model: s.kb, u: ku, width: columnW, active: active && s.zone == "keys")
+                    .offset(x: columnX, y: bottomY - kbH)
+                    .onContinuousHover { phase in if case .active = phase, Input.pointerLive { app.navFocused = false; s.zone = "keys" } }
+            }
         }
         .frame(width: W, height: H, alignment: .topLeading)
         .clipped()
@@ -295,7 +385,14 @@ struct SearchPage: View {
             try? await Task.sleep(for: .milliseconds(320))
             if !Task.isCancelled { await s.run() }
         }
+        .onChange(of: cols, initial: true) { _, c in s.cols = c }
         .onAppear { s.upFromTop = { [weak app] in app?.navFocused = true } }
+        // opened by touch: typing is what search is for. the page stays alive under the others, so
+        // the keyboard goes with the page (or a title opened over it)
+        .onChange(of: app.page == .search, initial: true) { _, here in
+            if !here { Platform.hideKeyboard() } else if Theme.touch { DispatchQueue.main.async { imeOpen += 1 } }
+        }
+        .onChange(of: app.detailStack.isEmpty) { _, none in if !none { Platform.hideKeyboard() } }
     }
 }
 
@@ -350,12 +447,12 @@ extension SearchModel {
             if n == 0 { zone = "keys" }
             return true
         case "grid":
-            grid.columns = 4
+            grid.columns = cols
             switch k {
-            case .right where grid.index % 4 == 3 || grid.index == grid.items.count - 1:
+            case .right where grid.index % cols == cols - 1 || grid.index == grid.items.count - 1:
                 zone = suggestions.isEmpty ? "keys" : "suggestions"
                 return true
-            case .up where grid.index < 4: return false
+            case .up where grid.index < cols: return false
             case .back: return false
             default: return grid.key(k, app: app) || true
             }

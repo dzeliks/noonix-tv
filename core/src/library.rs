@@ -25,7 +25,15 @@ pub async fn folders() -> Vec<String> {
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
-        .unwrap_or_default()
+        .unwrap_or_else(default_folders)
+}
+
+/// ios: the app's own folder (files › noonix tv) is the only place videos can be
+fn default_folders() -> Vec<String> {
+    #[cfg(target_os = "ios")]
+    return vec![Path::new(&std::env::var("HOME").unwrap_or_default()).join("Documents").to_string_lossy().into_owned()];
+    #[cfg(not(target_os = "ios"))]
+    Vec::new()
 }
 
 /// the library counts as a source (on unless turned off)
@@ -117,6 +125,10 @@ fn label(path: &str) -> String {
     if let Some(rest) = path.strip_prefix("/storage/emulated/0") {
         return format!("Internal storage{rest}");
     }
+    #[cfg(target_os = "ios")]
+    if let Some(rest) = std::env::var("HOME").ok().and_then(|h| path.strip_prefix(&format!("{h}/Documents")).map(str::to_owned)) {
+        return format!("Noonix TV{rest}");
+    }
     let home = std::env::var(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).unwrap_or_default();
     match path.strip_prefix(home.trim_end_matches(['/', '\\'])) {
         Some(rest) if !home.is_empty() && (rest.is_empty() || rest.starts_with(['/', '\\'])) => format!("~{rest}"),
@@ -183,8 +195,16 @@ fn places(_files: bool) -> Vec<Value> {
     out
 }
 
+/// ios: only the app's own documents folder (the files app shows it as noonix tv)
+#[cfg(target_os = "ios")]
+fn places(_files: bool) -> Vec<Value> {
+    let docs = Path::new(&std::env::var("HOME").unwrap_or_default()).join("Documents");
+    let _ = std::fs::create_dir_all(&docs);
+    vec![json!({ "name": "Noonix TV (Files app)", "path": docs.to_string_lossy(), "label": "", "place": "videos" })]
+}
+
 /// where looking starts: home and its video folder (files: its downloads), then the drives
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 fn places(files: bool) -> Vec<Value> {
     let mut out = Vec::new();
     let home = std::env::var(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).unwrap_or_default();

@@ -1,4 +1,8 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import CoreImage.CIFilterBuiltins
 import SwiftUI
 
@@ -26,7 +30,7 @@ final class SiteCardModel {
     }
 
     func activate(_ i: Int, app: AppModel) {
-        if i == 0, let u = URL(string: url) { NSWorkspace.shared.open(u) }
+        if i == 0, let u = URL(string: url) { Platform.open(u) }
         app.site = nil
     }
 

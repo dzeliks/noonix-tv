@@ -1,4 +1,8 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import Foundation
 import Observation
 import SwiftUI
@@ -143,9 +147,14 @@ final class AppModel {
     static weak var current: AppModel?
 
     var size = CGSize(width: 1920, height: 1080)
+    /// where a docked on-screen keyboard starts (ios), the window's bottom while there's none
+    var keyboardTop: CGFloat = .infinity
     /// the 1920x1080 grid: by height, but a taller window (16:10, a mac's own screen) scales by
-    /// width and just gets more room below
-    var u: CGFloat { max(0.4, min(size.height / 1080, size.width / 1920)) }
+    /// width and just gets more room below. a phone draws larger (qml Desktop.boost): its grid is
+    /// narrower and shorter
+    var u: CGFloat { max(0.4 * Platform.boost, Platform.boost * min(size.height / 1080, size.width / 1920)) }
+    /// a phone in landscape: the layouts that run short of room (qml Theme.short)
+    var short: Bool { size.height / u < 900 }
 
     var page: Page = .home {
         didSet {
@@ -261,15 +270,22 @@ final class AppModel {
             guard let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any], let m = o["message"] as? String, !m.isEmpty else { return }
             self?.notify(UILang.shared.core(m))
         }
-        // a new release: one quiet line after launch, never over a video
-        Task { [weak self] in
+        // a new release: one quiet line after launch, never over a video (ios: the app store's job)
+        if !Platform.ios { Task { [weak self] in
             try? await Task.sleep(for: .seconds(20))
             guard let d = try? await Core.shared.raw("update.check", ["auto": true]),
                   let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
                   o["available"] as? Bool == true, let latest = o["latest"] as? String, self?.playing == false else { return }
             self?.notify(L("Noonix TV %1 is out  ·  Settings › About", latest))
-        }
+        } }
+        #if os(macOS)
         Input.wheel = { [weak self] e in self?.wheel(e) ?? false }
+        #else
+        Input.wheel = { [weak self] dy in self?.drag(dy) ?? false }
+        Touch.back = { [weak self] in _ = self?.key(.back) }
+        Touch.install()
+        PointerMode.shared.on = true
+        #endif
         Input.install({ [weak self] k in
             if self?.inputKind != "keyboard" { self?.inputKind = "keyboard" }
             return self?.key(k) ?? false
@@ -282,7 +298,12 @@ final class AppModel {
         }
         // now, on another screen and back in focus (hdr may have been switched meanwhile)
         reportDisplay()
-        for name in [NSApplication.didChangeScreenParametersNotification, NSWindow.didChangeScreenNotification, NSApplication.didBecomeActiveNotification] {
+        #if os(macOS)
+        let changes = [NSApplication.didChangeScreenParametersNotification, NSWindow.didChangeScreenNotification, NSApplication.didBecomeActiveNotification]
+        #else
+        let changes = [UIApplication.didBecomeActiveNotification]
+        #endif
+        for name in changes {
             NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated { self?.reportDisplay() }
             }
@@ -307,8 +328,12 @@ final class AppModel {
     /// what the screen shows, for the source ranking: edr headroom means hdr, and gpu-next
     /// reshapes dolby vision
     func reportDisplay() {
+        #if os(macOS)
         let screen = NSApp.keyWindow?.screen ?? NSScreen.main
         let hdr = (screen?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1) > 1
+        #else
+        let hdr = ((UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen.potentialEDRHeadroom ?? 1) > 1
+        #endif
         Task { _ = try? await Core.shared.raw("display.caps", ["hdr": hdr, "dv": true]) }
     }
 
@@ -735,7 +760,11 @@ final class AppModel {
         if page == .library { return library.scroll }
         // search: the grid, not the column beside it
         if page == .search {
+            #if os(macOS)
             let x = NSApp.keyWindow?.mouseLocationOutsideOfEventStream.x ?? 0
+            #else
+            let x = touchX
+            #endif
             return x < size.width - Theme.margin(u) - 575 * u ? search.grid.scroll : nil
         }
         return rails[page]?.scroll
@@ -746,12 +775,29 @@ final class AppModel {
             && profileEdit == nil && trakt == nil && traktChoice == nil && site == nil && setup == nil && picker == nil && exitChoice == nil && !playing
             && finder == nil && sources == nil && menu == nil
     }
+    #if os(macOS)
     func wheel(_ e: NSEvent) -> Bool {
         if menu != nil { menu = nil; return true }
         guard pageOnTop, let s = wheelPage else { return false }
         s.wheel(e.scrollingDeltaY, precise: e.hasPreciseScrollingDeltas, u: u)
         return true
     }
+    #else
+    /// where the finger went down (search: the grid or the column beside it)
+    @ObservationIgnored var touchX: CGFloat = 0
+    /// a finger dragging the page up or down by dy points (true: a page took it)
+    func drag(_ dy: CGFloat) -> Bool {
+        if menu != nil { menu = nil; return true }
+        guard pageOnTop, let s = wheelPage else { return false }
+        s.wheel(dy, precise: true, u: u)
+        return true
+    }
+    /// the finger let go at this speed (points a second): the page coasts on
+    func fling(_ v: CGFloat) {
+        guard pageOnTop, let s = wheelPage else { return }
+        s.fling(v)
+    }
+    #endif
     /// over the video the wheel is still the arrows; a track list scrolls by itself
     var wheelSteps: Bool { playing && Osd.shared?.picker == nil }
     /// a key after the mouse: the selection if it's still in view, else the first thing in view; the
@@ -967,6 +1013,8 @@ final class SearchModel {
     /// keys | suggestions | grid
     var zone = "keys"
     var suggestion = 0
+    /// the results' columns (more over a phone's full width)
+    @ObservationIgnored var cols = 4
     var trending: [Item] = []
     /// popular answered (placeholder posters until then)
     var popularKnown = false

@@ -231,18 +231,36 @@ struct DetailsView: View {
     @State private var infoH: CGFloat = 0
     @State private var heldY: CGFloat?
     @State private var plotSpare: CGFloat = 0
+    @State private var actionsW: CGFloat = 0
+    @State private var metaH: CGFloat = 0
+
+    // a phone in landscape: the episode cards and their two lines still fit the first screen, the
+    // logo gives up the room, the plot runs down beside the buttons (qml Details tight)
+    private var tight: Bool { app.short }
+    private var sp: CGFloat { (tight ? 22 : 34) * app.u }
+    private var actionsH: CGFloat { (tight ? 66 : 90) * app.u }
+    private var pillsH: CGFloat { (tight ? 46 : 60) * app.u }
+    /// under the info: buttons, pills, the episode cards with their lines, the gaps
+    private var underInfo: CGFloat { actionsH + pillsH + (400 * 9 / 16 + 92) * app.u + 4 * sp }
+    private var edge: CGFloat { (tight ? 36 : 44) * app.u }
+    private var headroom: CGFloat { (tight ? 36 : 60) * app.u }
+    /// tight: the story's end sits beside the buttons when they leave it the room
+    private var lend: CGFloat {
+        let W = app.size.width
+        return tight && Theme.margin(app.u) + actionsW + 40 * app.u < W - Theme.margin(app.u) - W * 0.36 ? actionsH + sp : 0
+    }
 
     var body: some View {
         let u = app.u, W = app.size.width, H = app.size.height
         let margin = Theme.margin(u)
-        let sp = 34 * u
+        let sp = self.sp
         let shows = model.hasSeasons
         let episodesH = 400 * u * 9 / 16 + 150 * u
-        let top = !shows ? H * 0.2 : max(60 * u, H - 44 * u - (infoH + 90 * u + 60 * u + (400 * 9 / 16 + 92) * u + 4 * sp))
+        let top = !shows ? H * 0.2 : max(headroom, H - edge - (infoH + underInfo))
         let yActions = top + sp + infoH + sp
-        let ySeasons = yActions + 90 * u + sp
-        let yEpisodes = ySeasons + 60 * u + sp
-        let yMore = shows ? yEpisodes + episodesH + sp : yActions + 90 * u + sp
+        let ySeasons = yActions + actionsH + sp
+        let yEpisodes = ySeasons + pillsH + sp
+        let yMore = shows ? yEpisodes + episodesH + sp : yActions + actionsH + sp
         let yFor = { (z: DetailsModel.Zone) -> CGFloat in
             switch z {
             // buttons, seasons and episodes keep the page as it opened: episodes the bottom row, the whole story above
@@ -289,6 +307,13 @@ struct DetailsView: View {
             .geometryGroup()
             .offset(y: -contentY)
             .animation(model.scroll.y == nil ? Theme.slide : nil, value: contentY)
+
+            // a finger on ios: the way back, top left (no system back button there)
+            if Theme.touch {
+                RoundButton(icon: "chevron.left", u: u) { _ = app.key(.back) }
+                    .offset(x: max(Theme.safeSide + 8 * u, 32 * u), y: 28 * u - contentY)
+                    .transition(.opacity)
+            }
         }
         .onChange(of: model.zone) { old, _ in heldY = Input.pointerHolds ? heldY ?? yFor(old) : nil }
         .onChange(of: PointerMode.shared.on) { _, on in if !on { heldY = nil } }
@@ -313,14 +338,25 @@ struct DetailsView: View {
             if model.isMovie, let p = dd.item.position { it.position = p; it.duration = dd.item.duration }
             return it
         }
+        let H = app.size.height
+        let idSpacing = (tight ? 14 : 20) * u
+        // tight: as tall as what's left over the episode row (never under 90)
+        let logoH = !tight ? 226 * u : !model.hasSeasons ? 170 * u
+            : max(90 * u, min(200 * u, H - edge - headroom - underInfo - idSpacing - metaH))
+        let logoPad = (tight ? 8 : 16) * u
+        // tight with episodes: as many plot lines as fit above them (two at least)
+        let fixedH = (34 + 14 + 26 + 14 + 26 + 14) * u
+        let room = H - edge - headroom - underInfo + lend - fixedH
+        let plotLines = !tight ? 7 : !model.hasSeasons ? 4 : max(2, min(7, Int(((room - 28 * u) / (29 * u)).rounded(.down))))
         return HStack(alignment: .bottom, spacing: 0) {
-            VStack(alignment: .leading, spacing: 20 * u) {
+            VStack(alignment: .leading, spacing: idSpacing) {
                 LogoBox(url: d?.item.logo, title: d?.item.title ?? model.item.showTitle ?? model.item.title ?? "",
-                        loading: d == nil, titleSize: 72 * u)
-                    .frame(width: 600 * u, height: 210 * u)
+                        loading: d == nil, titleSize: (tight ? 56 : 72) * u)
+                    .frame(width: (tight ? 460 : 600) * u, height: logoH - logoPad)
                     // room under the logo: a tall one doesn't sit on the line below
-                    .padding(.bottom, 16 * u)
+                    .padding(.bottom, logoPad)
                 MetaLine(item: meta, details: d, u: u)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { metaH = $0 }
             }
             .frame(width: W * 0.44, alignment: .leading)
             .padding(.leading, margin)
@@ -334,7 +370,7 @@ struct DetailsView: View {
                 } else if !model.isMovie {
                     Text(" ").font(Theme.display(26 * u, .semibold))
                 }
-                PlotBox(text: (ep?.overview).flatMap { $0.isEmpty ? nil : $0 } ?? d?.item.overview ?? "", u: u, spare: $plotSpare)
+                PlotBox(text: (ep?.overview).flatMap { $0.isEmpty ? nil : $0 } ?? d?.item.overview ?? "", u: u, spare: $plotSpare, lines: plotLines)
                 let cast = (d?.cast ?? []).prefix(4).compactMap(\.name)
                 if !cast.isEmpty {
                     Text(L("Starring %1", cast.joined(separator: ", "))).font(Theme.text(21 * u)).foregroundStyle(Theme.fg2).lineLimit(1)
@@ -346,6 +382,7 @@ struct DetailsView: View {
             }
             .frame(width: W * 0.36, alignment: .leading)
             .background(alignment: .topLeading) { StoryScrim(u: u, margin: margin, extra: plotSpare) }
+            .padding(.bottom, -lend)
             .padding(.trailing, margin)
         }
         .frame(width: W)
@@ -364,11 +401,13 @@ struct DetailsView: View {
     private func actions(u: CGFloat, margin: CGFloat) -> some View {
         let acts = model.actions
         return GlassEffectContainer(spacing: 26 * u) {
-            HStack(spacing: 26 * u) {
-                ForEach(Array(acts.enumerated()), id: \.offset) { i, a in
+            HStack(spacing: 26 * u * (tight ? 0.85 : 1)) {
+                // a finger (ios): back is the round one at the top (qml: a phone has its own back)
+                ForEach(Array(acts.enumerated()).filter { !(Theme.touch && $0.element == .back) }, id: \.offset) { i, a in
                     // the sources sheet over the page has the focus (qml: nothing here is lit then)
                     let focused = app.sources == nil && model.zone == .actions && min(model.action, acts.count - 1) == i
-                    GlassButton(text: label(a), icon: icon(a), focused: focused, u: u)
+                    // tight: smaller buttons rather than the story moving up; a finger: play is the white one
+                    GlassButton(text: label(a), icon: icon(a), primary: a == .play && Theme.touch, focused: focused, u: u * (tight ? 0.85 : 1))
                         .opacity(a == .library && (!model.libraryReady || model.libraryBusy) ? 0.5 : 1)
                         .onContinuousHover { phase in
                             if case .active = phase, Input.pointerLive { model.zone = .actions; model.action = i }
@@ -377,7 +416,8 @@ struct DetailsView: View {
                 }
             }
         }
-        .frame(height: 90 * u)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { actionsW = $0 }
+        .frame(height: actionsH)
         .padding(.leading, margin)
     }
 
@@ -406,16 +446,16 @@ struct DetailsView: View {
         // a row that scrolls (qml ListView): a long show keeps its pills whole
         ScrollViewReader { proxy in
         ScrollView(.horizontal) {
-        HStack(spacing: 16 * u) {
+        HStack(spacing: 16 * u * (tight ? 0.85 : 1)) {
             ForEach(Array(model.seasons.enumerated()), id: \.offset) { i, s in
                 let sel = s.number == model.seasonNo
                 let foc = app.sources == nil && model.zone == .seasons && model.seasonIndex == i
                 Text(s.name.map { $0.hasPrefix("Season ") && Int($0.dropFirst(7)) != nil } == false ? s.name! : L("Season %1", s.number))
-                    .font(Theme.display(25 * u, .semibold))
+                    .font(Theme.display(25 * u * (tight ? 0.85 : 1), .semibold))
                     .lineLimit(1).fixedSize()
                     .foregroundStyle(foc ? Theme.focusFg : sel ? Theme.fg : Theme.fg2)
-                    .padding(.horizontal, 22 * u)
-                    .frame(height: 56 * u)
+                    .padding(.horizontal, 22 * u * (tight ? 0.85 : 1))
+                    .frame(height: (tight ? 44 : 56) * u)
                     .background { Capsule().fill(foc ? Color.white : sel ? Color.white.opacity(0.22) : .clear) }
                     .contentShape(.capsule)
                     .onContinuousHover { phase in
@@ -425,7 +465,7 @@ struct DetailsView: View {
                     .id(i)
             }
         }
-        .frame(height: 60 * u)
+        .frame(height: pillsH)
         }
         .contentMargins(.horizontal, margin, for: .scrollContent)
         .scrollIndicators(.never)
@@ -459,6 +499,8 @@ struct PlotBox: View {
     let u: CGFloat
     /// the room left under seven lines (the scrim keeps its size with it)
     @Binding var spare: CGFloat
+    /// at most this many lines before it scrolls (fewer on a phone)
+    var lines = 7
     @State private var tall: CGFloat = 0
     @State private var seven: CGFloat = 0
     @State private var y: CGFloat = 0
@@ -487,7 +529,7 @@ struct PlotBox: View {
                                startPoint: .top, endPoint: .bottom)
             }
             .background(alignment: .topLeading) {
-                line("x\nx\nx\nx\nx\nx\nx").hidden()
+                line(Array(repeating: "x", count: lines).joined(separator: "\n")).hidden()
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { seven = $0 }
             }
             .padding(.vertical, -pad)
@@ -519,8 +561,15 @@ struct GlassButton: View {
     /// a set width (the prompts' button pairs) instead of hugging the label
     var width: CGFloat?
 
+    /// a finger down on it (reset when a scroll takes the touch)
+    @GestureState private var down = false
+
+    /// a finger: the main button is the white one, the rest light while pressed (qml lit)
+    private var lit: Bool { Theme.touch ? primary || down : focused }
+
     var body: some View {
         let h = height ?? 76 * u
+        let lit = lit, lift = focused && !Theme.touch
         HStack(spacing: 14 * u) {
             if icon == "tv.subtitles" {
                 SubtitlesGlyph().stroke(style: StrokeStyle(lineWidth: 2.2 * 34 * u / 24, lineCap: .round, lineJoin: .round))
@@ -535,7 +584,7 @@ struct GlassButton: View {
                 Text(text).font(Theme.display(27 * u, .semibold)).lineLimit(1).fixedSize()
             }
         }
-        .foregroundStyle(focused ? Theme.focusFg : Theme.fg)
+        .foregroundStyle(lit ? Theme.focusFg : Theme.fg)
         // qml: the label + 64, + 44 more with an icon (icon 34 + gap 14 leaves 30 a side)
         .padding(.horizontal, text.isEmpty ? 0 : icon == nil ? 32 * u : 30 * u)
         .frame(minWidth: h, minHeight: h, maxHeight: h)
@@ -544,18 +593,22 @@ struct GlassButton: View {
         .background {
             ZStack {
                 if flat { Capsule().fill(Color.white.opacity(primary ? 0.24 : 0.14)) }
-                Capsule().fill(Color.white).opacity(focused ? 1 : 0)
+                Capsule().fill(Color.white).opacity(lit ? 1 : 0)
             }
         }
-        .overlay { GlassRim(shape: Capsule(), u: u, glint: false).opacity(focused ? 0 : 1) }
-        .animation(.easeOut(duration: 0.16), value: focused)
+        .overlay { GlassRim(shape: Capsule(), u: u, glint: false).opacity(lit ? 0 : 1) }
+        .animation(.easeOut(duration: 0.16), value: lit)
         // the lift inside the glass: the white grows over it and covers it whole
-        .scaleEffect(focused ? 1.08 : 1)
-        .animation(Theme.lift, value: focused)
+        .scaleEffect(lift ? 1.08 : down ? 0.96 : 1)
+        .animation(Theme.lift, value: lift)
+        .animation(.easeOut(duration: 0.12), value: down)
         .glassEffect(flat ? .identity : .regular.tint(.white.opacity(primary ? 0.2 : 0.12)), in: .capsule)
         .contentShape(.capsule)
-        .shadow(color: .black.opacity(focused ? 0.5 : 0), radius: 18 * u, y: 14 * u)
-        .animation(.easeOut(duration: 0.16), value: focused)
+        .shadow(color: .black.opacity(lit ? 0.5 : 0), radius: 18 * u, y: 14 * u)
+        .animation(.easeOut(duration: 0.16), value: lit)
+        #if os(iOS)
+        .simultaneousGesture(DragGesture(minimumDistance: 0).updating($down) { _, d, _ in d = true })
+        #endif
     }
 }
 

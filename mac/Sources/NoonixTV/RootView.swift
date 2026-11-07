@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(iOS)
+import UIKit
+#endif
 
 /// the window: pages under the top bar, details over them, then sources, the finder, the player
 struct RootView: View {
@@ -13,7 +16,16 @@ struct RootView: View {
                     if let s = app.splash { SplashView(model: s, size: g.size).zIndex(30) }
                 }
             }
-            .onChange(of: g.size, initial: true) { app.size = g.size }
+            .onChange(of: g.size, initial: true) {
+                #if os(iOS)
+                // the notch and the home bar (qml Main safeProbe): set before the size makes it all lay out again
+                if let w = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).flatMap(\.windows).first {
+                    Theme.safeSide = max(w.safeAreaInsets.left, w.safeAreaInsets.right)
+                    Theme.safeBottom = w.safeAreaInsets.bottom
+                }
+                #endif
+                app.size = g.size
+            }
             .onChange(of: app.watchingNow, initial: true) { if app.watchingNow { app.watchStarted() } }
             .onChange(of: app.currentProfile?.id) { if app.watching { app.reloginCheck() } }
         }
@@ -195,7 +207,7 @@ struct TopNav: View {
             HStack {
                 if let p = app.currentProfile {
                     // left of the tabs: ok there asks who's watching
-                    let on = app.navFocused && app.navIndex < 0
+                    let on = app.navFocused && app.navIndex < 0 && !Theme.touch
                     Avatar(colour: p.color, letter: String(p.name.prefix(1)).uppercased(), size: 64 * u, image: p.avatar)
                         .overlay { Circle().stroke(.white, lineWidth: 4 * u).padding(-7 * u).opacity(on ? 1 : 0) }
                         .scaleEffect(on ? 1.16 : hover == -1 && Input.pointing ? 1.08 : 1)
@@ -225,7 +237,8 @@ struct TopNav: View {
     }
 
     private func pill(_ u: CGFloat) -> some View {
-        let focus = app.navFocused
+        // white capsule for the remote's focus; a finger just sees where it is
+        let focus = app.navFocused && !Theme.touch
         // on the avatar no tab is on and the capsule fades out where it was
         let sel = app.navIndex < 0 ? (Page.allCases.firstIndex(of: app.page) ?? 1) : app.navIndex
         let spot = tabs[sel] ?? .zero

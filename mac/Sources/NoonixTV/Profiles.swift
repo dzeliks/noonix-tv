@@ -1,4 +1,8 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 
 /// who's watching (qml Main's profile picker): the profiles in a line, then "add profile", and
@@ -46,6 +50,8 @@ final class PickerModel {
 struct ProfilePicker: View {
     @Environment(AppModel.self) private var app
     let model: PickerModel
+    /// the profile a finger is down on
+    @GestureState private var downAt: Int?
 
     var body: some View {
         let u = app.u
@@ -58,7 +64,8 @@ struct ProfilePicker: View {
             HStack(alignment: .top, spacing: 60 * u) {
                 ForEach(0...list.count, id: \.self) { i in
                     let p = list[safe: i]
-                    let foc = model.index == i && !model.onAuto && !editing
+                    // a finger sees no focus, only the press
+                    let foc = Theme.touch ? downAt == i : model.index == i && !model.onAuto && !editing
                     VStack(spacing: 24 * u) {
                         ZStack {
                             if let p {
@@ -82,20 +89,24 @@ struct ProfilePicker: View {
                         .animation(Theme.lift, value: foc)
                         Text(p?.name ?? L("Add Profile"))
                             .font(Theme.display(32 * u, .semibold))
-                            .foregroundStyle(foc ? Theme.fg : Theme.fg2)
+                            .foregroundStyle(foc || Theme.touch ? Theme.fg : Theme.fg2)
                             .lineLimit(1)
                     }
                     .frame(width: 240 * u)
                     .contentShape(.rect)
                     .onContinuousHover { phase in if case .active = phase, Input.pointerLive, !editing { model.onAuto = false; model.index = i } }
                     .onTapGesture { model.activate(i, app: app) }
+                    #if os(iOS)
+                    .simultaneousGesture(DragGesture(minimumDistance: 0).updating($downAt) { _, d, _ in d = i })
+                    #endif
                 }
             }
-            .frame(height: 320 * u, alignment: .top)
+            // short screens: no slack under the names, so the gaps above and below match
+            .frame(height: (app.short ? 270 : 320) * u, alignment: .top)
             .overlay(alignment: .top) {
                 Text(L("Who's watching?")).font(Theme.display(56 * u, .bold)).foregroundStyle(Theme.fg)
                     .fixedSize()
-                    .alignmentGuide(.top) { $0[.bottom] + 96 * u }
+                    .alignmentGuide(.top) { $0[.bottom] + (app.short ? 72 : 96) * u }
             }
             .overlay(alignment: .bottom) {
                 SettingsRow(line: .init(label: L("Sign in automatically"), detail: L("Open on the last profile without asking"),
@@ -103,7 +114,7 @@ struct ProfilePicker: View {
                             focused: model.onAuto && !editing, u: u * 1.25)
                     .frame(width: 800 * u)
                     .fixedSize(horizontal: false, vertical: true)
-                    .alignmentGuide(.bottom) { $0[.top] - 64 * u }
+                    .alignmentGuide(.bottom) { $0[.top] - (app.short ? 24 : 64) * u }
                     .onContinuousHover { phase in if case .active = phase, Input.pointerLive, !editing { model.onAuto = true } }
                     .onTapGesture { app.setAutoLogin(!app.autoLogin) }
             }
@@ -222,9 +233,13 @@ struct ProfileEditView: View {
     let model: ProfileEditModel
     /// under the mouse: a click picks it, hovering only shows it
     @State private var pointedLook: Int?
+    @State private var open = 0
+    @State private var cardH: CGFloat = 0
+    private func fit(_ u: CGFloat) -> CGFloat { cardH > 0 ? min(1, (app.size.height - 32 * u) / cardH) : 1 }
 
     var body: some View {
         let u = app.u
+        let touch = Theme.touch
         let w = 760 * u, inner = w - 2 * 48 * u
         let count = CGFloat(model.choices.count)
         VStack(spacing: 26 * u) {
@@ -260,16 +275,36 @@ struct ProfileEditView: View {
                 .onChange(of: model.choice) { withAnimation(.easeOut(duration: 0.22)) { proxy.scrollTo(model.choice, anchor: .center) } }
             }
             EntryField(text: model.name, placeholder: L("Name"), active: true, size: 28 * u, u: u)
+                .overlay {
+                    if touch {
+                        ImeField(text: model.name, limit: 20, open: open, words: true,
+                                 edited: { model.name = $0 }, done: { model.create() })
+                    }
+                }
                 .contentShape(.rect)
-                .onTapGesture { model.onLooks = false }
-            KeyboardView(model: model.kb, u: u / 2, width: inner, active: !model.onLooks)
-            Text(L("Up to pick a colour or a picture. Pictures: PNG or JPG files in %1", model.dir))
-                .font(Theme.text(22 * u)).foregroundStyle(Theme.fg3)
-                .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                .onTapGesture { model.onLooks = false; if touch { open += 1 } }
+            if touch {
+                // the phone's keyboard has no done of ours
+                GlassButton(text: model.editId != 0 ? L("Save") : L("Create"), primary: true, focused: false, u: u)
+                    .onTapGesture { model.create() }
+            } else {
+                KeyboardView(model: model.kb, u: u / 2, width: inner, active: !model.onLooks)
+                Text(L("Up to pick a colour or a picture. Pictures: PNG or JPG files in %1", Platform.ios ? "Files › Noonix TV › Avatars" : model.dir))
+                    .font(Theme.text(22 * u)).foregroundStyle(Theme.fg3)
+                    .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(width: inner)
         .padding(48 * u)
         .panelGlass(56 * u, u: u, lift: -0.22)
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { cardH = $0 }
+        // a docked phone keyboard: up above it
+        // a phone with the glass keyboard (a pad): the whole card in view
+        .fixedSize()
+        .scaleEffect(fit(u))
+        .frame(width: (inner + 96 * u) * fit(u), height: cardH > 0 ? cardH * fit(u) : nil)
+        .offset(y: -max(0, app.size.height / 2 + cardH / 2 + 24 * u - app.keyboardTop))
+        .onAppear { if touch { open += 1 } }
         // in the middle of the app, over whatever asked for it; nothing behind it takes the mouse
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { Color.black.opacity(0.001).contentShape(.rect).onTapGesture { model.cancel() } }
@@ -442,9 +477,7 @@ struct TraktCodeView: View {
             Color.black.opacity(0.4).contentShape(.rect).onTapGesture { app.closeTrakt(false) }
             VStack(spacing: 14 * u) {
                 Text(model.name.isEmpty ? L("Trakt") : L("Trakt for %1", model.name)).font(Theme.display(46 * u, .bold)).foregroundStyle(Theme.fg)
-                Text(model.userCode == nil ? L("Asking Trakt for a code…") : L("On your phone, open %1 and enter", model.url))
-                    .font(Theme.text(27 * u, .medium)).foregroundStyle(Theme.fg2)
-                    .multilineTextAlignment(.center)
+                TraktCodeLine(code: model.userCode, url: model.url, u: u, weight: .medium)
                     .padding(.bottom, 6 * u)
                 Text(model.userCode ?? "· · · ·")
                     .font(Theme.rounded(96 * u, .bold)).tracking(10 * u)

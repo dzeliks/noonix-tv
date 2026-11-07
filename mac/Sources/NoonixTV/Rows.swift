@@ -122,7 +122,7 @@ struct UndoFace: View {
                 .padding(9 * u)
             VStack(spacing: 10 * u) {
                 Image(systemName: "arrow.uturn.backward").font(.system(size: 34 * u, weight: .semibold))
-                Text(PointerMode.shared.on ? L("Click to undo") : L("Press OK to undo"))
+                Text(PointerMode.shared.on ? (Platform.ios ? L("Tap to undo") : L("Click to undo")) : L("Press OK to undo"))
                     .font(Theme.display(24 * u, .semibold))
                     .multilineTextAlignment(.center)
             }
@@ -236,6 +236,10 @@ struct CardStrip: View {
                         if case .active = phase, Input.pointerLive, i >= first { point(i) }
                     }
                     .onTapGesture { point(i); activate(i) }
+                    #if os(iOS)
+                    // held: its options (android's long press)
+                    .onLongPressGesture(minimumDuration: 0.45) { point(i); _ = AppModel.current?.key(.menu) }
+                    #endif
                     .opacity(i < first ? 0 : 1)
                     .animation(.easeInOut(duration: 0.22), value: first)
                     .zIndex(focused && i == index ? 1 : 0)
@@ -252,6 +256,12 @@ struct CardStrip: View {
             if inside { Input.row = side } else if Input.row === side { Input.row = nil }
         }
         .onDisappear { if Input.row === side { Input.row = nil } }
+        #if os(iOS)
+        // a finger down here: a sideways drag moves this row (Touch)
+        .simultaneousGesture(DragGesture(minimumDistance: 0).onChanged { _ in
+            if Touch.claimed !== side { side.past = pastEnd; Touch.claimed = side }
+        })
+        #endif
         .animation(side.y == nil ? Theme.slide : nil, value: first)
         .onChange(of: first, initial: true) { side.start = CGFloat(first) * step; side.end = CGFloat(lastFirst) * step }
         // one gone left of the view: the view stays on its cards, nothing moves. one handler for both: a new
@@ -294,14 +304,16 @@ struct MediaRowView: View {
 
     static func height(_ style: String, u: CGFloat) -> CGFloat {
         let cardH = style == "poster" ? 214 * u * 1.5 : 400 * u * 9 / 16 + 92 * u
-        return 31 * u * 1.2 + 40 * u + cardH + 30 * u
+        return 31 * u * 1.2 + gap(u) + cardH + 30 * u
     }
+    /// room under the title for the focused card's growth (less on a short screen: the cards come first)
+    static func gap(_ u: CGFloat) -> CGFloat { (AppModel.current?.short == true ? 18 : 40) * u }
 
     var body: some View {
         let style = model.row.style
         let cardW = (style == "poster" ? 214 : 400) * u
         let spacing = (style == "poster" ? 34 : 44) * u
-        VStack(alignment: .leading, spacing: 40 * u) {
+        VStack(alignment: .leading, spacing: Self.gap(u)) {
             HStack {
                 // a placeholder row (no title yet) has a placeholder title
                 if model.row.title.isEmpty {
@@ -314,7 +326,7 @@ struct MediaRowView: View {
                 }
                 Spacer()
                 // the options are one key away: say so on the focused row
-                KeyHint(key: "MENU", label: L("Options"), u: u * 0.82, labelColor: Theme.fg3)
+                KeyHint(key: "MENU", label: L("Options"), u: u * 0.82, labelColor: Theme.fg3, pointLabel: Platform.ios ? L("Hold an item for options") : "")
                     .opacity(active && !model.items.isEmpty ? 1 : 0)
                     .animation(.easeOut(duration: 0.22), value: active)
             }
@@ -341,7 +353,7 @@ struct MediaRowView: View {
                               point: point, activate: activate)
                 }
             }
-            .frame(width: width, height: MediaRowView.height(style, u: u) - 31 * u * 1.2 - 40 * u, alignment: .topLeading)
+            .frame(width: width, height: MediaRowView.height(style, u: u) - 31 * u * 1.2 - Self.gap(u), alignment: .topLeading)
             .animation(.easeOut(duration: 0.14), value: model.loaded)
         }
         .frame(width: width, alignment: .leading)

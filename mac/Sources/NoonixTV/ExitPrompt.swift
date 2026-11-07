@@ -1,4 +1,8 @@
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 import SwiftUI
 
 /// back at the top of the app: leave noonix tv? (qml ExitPrompt: stay is focused, so a stray
@@ -22,7 +26,7 @@ struct ExitPromptView: View {
                     ForEach(Array([L("Exit"), L("Stay")].enumerated()), id: \.offset) { i, t in
                         GlassButton(text: t, focused: choice == i, u: u, flat: true, width: 300 * u)
                             .onContinuousHover { phase in if case .active = phase, Input.pointerLive { app.exitChoice = i } }
-                            .onTapGesture { i == 0 ? NSApp.terminate(nil) : (app.exitChoice = nil) }
+                            .onTapGesture { i == 0 ? Platform.quit() : (app.exitChoice = nil) }
                     }
                 }
             }
@@ -37,7 +41,7 @@ extension AppModel {
         switch k {
         case .left: exitChoice = 0
         case .right: exitChoice = 1
-        case .ok: if exitChoice == 0 { NSApp.terminate(nil) } else { exitChoice = nil }
+        case .ok: if exitChoice == 0 { Platform.quit() } else { exitChoice = nil }
         case .back: exitChoice = nil
         default: break
         }

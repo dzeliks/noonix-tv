@@ -167,17 +167,20 @@ struct ToastView: View {
         HStack(spacing: 26 * u) {
             Text(text).font(Theme.display(28 * u, .medium)).foregroundStyle(Theme.fg)
             if !app.toastAction.isEmpty {
-                KeyHint(key: "MENU", label: app.toastAction, u: u * 0.9, labelSize: 28 / 0.9)
+                KeyHint(key: "MENU", label: app.toastAction, u: u * 0.9, labelSize: 28 / 0.9, pointLabel: app.toastAction)
             }
         }
         .padding(.horizontal, 36 * u)
         .frame(height: 78 * u)
         .glassEffect(.regular.tint(.black.opacity(0.3)), in: .capsule)
         .overlay { GlassRim(shape: Capsule(), u: u) }
+        // one with an action (undo): a tap runs it (qml Toast TapHandler)
+        .contentShape(.capsule)
+        .onTapGesture { _ = app.triggerToast() }
+        .allowsHitTesting(!app.toastAction.isEmpty)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
         // under the bar, or under the player's clock and end time
         .padding(.top, (app.playing ? 168 : 140) * u)
         .padding(.trailing, Theme.margin(u))
-        .allowsHitTesting(false)
     }
 }

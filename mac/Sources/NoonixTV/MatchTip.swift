@@ -22,7 +22,8 @@ struct MatchTipView: View {
                 Text(L("How's this one?"))
                     .font(Theme.display(46 * u, .bold)).foregroundStyle(Theme.fg)
                     .padding(.top, 30 * u)
-                Text(L("Press Menu while watching to say if the source and subtitles fit."))
+                Text(Theme.say(L("Press Menu while watching to say if the source and subtitles fit."),
+                               L("Tap the screen while watching, then the speech bubble, to say if the source and subtitles fit.")))
                     .font(Theme.text(27 * u, .medium)).foregroundStyle(Theme.fg2)
                     .multilineTextAlignment(.center)
                     .padding(.top, 14 * u)
@@ -47,7 +48,7 @@ struct MatchTipView: View {
                     .padding(.top, 26 * u)
                 HStack(spacing: 24 * u) {
                     ForEach(Array([L("OK"), L("Don't show again")].enumerated()), id: \.offset) { i, t in
-                        GlassButton(text: t, focused: choice == i, u: u, width: 360 * u)
+                        GlassButton(text: t, primary: i == 0 && Theme.touch, focused: choice == i, u: u, width: 360 * u)
                             .onContinuousHover { phase in if case .active = phase, Input.pointerLive { app.tipChoice = i } }
                             .onTapGesture { app.closeTip(forever: i == 1) }
                     }

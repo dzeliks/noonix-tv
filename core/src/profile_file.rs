@@ -191,7 +191,7 @@ fn titles(w: &Watch) -> usize {
 }
 
 fn avatar_dir() -> PathBuf {
-    config::PATHS.data.join("avatars")
+    config::avatars()
 }
 
 // ---- export

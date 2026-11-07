@@ -11,7 +11,10 @@ struct RailsPage: View {
     var body: some View {
         let u = app.u, size = app.size
         let shown = rails.shown
-        let rowsTop = size.height * 0.53
+        // short (a phone): one whole row of either kind (posters are the taller, their own room under
+        // the cards included), clear of the home bar; the next row doesn't peek in
+        let rowsH = max(size.height * 0.47, app.short ? (31 * 1.2 + 18 + 214 * 1.5 + 30) * u + Theme.safeBottom : 0)
+        let rowsTop = size.height - rowsH
         let gap = 8 * u
         let heights = shown.map { MediaRowView.height($0.row.style, u: u) + gap }
         let cur = min(rails.current, max(0, shown.count - 1))
@@ -24,7 +27,7 @@ struct RailsPage: View {
         let pageActive = !app.navFocused && app.detailStack.isEmpty
 
         ZStack(alignment: .topLeading) {
-            Hero(item: current, u: u, size: size)
+            Hero(item: current, u: u, size: size, band: max(size.height * 0.475, rowsH))
                 .offset(y: -(wheelY ?? 0))
 
             ForEach(Array(shown.enumerated()), id: \.element.id) { i, row in
@@ -41,7 +44,10 @@ struct RailsPage: View {
                              })
                     // rows above the focus hide behind the hero: gone at once, back with a fade
                     // (only the fade: the move stays on the page's slide like every other row)
-                    .animation(i < top ? .easeOut(duration: 0.1) : .easeIn(duration: 0.45)) { $0.opacity(i < top && wheelY == nil ? 0 : 1) }
+                    // (a phone: the next one starts under the home bar, it doesn't peek in)
+                    .animation(i < top ? .easeOut(duration: 0.1) : .easeIn(duration: 0.45)) {
+                        $0.opacity(wheelY == nil && (i < top || (app.short && y >= size.height - Theme.safeBottom - 1)) ? 0 : 1)
+                    }
                     // one piece: its cards don't trail its title on the way
                     .geometryGroup()
                     .offset(y: y)
@@ -83,7 +89,7 @@ struct RailsPage: View {
             var tops: [CGFloat] = [], y: CGFloat = 0
             for h in hs { tops.append(y); y += h }
             rails.scroll.tops = tops
-            rails.scroll.end = max(0, y - size.height * 0.47)
+            rails.scroll.end = max(0, y - (size.height - rowsTop))
             rails.scroll.rowsTop = rowsTop
             rails.scroll.clearY = 210 * u
             rails.scroll.height = size.height
@@ -114,6 +120,8 @@ struct Hero: View {
     let item: Item?
     let u: CGFloat
     let size: CGSize
+    /// the rows' share of the page (home makes it larger on a short screen)
+    var band: CGFloat?
 
     @State private var cur: Item?
     @State private var textOpacity: Double = 1
@@ -126,7 +134,11 @@ struct Hero: View {
 
     var body: some View {
         let margin = Theme.margin(u)
-        let infoBottom = size.height * 0.475 + 34 * u
+        let infoBottom = (band ?? size.height * 0.475) + (app.short ? 16 : 34) * u
+        // grid units between the top bar (with air under it) and the info's bottom: a short screen
+        // gets a smaller logo and fewer lines of story instead of text running into the bar
+        let room = (size.height - infoBottom) / u - 165
+        let logoH = max(app.short ? 64 : 96, min(190, room - 95 - (cur?.kind == "episode" ? 45 : 0))) * u
         ZStack(alignment: .bottomLeading) {
             Backdrop(url: wanted)
                 .frame(width: size.width, height: size.height)
@@ -152,7 +164,7 @@ struct Hero: View {
                 VStack(alignment: .leading, spacing: 16 * u) {
                     LogoBox(url: details?.item.logo, title: (episode ? cur.showTitle : cur.title) ?? "",
                             loading: details == nil, titleSize: 64 * u)
-                        .frame(width: 560 * u, height: 190 * u)
+                        .frame(width: 560 * u, height: logoH)
                         // room under the logo: a tall one doesn't sit on the line below
                         .padding(.bottom, 16 * u)
                     if episode, let s = cur.season, let e = cur.episode {
@@ -168,7 +180,7 @@ struct Hero: View {
                 .padding(.bottom, infoBottom)
                 .opacity(textOpacity)
 
-                story(cur, margin: margin, infoBottom: infoBottom)
+                story(cur, margin: margin, infoBottom: infoBottom, lines: max(2, min(7, Int(((room - 78) / 28).rounded(.down)))))
             }
         }
         .frame(width: size.width, height: size.height)
@@ -176,7 +188,7 @@ struct Hero: View {
     }
 
     @ViewBuilder
-    private func story(_ cur: Item, margin: CGFloat, infoBottom: CGFloat) -> some View {
+    private func story(_ cur: Item, margin: CGFloat, infoBottom: CGFloat, lines: Int) -> some View {
         let overview = cur.overview ?? cur.showOverview ?? ""
         let cast = (details?.cast ?? []).prefix(3).compactMap(\.name)
         let facts: String = {
@@ -192,7 +204,7 @@ struct Hero: View {
                 .font(Theme.text(24 * u))
                 .foregroundStyle(Theme.fg.opacity(0.93))
                 .lineSpacing(24 * u * 0.19)
-                .lineLimit(7)
+                .lineLimit(lines)
                 .shadow(color: .black.opacity(0.45), radius: 0, y: 1)
             if !cast.isEmpty {
                 Text(L("Starring %1", cast.joined(separator: ", ")))
