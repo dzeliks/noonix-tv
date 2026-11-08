@@ -15,7 +15,7 @@ Item {
     readonly property real startX: view.originX - view.leftMargin
     readonly property real endX: Math.max(startX, view.originX + view.contentWidth + view.rightMargin - view.width)
     // the arrows sit over the list and take its hover: they keep themselves up
-    readonly property bool shown: (hover.hovered || back.hovered || fwd.hovered) && Input.pointing === true && view.count > 0
+    readonly property bool shown: (hover.hovered || back.hovered || fwd.hovered) && Theme.mouse && Input.pointing === true && view.count > 0
     x: view.x; y: view.y
     width: view.width; height: view.height
 

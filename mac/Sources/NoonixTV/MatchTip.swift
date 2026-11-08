@@ -42,7 +42,7 @@ struct MatchTipView: View {
                     }
                 }
                 .padding(.top, 34 * u)
-                Text(L("What works is remembered for the next episodes. What doesn't gets fixed where you are."))
+                Text(L("What works is remembered for the next episodes.\nWhat doesn't gets fixed where you are.").replacingOccurrences(of: "\n", with: " "))
                     .font(Theme.text(22 * u)).foregroundStyle(Theme.fg3)
                     .multilineTextAlignment(.center)
                     .padding(.top, 26 * u)

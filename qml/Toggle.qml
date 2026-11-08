@@ -11,8 +11,9 @@ Item {
     property string badge: ""            // a rank number for ordered choices
     property url icon: ""                // a wide logo before the label (credits)
     property bool focused: false
+    property bool dim: false             // nothing to do here right now: greyed out
     // a finger lights a row only while it's down: no remote highlight left behind on a phone
-    readonly property bool lit: focused && (!Theme.touch || tPt.down)
+    readonly property bool lit: Theme.lit(focused, tPt)
     property bool wrapLabel: false
     property real radius: 24 * u
     property real grow: 1.02             // focus lift; 1 inside tight popovers
@@ -29,7 +30,7 @@ Item {
     Rectangle {
         anchors.fill: parent
         radius: t.radius
-        color: t.lit ? "white" : "transparent"
+        color: t.lit ? (t.dim ? Qt.rgba(1, 1, 1, 0.42) : "white") : "transparent"
         scale: t.lit && !(Theme.android && tPt.down) ? t.grow : 1
         Behavior on scale { SpringAnimation { spring: Theme.springK; damping: Theme.springDamp; epsilon: 0.0005 } }
     }
@@ -48,6 +49,7 @@ Item {
         id: texts
         anchors { left: ic.visible ? ic.right : parent.left; leftMargin: (ic.visible ? 26 : 30) * t.u; right: side.left; rightMargin: 20 * t.u; verticalCenter: parent.verticalCenter }
         spacing: 4 * t.u
+        opacity: t.dim && !t.lit ? 0.45 : 1
         Text {
             width: parent.width
             text: t.label
@@ -74,6 +76,7 @@ Item {
         // a short value keeps some room: copy turning into copied can't push the detail onto a new line
         width: Math.max(sw.visible ? sw.width : 0, val.visible ? Math.max(val.implicitWidth, 100 * t.u) : 0, rank.visible ? rank.width : 0)
         height: parent.height
+        opacity: t.dim && !t.lit ? 0.45 : 1
         Text {
             id: val
             visible: !t.checkable && t.value !== ""

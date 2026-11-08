@@ -308,7 +308,7 @@ FocusScope {
             id: rowItem
             required property int index
             required property string rowKey
-            readonly property bool foc: ListView.isCurrentItem && list.activeFocus && (!Theme.touch || rowPt.down)
+            readonly property bool foc: ListView.isCurrentItem && Theme.lit(list.activeFocus, rowPt)
             readonly property var s: sheet.byKey[rowKey] || ({})
             readonly property var hdr: (s.hdr || []).filter(function (h) { return h !== "SDR" })
             width: list.width

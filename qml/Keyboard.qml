@@ -202,9 +202,10 @@ Item {
                     symbol: spec.v === "shift" ? (kb.caps ? "capslock" : kb.shift ? "shiftfill" : "shift") : (spec.s || "")
                     symbolSize: (rowItem.acc ? 40 : 46) * kb.u
                     lit: spec.v === "shift" && (kb.shift || kb.caps)
-                    focused: kb.active && rowItem.r === kb.row && index === kb.focusIndex()
+                    focused: Theme.lit(kb.active && rowItem.r === kb.row && index === kb.focusIndex(), keyPt)
                     labelSize: spec.k === "c" ? (rowItem.acc ? 42 : 54) * kb.u : (spec.t.length > 3 ? 34 * kb.u : 38 * kb.u)
                     Pointer {
+                        id: keyPt
                         okKey: false
                         onPointed: kb.pointAt(rowItem.r, index)
                         onTapped: kb.press(spec)

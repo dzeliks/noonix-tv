@@ -107,7 +107,7 @@ FocusScope {
             id: line
             required property int index
             readonly property var l: sheet.lines[index] || ({})
-            readonly property bool foc: ListView.isCurrentItem && list.activeFocus && (!Theme.touch || lp.down)
+            readonly property bool foc: ListView.isCurrentItem && Theme.lit(list.activeFocus, lp)
             width: list.width
             height: sheet.rowH
             Rectangle {

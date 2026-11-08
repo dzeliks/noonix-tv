@@ -4,7 +4,7 @@ import SwiftUI
 /// beginning, library, remove from the row it's in
 @MainActor @Observable
 final class CardMenu {
-    enum Act { case open, play, restart, library, dismiss }
+    enum Act { case open, play, restart, library, dismiss, clear }
     let item: Item
     let row: RowModel?
     /// the card's art in the window (qml menuAt): the menu sits above it
@@ -35,6 +35,7 @@ final class CardMenu {
         let rm = ["upnext": L("Remove from Up Next"), "continue": L("Remove from Continue Watching"),
                   "continue-movie": L("Remove from Continue Watching"), "recent": L("Remove from Recently Played")][row?.row.id ?? ""]
         if let rm { o.append((rm, .dismiss)) }
+        if ["movie", "episode", "show"].contains(item.kind) { o.append((L("Clear Watch Progress"), .clear)) }
         return o
     }
 
@@ -107,7 +108,39 @@ final class CardMenu {
             }
         case .dismiss:
             app.dismiss(it)
+        case .clear:
+            clear(app: app)
         }
+    }
+
+    /// signed in to trakt: its plays go there too, so ask first (no undo after). a personal row
+    /// counts the tile down like a removal, anywhere else a toast holds the undo
+    private func clear(app: AppModel) {
+        let t = ClearTarget(profile: app.profiles?.current ?? 0, kind: item.isMovie ? "movie" : "show",
+                            tmdb: (episode ? item.show : item.tmdb) ?? 0)
+        let send = {
+            Task {
+                let ok = (try? await Core.shared.raw("progress.clear", t.args)) != nil
+                if !ok { app.toast(L("Couldn't clear the progress")) }
+                app.refreshLists()
+                app.refreshRows()
+                return ok
+            }
+        }
+        if let tr = app.currentProfile?.trakt, tr != "none", !tr.isEmpty {
+            let name = episode ? item.showTitle ?? "" : item.title ?? ""
+            app.confirm = ConfirmModel(
+                title: L("Clear Watch Progress?"),
+                detail: L("%1 starts over here, and its plays and paused spot are removed from Trakt too.", name),
+                ok: L("Clear"),
+                yes: { Task { if await send().value { app.toast(L("Watch progress cleared")) } } })
+            return
+        }
+        if let id = row?.row.id, ["upnext", "continue", "continue-movie", "recent"].contains(id) {
+            app.dismiss(item, clear: t)
+            return
+        }
+        app.toast(L("Watch progress cleared"), action: L("Undo"), run: {}, commit: { _ = send() })
     }
 }
 

@@ -59,7 +59,7 @@ FocusScope {
         // the mouse only points at it; a click opens the profiles
         Pointer {
             id: avatarPt
-            readonly property bool hovered: containsMouse && Input.pointing === true
+            readonly property bool hovered: Theme.hover(avatarPt)
             okKey: false
             onTapped: nav.profileRequested()
         }
@@ -123,7 +123,7 @@ FocusScope {
                 required property var modelData
                 required property int index
                 readonly property bool on: nav.index === index
-                readonly property bool hovered: !ink && tabPt.containsMouse && Input.pointing === true
+                readonly property bool hovered: !ink && Theme.hover(tabPt)
                 readonly property color tint: ink ? Theme.focusFg : on || hovered ? Theme.fg : Theme.fg2
                 // the mouse lights a tab up; only a click switches to it
                 Rectangle {

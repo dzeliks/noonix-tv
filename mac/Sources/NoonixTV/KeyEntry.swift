@@ -243,3 +243,97 @@ struct EntryField: View {
             }
     }
 }
+
+#if os(macOS)
+import AppKit
+
+/// a real field for a mouse or a keyboard (qml EditLine): select with the mouse, copy, cut, paste,
+/// undo. focus bumped = take the keys with the caret at the end; holds false = let them go
+struct EditLine: NSViewRepresentable {
+    let text: String
+    let placeholder: String
+    let size: CGFloat
+    let focus: Int
+    let holds: Bool
+    let edited: (String) -> Void
+    let done: () -> Void
+    let focused: (Bool) -> Void
+
+    final class Field: NSTextField {
+        var took: (() -> Void)?
+        override func becomeFirstResponder() -> Bool {
+            let ok = super.becomeFirstResponder()
+            if ok {
+                (currentEditor() as? NSTextView)?.insertionPointColor = .white
+                took?()
+            }
+            return ok
+        }
+    }
+
+    func makeNSView(context: Context) -> NSTextField {
+        let f = Field()
+        f.took = { [weak c = context.coordinator] in MainActor.assumeIsolated { c?.owner.focused(true) } }
+        f.isBordered = false
+        f.isBezeled = false
+        f.drawsBackground = false
+        f.focusRingType = .none
+        f.textColor = .white
+        f.font = .systemFont(ofSize: size, weight: .medium)
+        f.usesSingleLineMode = true
+        f.lineBreakMode = .byClipping
+        f.cell?.isScrollable = true
+        f.cell?.wraps = false
+        f.delegate = context.coordinator
+        context.coordinator.focus = focus
+        return f
+    }
+
+    func updateNSView(_ f: NSTextField, context: Context) {
+        context.coordinator.owner = self
+        f.font = .systemFont(ofSize: size, weight: .medium)
+        f.placeholderAttributedString = NSAttributedString(string: placeholder, attributes: [
+            .foregroundColor: NSColor.white.withAlphaComponent(0.42), .font: NSFont.systemFont(ofSize: size, weight: .medium)])
+        if f.stringValue != text { f.stringValue = text }
+        // bumped, or the focus came back to it (down from the bar, back from a title)
+        let back = holds && !context.coordinator.held
+        context.coordinator.held = holds
+        if context.coordinator.focus != focus || back {
+            context.coordinator.focus = focus
+            DispatchQueue.main.async {
+                guard let w = f.window else { return }
+                if f.currentEditor() == nil { w.makeFirstResponder(f) }
+                // the field selects everything as it takes the focus: the caret goes to the end instead
+                f.currentEditor()?.selectedRange = NSRange(location: (f.stringValue as NSString).length, length: 0)
+            }
+        }
+        if !holds, f.currentEditor() != nil {
+            DispatchQueue.main.async { if f.currentEditor() != nil { f.window?.makeFirstResponder(nil) } }
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        var owner: EditLine
+        var focus = 0
+        var held = false
+        init(_ o: EditLine) { owner = o }
+
+        func controlTextDidChange(_ n: Notification) {
+            guard let f = n.object as? NSTextField else { return }
+            MainActor.assumeIsolated { owner.edited(f.stringValue) }
+        }
+        func controlTextDidEndEditing(_ n: Notification) {
+            MainActor.assumeIsolated { owner.focused(false) }
+        }
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy sel: Selector) -> Bool {
+            if sel == #selector(NSResponder.insertNewline(_:)) {
+                MainActor.assumeIsolated { owner.done() }
+                return true
+            }
+            return false
+        }
+    }
+}
+#endif

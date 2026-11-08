@@ -129,14 +129,22 @@ struct ImeField: UIViewRepresentable {
     var words = false
     /// the return key says search
     var search = false
+    /// the field itself shows (select, copy, paste): no drawn line over it
+    var shown = false
+    var size: CGFloat = 26
+    var placeholder = ""
     let edited: (String) -> Void
     let done: () -> Void
 
     func makeUIView(context: Context) -> UITextField {
         let f = UITextField()
-        f.alpha = 0.02
-        f.tintColor = .clear
-        f.textColor = .clear
+        f.alpha = shown ? 1 : 0.02
+        f.tintColor = shown ? .white : .clear
+        f.textColor = shown ? .white : .clear
+        if shown {
+            f.font = .systemFont(ofSize: size, weight: .medium)
+            f.attributedPlaceholder = NSAttributedString(string: placeholder, attributes: [.foregroundColor: UIColor.white.withAlphaComponent(0.42)])
+        }
         f.autocorrectionType = .no
         f.spellCheckingType = .no
         f.autocapitalizationType = words ? .words : .none
@@ -186,6 +194,9 @@ struct ImeField: View {
     var open = 0
     var words = false
     var search = false
+    var shown = false
+    var size: CGFloat = 26
+    var placeholder = ""
     let edited: (String) -> Void
     let done: () -> Void
     var body: some View { EmptyView() }

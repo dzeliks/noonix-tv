@@ -24,6 +24,9 @@ class Input : public QObject
     // the mouse moved the focus last (no key since): lists don't scroll for it, the wheel and keys do
     Q_PROPERTY(bool pointing READ pointing NOTIFY pointingChanged)
     Q_PROPERTY(bool okHeld READ okHeld NOTIFY okHeldChanged)
+    // a mouse is in use (it moved, and no remote or pad key came since; a keyboard beside it keeps
+    // it): the pointer's own controls show (back, fullscreen, volume), the remote's layout otherwise
+    Q_PROPERTY(bool mouseMode READ mouseMode NOTIFY mouseModeChanged)
 public:
     explicit Input(Remote *remote, QObject *parent = nullptr);
     ~Input() override;
@@ -37,6 +40,8 @@ public:
 
     bool pointing() const { return m_pointing; }
     bool okHeld() const { return m_okHeld; }
+    bool mouseMode() const { return m_mouseMode; }
+    void setMouseMode(bool on) { if (m_mouseMode != on) { m_mouseMode = on; emit mouseModeChanged(); } }
     // the wheel moves a page: from now on the mouse is in charge, even if it hasn't moved yet
     Q_INVOKABLE void setPointing(bool on);
     QString padKind() const { return m_padKind; }
@@ -65,6 +70,7 @@ signals:
     void bindingsChanged();
     void pointingChanged();
     void okHeldChanged();
+    void mouseModeChanged();
     void captured(const QString &what, const QString &name);
     void picturePicked(const QString &path);
 
@@ -90,6 +96,8 @@ private:
     QPointF m_lastPos{-1, -1};
     bool m_escFired = false;
     bool m_pointing = false;
+    bool m_mouseMode = false;
+    int m_keyboardPosted = 0;         // keys a keyboard's binding posted (they keep the mouse's mode)
     bool m_holdKey = false;
 
     bool m_padsOn = false;

@@ -25,6 +25,8 @@ Window {
     onUChanged: { Theme.u = u; Theme.gw = width / u; Theme.gh = height / u }
     Binding { target: Theme; property: "minGridW"; value: Desktop.gridW > 0 ? Desktop.gridW : 1920 / Desktop.boost }
     Binding { target: Theme; property: "pointing"; value: Input.pointing === true }
+    Binding { target: Theme; property: "mouseMode"; value: Input.mouseMode === true }
+    Timer { interval: 30000; repeat: true; running: true; onTriggered: Theme.nap++ }
     // the window's safe area: backgrounds still go under a cutout, the side margins clear it
     Item { id: safeProbe; anchors.fill: parent }
     Binding { target: Theme; property: "safeSide"; value: Math.max(safeProbe.SafeArea.margins.left, safeProbe.SafeArea.margins.right) }
@@ -351,6 +353,12 @@ Window {
         // sheets a page opens (qr card, key entry): over the scene, never in it, or their
         // glass would blur their own white parts back in as a glow
         Item { id: sheetLayer; anchors.fill: parent; z: 50 }
+        Confirm {
+            id: confirmClear
+            parent: sheetLayer
+            anchors.fill: parent
+            onClosed: win.focusPage()
+        }
 
         Keys.onEscapePressed: win.back()
         Keys.onBackPressed: win.back()
@@ -432,6 +440,8 @@ Window {
         o.push({ label: libraryState === -1 ? qsTr("Checking Library…") : libraryState === -2 ? qsTr("Retry Library") : libraryState === 1 ? qsTr("Remove from Library") : qsTr("Add to Library"), act: "library" })
         var rm = { upnext: qsTr("Remove from Up Next"), "continue": qsTr("Remove from Continue Watching"), "continue-movie": qsTr("Remove from Continue Watching"), recent: qsTr("Remove from Recently Played") }[menuRow]
         if (rm) o.push({ label: rm, act: "dismiss" })
+        // watching it starts over: the progress and the plays go (here and on trakt)
+        if (it.kind === "movie" || it.kind === "episode" || it.kind === "show") o.push({ label: qsTr("Clear Watch Progress"), act: "clear" })
         return o
     }
     function libraryTarget(it) {
@@ -462,6 +472,7 @@ Window {
             return
         }
         if (o.act === "dismiss") { dismiss(); return }
+        if (o.act === "clear") { clearProgress(); return }
         menuPopup.visible = false
         focusPage()
         if (o.act === "open") {
@@ -512,6 +523,41 @@ Window {
         setRemovals(r)
         armRemovals()
     }
+    // in a personal row the tile counts down like a removal; anywhere else a toast holds the undo
+    function clearProgress() {
+        var it = menuItem, t = libraryTarget(it)
+        menuPopup.visible = false
+        focusPage()
+        // signed in to trakt: its plays go there too, so ask first (and no undo after)
+        if (profile && profile.trakt && profile.trakt !== "none") {
+            confirmClear.open({
+                title: qsTr("Clear Watch Progress?"),
+                detail: qsTr("%1 starts over here, and its plays and paused spot are removed from Trakt too.").arg(menuTitle),
+                ok: qsTr("Clear"),
+                yes: function () {
+                    Api.call("progress.clear", t, function (ok) {
+                        toast.show(ok ? qsTr("Watch progress cleared") : qsTr("Couldn't clear the progress"))
+                        win.refreshLists()
+                    })
+                }
+            })
+            return
+        }
+        if (["upnext", "continue", "continue-movie", "recent"].indexOf(menuRow) >= 0) {
+            var r = removals, k = itemKey(it)
+            if (r[k]) return
+            r[k] = { item: it, profile: profile.id, total: removeMs, until: Date.now() + removeMs, done: false, clear: t }
+            setRemovals(r)
+            armRemovals()
+            return
+        }
+        toast.show(qsTr("Watch progress cleared"), qsTr("Undo"), function () {}, 6, function () {
+            Api.call("progress.clear", t, function (ok) {
+                if (!ok) toast.show(qsTr("Couldn't clear the progress"))
+                win.refreshLists()
+            })
+        })
+    }
     function undoRemoval(it) {
         var r = removals, k = itemKey(it)
         if (!r[k] || r[k].done) return
@@ -539,9 +585,9 @@ Window {
         var rec = removals[k], it = rec.item
         rec.done = true
         ;[homeL, moviesL, showsL].forEach(function (l) { if (l.item) l.item.leave(it) })
-        Api.call("home.dismiss", { item: it, profile: rec.profile }, function (ok) {
+        Api.call(rec.clear ? "progress.clear" : "home.dismiss", rec.clear || { item: it, profile: rec.profile }, function (ok) {
             if (ok) return
-            toast.show(qsTr("Couldn't remove it"))
+            toast.show(rec.clear ? qsTr("Couldn't clear the progress") : qsTr("Couldn't remove it"))
             var r = win.removals; delete r[k]; win.setRemovals(r)
             refreshRows()
         })
@@ -975,7 +1021,7 @@ Window {
             delegate: Column {
                 required property var modelData
                 required property int index
-                readonly property bool foc: ListView.isCurrentItem && profList.activeFocus && (!Theme.touch || profPt.down)
+                readonly property bool foc: ListView.isCurrentItem && Theme.lit(profList.activeFocus, profPt)
                 readonly property bool adder: modelData.id === -1
                 readonly property bool current: !!win.profile && win.profile.id === modelData.id
                 width: 240 * win.u
@@ -1183,10 +1229,15 @@ Window {
                 var dx = w.angleDelta.x, dy = w.angleDelta.y
                 if (w.modifiers & Qt.ShiftModifier) { dx = dy; dy = 0 }
                 acc += dy; accX += dx
-                while (acc >= 120) { acc -= 120; Remote.Key("UP") }
-                while (acc <= -120) { acc += 120; Remote.Key("DOWN") }
-                while (accX >= 120) { accX -= 120; Remote.Key("LEFT") }
-                while (accX <= -120) { accX += 120; Remote.Key("RIGHT") }
+                // over the video the mouse stays the mouse: up and down turn the volume (like its slider),
+                // sideways seeks 10 s
+                var vol = Player.muted ? 0 : Player.volume
+                while (acc >= 120) { acc -= 120; vol += 5 }
+                while (acc <= -120) { acc += 120; vol -= 5 }
+                if (vol !== (Player.muted ? 0 : Player.volume)) Player.setVolume(vol)
+                while (accX >= 120) { accX -= 120; Player.seek(-10) }
+                while (accX <= -120) { accX += 120; Player.seek(10) }
+                osd.show()
             }
             onWheel: function (w) { step(w) }
         }

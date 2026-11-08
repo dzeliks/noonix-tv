@@ -15,11 +15,16 @@ FocusScope {
         target: Player
         function onItemChanged() { tr.search = "" }
     }
+    function sayNone() { toast.show(qsTr("No subtitles in your languages for this one"), "", null, 5) }
     function searchSubs() {
         if (search === "searching") return
+        // already asked: nothing new until the next title
+        if (search === "none") { sayNone(); return }
         search = "searching"
         Api.call("playback.searchSubs", {}, function (ok, d) {
             tr.search = !ok ? "failed" : d.count > 0 ? "added" : "none"
+            if (tr.search === "none") tr.sayNone()
+            else if (tr.search === "failed") toast.show(qsTr("OpenSubtitles isn't answering, try again in a bit"), "", null, 5)
         })
     }
     function open(k, x, w) {
@@ -76,7 +81,7 @@ FocusScope {
         out.push({ kind: "search", id: -1, label: qsTr("Search Subtitles"),
                    detail: { searching: qsTr("Looking on OpenSubtitles…"), none: qsTr("Nothing new for your languages"),
                              added: qsTr("Added to the list"), failed: qsTr("OpenSubtitles isn't answering") }[tr.search]
-                           || qsTr("Your languages, from OpenSubtitles") })
+                           || qsTr("Your languages, from OpenSubtitles"), dim: tr.search === "none" })
         out.push({ kind: "file", id: -2, label: qsTr("Add Subtitle File"), detail: qsTr("An .srt or .ass file of your own") })
         return out
     }
@@ -167,7 +172,8 @@ FocusScope {
                     detail: modelData.detail || ""
                     checkable: false
                     grow: 1                     // a lift would eat the inset and crowd the corners
-                    value: modelData.kind === "search" ? (tr.search === "searching" ? "…" : "›") : modelData.kind === "file" ? "›" : modelData.selected ? "✓" : ""
+                    dim: !!modelData.dim
+                    value: modelData.kind === "search" ? (tr.search === "searching" ? "…" : tr.search === "none" ? "" : "›") : modelData.kind === "file" ? "›" : modelData.selected ? "✓" : ""
                     focused: list.currentIndex === index && list.activeFocus
                 }
             }

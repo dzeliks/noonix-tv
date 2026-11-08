@@ -428,6 +428,15 @@ pub fn clear_local(c: &Connection, profile: i64) -> Result<()> {
     Ok(())
 }
 
+/// a title's watching starts over: its progress and history go (a show: every episode)
+pub fn clear_title(c: &Connection, profile: i64, kind: &str, tmdb: i64) -> Result<()> {
+    let kind = if kind == "movie" { "movie" } else { "episode" };
+    for table in ["progress", "history"] {
+        c.execute(&format!("delete from {table} where profile = ?1 and kind = ?2 and tmdb = ?3"), params![profile, kind, tmdb])?;
+    }
+    Ok(())
+}
+
 pub fn history(c: &Connection, profile: i64, limit: i64) -> Result<Vec<Value>> {
     let mut st = c.prepare(
         "select kind, tmdb, season, episode, max(watched_at) from history
@@ -587,5 +596,25 @@ mod tests {
         assert_eq!(recent_shows(&c, pid, 5).unwrap()[0].0, 85552);
         cache_put(&c, "k", "v", 60).unwrap();
         assert_eq!(cache_get(&c, "k").unwrap().as_deref(), Some("v"));
+    }
+
+    #[test]
+    fn clear_title_drops_one_show_only() {
+        let c = open_memory().unwrap();
+        let pid = add_profile(&c, "Ana", "green", "none").unwrap();
+        let ep = |show, e| Progress { key: episode_key(show, 1, e), kind: "episode".into(), tmdb: show, season: Some(1), episode: Some(e), position: 60.0, duration: 100.0, ..Default::default() };
+        for p in [ep(1, 1), ep(1, 2), ep(2, 1)] {
+            save_progress(&c, pid, &p).unwrap();
+            add_history(&c, pid, &p).unwrap();
+        }
+        let movie = Progress { key: movie_key(1), kind: "movie".into(), tmdb: 1, position: 60.0, duration: 100.0, ..Default::default() };
+        save_progress(&c, pid, &movie).unwrap();
+        clear_title(&c, pid, "show", 1).unwrap();
+        assert_eq!(show_progress(&c, pid, 1).unwrap().len(), 0);
+        assert_eq!(show_progress(&c, pid, 2).unwrap().len(), 1);
+        assert!(get_progress(&c, pid, &movie.key).unwrap().is_some());
+        assert_eq!(seen(&c, pid).unwrap().len(), 1);
+        clear_title(&c, pid, "movie", 1).unwrap();
+        assert!(get_progress(&c, pid, &movie.key).unwrap().is_none());
     }
 }

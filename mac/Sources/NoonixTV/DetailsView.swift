@@ -25,8 +25,8 @@ final class DetailsModel: Identifiable {
         return !keep
     }
     var zone: Zone = .actions
-    /// the focus starts on play, back is left of it
-    var action = 1
+    /// the focus starts on play (the way back is the round button top left, or the back key)
+    var action = 0
     var seasonIndex = 0
     var episodeIndex = 0
     let more = RowModel(Row(id: "more", title: L("More Like This"), style: "poster"))
@@ -115,7 +115,7 @@ final class DetailsModel: Identifiable {
     var startOver: Bool { isMovie && (details?.item.position ?? 0) > 60 }
 
     enum Action { case back, play, over, sources, library }
-    var actions: [Action] { startOver ? [.back, .play, .over, .sources, .library] : [.back, .play, .sources, .library] }
+    var actions: [Action] { startOver ? [.play, .over, .sources, .library] : [.play, .sources, .library] }
 
     var playLabel: String {
         guard details != nil else { return L("Play") }
@@ -308,10 +308,17 @@ struct DetailsView: View {
             .offset(y: -contentY)
             .animation(model.scroll.y == nil ? Theme.slide : nil, value: contentY)
 
-            // a finger on ios: the way back, top left (no system back button there)
-            if Theme.touch {
-                RoundButton(icon: "chevron.left", u: u) { _ = app.key(.back) }
-                    .offset(x: max(Theme.safeSide + 8 * u, 32 * u), y: 28 * u - contentY)
+            // the pointer's way back (a mouse, a finger): top left in line with play, wherever the page is
+            // scrolled (keys have their own back). scrolled, the page slides under a shade like under a toolbar
+            if Theme.mouse || Theme.touch {
+                LinearGradient(stops: [.init(color: .black.opacity(0.92), location: 0), .init(color: .black.opacity(0.7), location: 0.6),
+                                       .init(color: .black.opacity(0), location: 1)], startPoint: .top, endPoint: .bottom)
+                    .frame(width: W, height: 190 * u)
+                    .opacity(contentY > 20 * u ? 1 : 0)
+                    .animation(.easeOut(duration: 0.18), value: contentY > 20 * u)
+                    .allowsHitTesting(false)
+                RoundButton(icon: "chevron.left", u: u, size: 72) { _ = app.key(.back) }
+                    .offset(x: margin, y: 40 * u)
                     .transition(.opacity)
             }
         }
@@ -402,8 +409,7 @@ struct DetailsView: View {
         let acts = model.actions
         return GlassEffectContainer(spacing: 26 * u) {
             HStack(spacing: 26 * u * (tight ? 0.85 : 1)) {
-                // a finger (ios): back is the round one at the top (qml: a phone has its own back)
-                ForEach(Array(acts.enumerated()).filter { !(Theme.touch && $0.element == .back) }, id: \.offset) { i, a in
+                ForEach(Array(acts.enumerated()), id: \.offset) { i, a in
                     // the sources sheet over the page has the focus (qml: nothing here is lit then)
                     let focused = app.sources == nil && model.zone == .actions && min(model.action, acts.count - 1) == i
                     // tight: smaller buttons rather than the story moving up; a finger: play is the white one
@@ -633,20 +639,26 @@ struct SubtitlesGlyph: Shape {
 struct RoundButton: View {
     var icon = "chevron.left"
     let u: CGFloat
+    /// across, on the 1920 grid
+    var size: CGFloat = 64
+    /// white without the mouse too (the player's back, armed by a key)
+    var lit = false
     let action: () -> Void
     @State private var hover = false
 
     var body: some View {
+        // under the mouse while it's the one in use (a key leaves it unlit, qml Theme.hover)
+        let white = (hover && Theme.mouse) || lit
         Image(systemName: icon)
-            .font(.system(size: 26 * u, weight: .semibold))
-            .foregroundStyle(hover ? Theme.focusFg : Theme.fg)
+            .font(.system(size: 26 * size / 64 * u, weight: .semibold))
+            .foregroundStyle(white ? Theme.focusFg : Theme.fg)
             .offset(x: (icon == "chevron.left" ? -2 : icon == "chevron.right" ? 2 : 0) * u)
-            .frame(width: 64 * u, height: 64 * u)
-            .background { Circle().fill(Color.white).opacity(hover ? 1 : 0) }
-            .overlay { GlassRim(shape: Circle(), u: u, glint: false).opacity(hover ? 0 : 1) }
-            .animation(.easeOut(duration: 0.16), value: hover)
-            .scaleEffect(hover ? 1.08 : 1)
-            .animation(Theme.lift, value: hover)
+            .frame(width: size * u, height: size * u)
+            .background { Circle().fill(Color.white).opacity(white ? 1 : 0) }
+            .overlay { GlassRim(shape: Circle(), u: u, glint: false).opacity(white ? 0 : 1) }
+            .animation(.easeOut(duration: 0.16), value: white)
+            .scaleEffect(white ? 1.08 : 1)
+            .animation(Theme.lift, value: white)
             .glassEffect(.regular.tint(.black.opacity(0.25)), in: .circle)
             .contentShape(.circle)
             .onContinuousHover { phase in

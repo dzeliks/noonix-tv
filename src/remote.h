@@ -24,6 +24,14 @@ public:
     void setWindow(QWindow *w);
     // a normal window with its title bar, or fullscreen; shows the window that way
     Q_INVOKABLE void setTitleBar(bool on);
+    // the pointer's fullscreen button / double click: fullscreen or a normal window, for now only
+    // (the title bar setting stays what it is)
+    Q_INVOKABLE void toggleFullScreen();
+    Q_PROPERTY(bool fullScreen READ fullScreen NOTIFY fullScreenChanged)
+    // the title bar setting is on: the window has its own buttons (no fullscreen button of ours)
+    Q_PROPERTY(bool titleBar READ titleBar NOTIFY fullScreenChanged)
+    bool titleBar() const { return m_titleBar; }
+    bool fullScreen() const;
     bool registerService();
     QString inputKind() const { return m_kind; }
     // kwin id of the tv wallpaper window, from the remote daemon's state ("" when there is none)
@@ -62,6 +70,7 @@ public slots:
 
 signals:
     void inputKindChanged();
+    void fullScreenChanged();
     void revealed();
     void padKey(const QString &button);
     void okHeld(bool down);

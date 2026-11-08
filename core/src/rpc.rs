@@ -346,6 +346,17 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
             Ok(json!({ "ok": true }))
         }
 
+        "progress.clear" => {
+            let profile = request_profile(&args).await?;
+            let kind = if arg_str(&args, "kind")? == "movie" { "movie" } else { "show" };
+            let tmdb = arg_i64(&args, "tmdb")?;
+            store::with(move |c| store::clear_title(c, profile, kind, tmdb)).await?;
+            if let Some(acc) = trakt::Account::for_profile(profile).await? {
+                acc.clear_title(kind, tmdb).await?;
+            }
+            Ok(json!({ "ok": true }))
+        }
+
         "tmdb.details" => {
             let kind = arg_str(&args, "kind")?;
             let id = arg_i64(&args, "id")?;

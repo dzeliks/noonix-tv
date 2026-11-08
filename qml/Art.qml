@@ -39,9 +39,15 @@ Item {
             elide: Text.ElideRight
         }
     }
+    // hidden (another page, a pooled card) for 2 minutes or more: the decoded picture goes, it loads
+    // again when it's back (a whole page of them is a lot of memory)
+    property int hiddenAt: -1
+    onVisibleChanged: hiddenAt = visible ? -1 : Theme.nap
+    Component.onCompleted: if (!visible) hiddenAt = Theme.nap
+    readonly property bool asleep: hiddenAt >= 0 && Theme.nap - hiddenAt >= 4
     Image {
         id: img
-        source: art.source
+        source: art.asleep ? "" : art.source
         visible: false
         asynchronous: true
         cache: true

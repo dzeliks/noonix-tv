@@ -56,6 +56,7 @@ struct RootView: View {
                             .compositingGroup()
                             .opacity(p == app.page || p == app.pageBehind ? 1 : 0)
                             .allowsHitTesting(p == app.page)
+                            .environment(\.pageLive, p == app.page && app.detailStack.isEmpty)
                             .zIndex(p == app.page ? 1 : p == app.pageBehind ? 0.5 : 0)
                     }
                 }
@@ -118,6 +119,9 @@ struct RootView: View {
             if let c = app.exitChoice {
                 ExitPromptView(choice: c).transition(.opacity).zIndex(9)
             }
+            if let c = app.confirm {
+                ConfirmView(model: c).transition(.opacity).zIndex(9)
+            }
             if let e = app.extSheet {
                 ExtensionSheetView(model: e).transition(.opacity).zIndex(8.8)
             }
@@ -169,6 +173,7 @@ struct RootView: View {
         .animation(.easeOut(duration: 0.18), value: app.folderPicker == nil)
         .animation(.easeOut(duration: 0.18), value: app.profileSheet == nil)
         .animation(.timingCurve(0.33, 1, 0.68, 1, duration: 0.18), value: app.exitChoice == nil)
+        .animation(.timingCurve(0.33, 1, 0.68, 1, duration: 0.18), value: app.confirm == nil)
     }
 }
 
@@ -348,4 +353,9 @@ struct Avatar: View {
                 }
             }
     }
+}
+
+extension EnvironmentValues {
+    /// the page in front (not one kept alive under it, nor under a title's details)
+    @Entry var pageLive = true
 }

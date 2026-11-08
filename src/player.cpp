@@ -21,6 +21,15 @@
 #include <QScreen>
 #include <QVariant>
 #include <mpv/client.h>
+#if defined(__GLIBC__)
+#include <malloc.h>
+#elif defined(Q_OS_WIN)
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <malloc.h>
+#endif
 
 #include <chrono>
 #include <clocale>
@@ -29,7 +38,7 @@
 
 namespace {
 
-enum Prop : uint64_t { TimePos = 1, Duration, Pause, VideoParams, CacheWait, Seeking, CacheDur, EofReached, TrackList, ChapterList, Sid, SubText };
+enum Prop : uint64_t { TimePos = 1, Duration, Pause, VideoParams, CacheWait, Seeking, CacheDur, EofReached, TrackList, ChapterList, Sid, SubText, Volume, Mute };
 
 QVariant fromNode(const mpv_node &n)
 {
@@ -129,7 +138,14 @@ Player::Player(bool nativeVideo, QObject *parent)
     opt("config", "no");
     opt("sub-auto", "fuzzy");
     opt("cache", "yes");
-    opt("demuxer-max-bytes", "512MiB");
+    // ~20 s of a 4k remux ahead (minutes of anything smaller), a little behind for a quick rewind.
+    // mpv keeps its packets for reuse, so this is also about what stays after a stop
+#ifdef Q_OS_ANDROID
+    opt("demuxer-max-bytes", "128MiB");
+#else
+    opt("demuxer-max-bytes", "200MiB");
+#endif
+    opt("demuxer-max-back-bytes", "32MiB");
     opt("demuxer-readahead-secs", "60");
     opt("network-timeout", "30");
     opt("terminal", "yes");
@@ -171,6 +187,8 @@ Player::Player(bool nativeVideo, QObject *parent)
     mpv_observe_property(m_mpv, TrackList, "track-list/count", MPV_FORMAT_INT64);
     mpv_observe_property(m_mpv, ChapterList, "chapter-list/count", MPV_FORMAT_INT64);
     mpv_observe_property(m_mpv, Sid, "sid", MPV_FORMAT_STRING);
+    mpv_observe_property(m_mpv, Volume, "volume", MPV_FORMAT_DOUBLE);
+    mpv_observe_property(m_mpv, Mute, "mute", MPV_FORMAT_FLAG);
 #ifdef Q_OS_ANDROID
     mpv_observe_property(m_mpv, SubText, "sub-text", MPV_FORMAT_STRING);
 #endif
@@ -278,6 +296,17 @@ void Player::onCorePush(const QString &name, const QString &json)
             first = false;
         }
     }
+}
+
+// a played file leaves its packets behind in the allocator (hundreds of mb at 4k): back to the system
+static void giveBackMemory()
+{
+#if defined(__GLIBC__)
+    malloc_trim(0);
+#elif defined(Q_OS_WIN)
+    _heapmin();
+    HeapCompact(GetProcessHeap(), 0);
+#endif
 }
 
 void Player::setState(const QString &s, const QString &error)
@@ -612,6 +641,8 @@ void Player::drain()
             auto *e = static_cast<mpv_event_end_file *>(ev->data);
             if (e->reason == MPV_END_FILE_REASON_REDIRECT)
                 break;
+            // the demuxer lets go of its cache on its own thread, a moment later
+            QTimer::singleShot(4000, this, &giveBackMemory);
 #ifdef Q_OS_ANDROID
             m_firstFrame.stop();
 #endif
@@ -680,6 +711,16 @@ void Player::drain()
                 break;
             case TrackList:
             case ChapterList:
+            case Volume:
+                if (p->format == MPV_FORMAT_DOUBLE && p->data) {
+                    m_volume = *static_cast<double *>(p->data);
+                    emit volumeChanged();
+                }
+                break;
+            case Mute:
+                m_muted = asFlag(p);
+                emit volumeChanged();
+                break;
             case Sid:
                 if (m_state == QLatin1String("playing"))
                     refreshTracks();
@@ -705,6 +746,25 @@ void Player::drain()
             break;
         }
     }
+}
+
+void Player::setVolume(double v)
+{
+    if (!m_mpv)
+        return;
+    double vol = qBound(0.0, v, 100.0);
+    mpv_set_property_async(m_mpv, 0, "volume", MPV_FORMAT_DOUBLE, &vol);
+    // dragging up from nothing: sound again
+    if (m_muted && vol > 0)
+        setMuted(false);
+}
+
+void Player::setMuted(bool on)
+{
+    if (!m_mpv)
+        return;
+    int flag = on ? 1 : 0;
+    mpv_set_property_async(m_mpv, 0, "mute", MPV_FORMAT_FLAG, &flag);
 }
 
 void Player::setRefreshMatch(bool on)

@@ -51,6 +51,7 @@ void Remote::setWindow(QWindow *w)
 {
     m_window = w;
     w->installEventFilter(this);
+    connect(w, &QWindow::visibilityChanged, this, &Remote::fullScreenChanged);
 }
 
 // qt drops the focused item when the window loses the keyboard: keep it, so remote keys still
@@ -305,8 +306,11 @@ void Remote::Press(int key, const QString &text)
     if (!m_window || qgetenv("NOONIX_TEST") != "1")
         return;
 #ifdef NOONIX_DESKTOP_LINUX
-    QWindowSystemInterface::handleKeyEvent(m_window, QEvent::KeyPress, key, Qt::NoModifier, text);
-    QWindowSystemInterface::handleKeyEvent(m_window, QEvent::KeyRelease, key, Qt::NoModifier, text);
+    // modifiers ride in the key's high bits (ctrl+a = Qt::Key_A | Qt::ControlModifier)
+    const auto mods = Qt::KeyboardModifiers(key & int(Qt::KeyboardModifierMask));
+    key &= ~int(Qt::KeyboardModifierMask);
+    QWindowSystemInterface::handleKeyEvent(m_window, QEvent::KeyPress, key, mods, text);
+    QWindowSystemInterface::handleKeyEvent(m_window, QEvent::KeyRelease, key, mods, text);
 #else
     Q_UNUSED(key) Q_UNUSED(text)
 #endif
@@ -323,6 +327,7 @@ void Remote::InputKind(const QString &kind)
 void Remote::setTitleBar(bool on)
 {
     m_titleBar = on;
+    emit fullScreenChanged();
     if (!on) {
         m_window->showFullScreen();
         return;
@@ -334,6 +339,30 @@ void Remote::setTitleBar(bool on)
     m_window->setMinimumSize(QSize(960, 540));
     m_window->setGeometry(r);
     m_window->showNormal();
+}
+
+bool Remote::fullScreen() const
+{
+    return m_window && m_window->visibility() == QWindow::FullScreen;
+}
+
+void Remote::toggleFullScreen()
+{
+    if (!m_window)
+        return;
+    if (!fullScreen()) {
+        m_window->showFullScreen();
+        return;
+    }
+    // back to the window it was, or three quarters of the screen the first time
+    const QRect screen = m_window->screen()->geometry();
+    QRect r(QPoint(), screen.size() * 3 / 4);
+    r.moveCenter(screen.center());
+    m_window->setMinimumSize(QSize(960, 540));
+    m_window->showNormal();
+    // a window as big as the screen isn't one you can see as a window
+    if (m_window->width() * 10 >= screen.width() * 9 && m_window->height() * 10 >= screen.height() * 9)
+        m_window->setGeometry(r);
 }
 
 void Remote::Raise()

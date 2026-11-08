@@ -161,11 +161,13 @@ FocusScope {
     }
     Component.onCompleted: { free = Input.pointing; load() }
 
-    // ---- ahead of the focus: details, logo and backdrop of the 3 next items in every direction
-    // (same row both ways, the focused card of the 3 rows above and below), so the hero is instant
+    // ---- ahead of the focus: details of the 3 next items in every direction (same row both ways, the
+    // focused card of the 3 rows above and below), the logo and backdrop of the next one each way
+    // (a decoded backdrop is a whole screen of memory), so the hero is instant
     property var details: ({})        // "show:123" -> tmdb details (null while asked)
     property int detailsVersion: 0
     property var ahead: []
+    property var near: []
     function keyOf(it) {
         if (!it) return ""
         return it.kind === "movie" ? "movie:" + it.id : "show:" + (it.kind === "episode" ? it.show : it.id)
@@ -184,8 +186,9 @@ FocusScope {
     function preloadAround() {
         var row = rows.currentItem
         if (!row) return
-        var out = [], c = row.currentIndex, items = row.items
+        var out = [], c = row.currentIndex, items = row.items, close = []
         for (var d = 1; d <= 3; ++d) {
+            if (d === 2) close = out.slice()
             if (items[c + d]) out.push(items[c + d])
             if (c - d >= 0 && items[c - d]) out.push(items[c - d])
             for (var side = -1; side <= 1; side += 2) {
@@ -199,12 +202,15 @@ FocusScope {
         prefetch(current)
         out.forEach(prefetch)
         ahead = out
+        near = close
     }
     onVersionChanged: Qt.callLater(preloadAround)
+    // a hidden page keeps none
     readonly property var aheadDetails: {
         var v = detailsVersion, out = []
-        for (var i = 0; i < ahead.length; ++i) {
-            var d = details[keyOf(ahead[i])]
+        if (!home.visible) return out
+        for (var i = 0; i < near.length; ++i) {
+            var d = details[keyOf(near[i])]
             if (d) out.push(d)
         }
         return out

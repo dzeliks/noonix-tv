@@ -22,6 +22,9 @@ enum Typed { case text(String), erase, submit }
 final class PointerMode {
     static let shared = PointerMode()
     var on = false
+    /// what pressed the last key: keyboard | pad | remote (the dev fifo stands in for a remote)
+    var kind = "keyboard"
+    func pressed(_ k: String) { if kind != k { kind = k } }
     /// the mouse is on a card: with the mouse in use only that card is lifted (moving off lets it down)
     private(set) var onCard = false
     @ObservationIgnored private var cards = Set<UUID>()
@@ -214,14 +217,23 @@ enum Input {
             // a trackpad's coasting after the fingers lift would keep stepping on its own
             if !e.momentumPhase.isEmpty { return nil }
             accY += dy; accX += dx
+            // over the video the mouse stays the mouse: up and down turn the volume (like its slider),
+            // sideways seeks 10 s
             let step: CGFloat = 40
-            while accY >= step { accY -= step; _ = send(.up) }
-            while accY <= -step { accY += step; _ = send(.down) }
-            while accX >= step { accX -= step; _ = send(.left) }
-            while accX <= -step { accX += step; _ = send(.right) }
+            var vol = 0.0, seek = 0.0
+            while accY >= step { accY -= step; vol += 5 }
+            while accY <= -step { accY += step; vol -= 5 }
+            while accX >= step { accX -= step; seek -= 10 }
+            while accX <= -step { accX += step; seek += 10 }
+            if let p = AppModel.current?.player, vol != 0 || seek != 0 {
+                if vol != 0 { p.setVolume((p.muted ? 0 : p.volume) + vol) }
+                if seek != 0 { p.seek(by: seek) }
+                Osd.shared?.show()
+            }
             return nil
         } as Any)
         monitors.append(NSEvent.addLocalMonitorForEvents(matching: .keyDown) { e in
+            PointerMode.shared.pressed("keyboard")
             let typing = NSApp.keyWindow?.firstResponder is NSTextView
             // an on-screen keyboard is up: letters, delete, return and cmd+v type into it
             if !typing, let t = Input.typing(e), typed(t) { return nil }
@@ -274,6 +286,7 @@ enum Input {
                 MainActor.assumeIsolated {
                     if code == .leftShift || code == .rightShift { shift = down; return }
                     guard down else { return }
+                    PointerMode.shared.pressed("keyboard")
                     let name = Bindings.keyName(code)
                     if let t = Bindings.typed(code, shift: shift), typed(t) { return }
                     if let name, Bindings.shared.captured("keys", name) { return }
@@ -310,6 +323,7 @@ enum Pads {
 
     static func install(_ f: @escaping (Key) -> Bool) {
         send = { k in
+            PointerMode.shared.pressed("pad")
             if Input.keyed(), k.picks { return true }
             return f(k)
         }
@@ -477,8 +491,8 @@ enum DevKeys {
                             if line.hasPrefix("fling:"), let v = Double(line.dropFirst(6)) { AppModel.current?.fling(v); return }
                             if line.hasPrefix("page:"), let p = Page(rawValue: String(line.dropFirst(5))) { Input.touched(); AppModel.current?.choose(p); AppModel.current?.navFocused = false; return }
                             #endif
-                            if let k = names[line] { if !(Input.keyed() && k.picks) { _ = send(k) } }
-                            else if line.hasPrefix("text:") { _ = typed(.text(String(line.dropFirst(5)))) }
+                            if let k = names[line] { PointerMode.shared.pressed("remote"); if !(Input.keyed() && k.picks) { _ = send(k) } }
+                            else if line.hasPrefix("text:") { PointerMode.shared.pressed("keyboard"); _ = typed(.text(String(line.dropFirst(5)))) }
                             else if line == "erase" { _ = typed(.erase) }
                             else if line == "submit" { _ = typed(.submit) }
                             else if line.hasPrefix("shot:") { shot(String(line.dropFirst(5))) }

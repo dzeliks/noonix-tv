@@ -52,11 +52,14 @@
         </message>
     </context>
     <context>
-        <name>Details</name>
+        <name>Confirm</name>
         <message>
-            <source>Back</source>
-            <translation>Nazad</translation>
+            <source>Cancel</source>
+            <translation>Otkaži</translation>
         </message>
+    </context>
+    <context>
+        <name>Details</name>
         <message>
             <source>Couldn't update Library. Try again.</source>
             <translation>Biblioteka nije ažurirana. Pokušaj ponovo.</translation>
@@ -584,6 +587,10 @@
             <translation>Ukloni iz „Nedavno gledano“</translation>
         </message>
         <message>
+            <source>Clear Watch Progress</source>
+            <translation>Obriši napredak gledanja</translation>
+        </message>
+        <message>
             <source>Couldn't add it</source>
             <translation>Nije dodato</translation>
         </message>
@@ -606,6 +613,26 @@
         <message>
             <source>Couldn't undo that change</source>
             <translation>Promena nije poništena</translation>
+        </message>
+        <message>
+            <source>Clear Watch Progress?</source>
+            <translation>Obrisati napredak gledanja?</translation>
+        </message>
+        <message>
+            <source>%1 starts over here, and its plays and paused spot are removed from Trakt too.</source>
+            <translation>%1 kreće ispočetka, a odgledano i sačuvano mesto brišu se i sa Trakta.</translation>
+        </message>
+        <message>
+            <source>Clear</source>
+            <translation>Obriši</translation>
+        </message>
+        <message>
+            <source>Watch progress cleared</source>
+            <translation>Napredak gledanja obrisan</translation>
+        </message>
+        <message>
+            <source>Couldn't clear the progress</source>
+            <translation>Brisanje napretka nije uspelo</translation>
         </message>
         <message>
             <source>Saved · Noonix TV picks these again</source>
@@ -917,10 +944,6 @@ Ono što ne valja sređuje se na licu mesta.</translation>
             <translation>Sledeća epizoda</translation>
         </message>
         <message>
-            <source>Match Hz</source>
-            <translation>Uskladi Hz</translation>
-        </message>
-        <message>
             <source>Skip Intro</source>
             <translation>Preskoči špicu</translation>
         </message>
@@ -1186,20 +1209,20 @@ Ono što ne valja sređuje se na licu mesta.</translation>
     <context>
         <name>Search</name>
         <message>
-            <source>Searching…</source>
-            <translation>Tražim…</translation>
+            <source>Shows</source>
+            <translation>Serije</translation>
         </message>
         <message>
-            <source>Top results</source>
-            <translation>Najbolji rezultati</translation>
+            <source>Popular Shows</source>
+            <translation>Popularne serije</translation>
         </message>
         <message>
-            <source>No results</source>
-            <translation>Nema rezultata</translation>
+            <source>Movies</source>
+            <translation>Filmovi</translation>
         </message>
         <message>
-            <source>Popular</source>
-            <translation>Popularno</translation>
+            <source>Popular Movies</source>
+            <translation>Popularni filmovi</translation>
         </message>
         <message>
             <source>No results for “%1”</source>
@@ -2850,6 +2873,14 @@ Ono što ne valja sređuje se na licu mesta.</translation>
     </context>
     <context>
         <name>Tracks</name>
+        <message>
+            <source>No subtitles in your languages for this one</source>
+            <translation>Nema titlova na tvojim jezicima za ovo</translation>
+        </message>
+        <message>
+            <source>OpenSubtitles isn't answering, try again in a bit</source>
+            <translation>OpenSubtitles se ne javlja, probaj ponovo malo kasnije</translation>
+        </message>
         <message>
             <source>Image</source>
             <translation>Slikovni</translation>

@@ -52,6 +52,9 @@ final class MPVPlayer {
     var next: NextUp?
     /// seconds the subtitles are moved by (later +)
     var subDelay: Double = 0
+    /// mpv's own volume (the mouse's slider in the player, qml Player.volume / muted)
+    var volume: Double = 100
+    var muted = false
 
     struct Segment: Hashable {
         var kind: String
@@ -112,7 +115,8 @@ final class MPVPlayer {
         for (k, v) in [
             ("vo", "gpu-next"), ("gpu-api", "vulkan"), ("gpu-context", "moltenvk"), ("hwdec", "videotoolbox"),
             ("target-colorspace-hint", "yes"), ("ytdl", "no"), ("keep-open", "yes"), ("input-default-bindings", "no"),
-            ("cache", "yes"), ("demuxer-max-bytes", "400MiB"), ("sub-auto", "fuzzy"),
+            // mpv keeps its packets for reuse after a stop: the cache size is also what stays
+            ("cache", "yes"), ("demuxer-max-bytes", Platform.ios ? "128MiB" : "200MiB"), ("demuxer-max-back-bytes", "32MiB"), ("sub-auto", "fuzzy"),
             ("osd-level", "0"), ("ao", ProcessInfo.processInfo.environment["NOONIX_MUTE"] == "1" ? "null" : Platform.ios ? "audiounit" : "coreaudio"),
         ] {
             mpv_set_option_string(m, k, v)
@@ -126,6 +130,8 @@ final class MPVPlayer {
         mpv_observe_property(m, 4, "eof-reached", MPV_FORMAT_FLAG)
         mpv_observe_property(m, 5, "demuxer-cache-duration", MPV_FORMAT_DOUBLE)
         mpv_observe_property(m, 6, "track-list", MPV_FORMAT_NONE)
+        mpv_observe_property(m, 7, "volume", MPV_FORMAT_DOUBLE)
+        mpv_observe_property(m, 8, "mute", MPV_FORMAT_FLAG)
         mpv_set_wakeup_callback(m, { ctx in
             guard let ctx else { return }
             // any mpv thread: the events are read on the main thread
@@ -187,6 +193,13 @@ final class MPVPlayer {
     }
 
     func togglePause() { set("pause", paused ? "no" : "yes") }
+    func setVolume(_ v: Double) {
+        let v = min(100, max(0, v.rounded()))
+        set("volume", String(Int(v)))
+        // dragging up from nothing: sound again
+        if muted && v > 0 { setMuted(false) }
+    }
+    func setMuted(_ on: Bool) { set("mute", on ? "yes" : "no") }
     /// the app went to the background (ios): the video waits
     func background() { if mpv != nil, !paused { set("pause", "yes") } }
     /// the player's hz button: on / off now and from now on
@@ -255,6 +268,8 @@ final class MPVPlayer {
                 case ("duration", MPV_FORMAT_DOUBLE): duration = data.assumingMemoryBound(to: Double.self).pointee
                 case ("pause", MPV_FORMAT_FLAG): paused = data.assumingMemoryBound(to: Int32.self).pointee != 0
                 case ("demuxer-cache-duration", MPV_FORMAT_DOUBLE): cacheAhead = data.assumingMemoryBound(to: Double.self).pointee
+                case ("volume", MPV_FORMAT_DOUBLE): volume = data.assumingMemoryBound(to: Double.self).pointee
+                case ("mute", MPV_FORMAT_FLAG): muted = data.assumingMemoryBound(to: Int32.self).pointee != 0
                 case ("eof-reached", MPV_FORMAT_FLAG):
                     if data.assumingMemoryBound(to: Int32.self).pointee != 0, state == .playing {
                         state = .ended

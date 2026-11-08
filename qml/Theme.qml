@@ -19,9 +19,20 @@ QtObject {
     // a finger or the mouse was used last (Main keeps it in step with Input.pointing)
     property bool pointing: false
     // a finger on a phone or tablet: no focus marks, taps instead
-    readonly property bool touch: android && pointing
+    readonly property bool touch: android && pointing && !mouseMode
+    // a mouse is in use (a keyboard beside it keeps it, a remote or pad key ends it): the pointer's
+    // own controls show (back top left, fullscreen, volume). a remote never sees them
+    property bool mouseMode: false
+    // counts up every 30 s (main's timer): artwork off screen for a few of these lets go of its pixels
+    property int nap: 0
+    readonly property bool mouse: mouseMode
+    // the focus look of something under a Pointer: a finger only while it's down, the mouse only
+    // while it's on it (the focus stays where the mouse left it, unlit), keys always
+    function lit(focus, pt) { return !!focus && (touch ? pt.down : !pointing || pt.containsMouse) }
+    // under the pointer: the mouse while it's the one in use, a finger only while it's down
+    function hover(pt) { return touch ? pt.down : pointing && pt.containsMouse }
     // the words for what was used last: the remote's, a tap's or a click's
-    function say(remote, tap, click) { return !pointing ? remote : android ? tap : click }
+    function say(remote, tap, click) { return !pointing ? remote : touch ? tap : click }
     // how dark the frost behind a full-screen prompt or sheet is
     readonly property real veil: 0.74
     readonly property color skeleton: Qt.rgba(1, 1, 1, 0.1)

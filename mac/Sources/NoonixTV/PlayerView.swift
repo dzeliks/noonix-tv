@@ -23,8 +23,23 @@ struct VideoSurface: NSViewRepresentable {
     final class Surface: NSView {
         var video: CAMetalLayer?
 
+        // a resize (full screen, dragging the window) doesn't always lay out a view without subviews
+        override func setFrameSize(_ newSize: NSSize) {
+            super.setFrameSize(newSize)
+            fit()
+        }
+
+        override func viewDidChangeBackingProperties() {
+            super.viewDidChangeBackingProperties()
+            fit()
+        }
+
         override func layout() {
             super.layout()
+            fit()
+        }
+
+        private func fit() {
             guard let video else { return }
             let scale = window?.backingScaleFactor ?? 2
             video.contentsScale = scale
@@ -69,12 +84,18 @@ struct VideoSurface: UIViewRepresentable {
 final class Osd {
     static weak var shared: Osd?
 
-    enum Zone { case bar, row, skip }
-    enum Button: String { case subs, audio, match, rew, play, fwd, next, hz, exit }
+    enum Zone { case bar, row, skip, back }
+    enum Button: String { case subs, audio, match, rew, play, fwd, next, vol, full }
+    /// the way out is the back button top left for everyone (keys reach it going up, back arms it).
+    /// the mouse also gets volume + full screen bottom right (refresh matching lives in settings)
+    var mouse: Bool { Theme.mouse }
+    /// full screen only where the window has no title bar of its own (its green button does it there)
+    var fullButton: Bool { mouse && !WindowState.shared.titleBar }
     var buttons: [Button] {
-        // no refresh switching on ios
-        [.subs, .audio, .match, .rew, .play, .fwd] + (player.next != nil && player.state != .ended ? [.next] : [])
-            + (Platform.ios ? [] : [.hz]) + [.exit]
+        // phones: play and the jumps lead the row on the left, the rest follow
+        (Platform.phone ? [.rew, .play, .fwd, .subs, .audio, .match] : [.subs, .audio, .match, .rew, .play, .fwd])
+            + (player.next != nil && player.state != .ended ? [.next] : [])
+            + (mouse ? [.vol] : []) + (fullButton ? [.full] : [])
     }
     /// "how's this one?" and the subtitle timing, over the left of the row
     var match: MatchModel?
@@ -94,6 +115,13 @@ final class Osd {
     }
     /// back once more exits
     var exitArmed = false
+    /// what the mouse is on (qml Theme.lit: with the mouse in use only that one is lit)
+    var hover: Button?
+    var hoverPill = false
+    /// a row button's focus look: the keys' focus, or the mouse on it (a finger: the button's own press)
+    func lit(_ b: Button) -> Bool {
+        Input.pointing ? Theme.mouse && hover == b : zone == .row && buttons[safe: rowIndex] == b
+    }
     /// a held left / right's jump so far, riding above the thumb
     var bubble = ""
     @ObservationIgnored private var hide: Task<Void, Never>?
@@ -231,7 +259,7 @@ final class Osd {
         }
     }
 
-    struct TrackLine { var kind: String; var id: Int; var label: String; var detail = ""; var selected = false; var header = false }
+    struct TrackLine { var kind: String; var id: Int; var label: String; var detail = ""; var selected = false; var header = false; var dim = false }
 
     private static func subKind(_ codec: String?) -> String {
         ["hdmv_pgs_subtitle", "dvd_subtitle", "dvb_subtitle"].contains(codec ?? "") ? L("Image") : ""
@@ -282,7 +310,8 @@ final class Osd {
         }
         let say = ["searching": L("Looking on OpenSubtitles…"), "none": L("Nothing new for your languages"),
                    "added": L("Added to the list"), "failed": L("OpenSubtitles isn't answering")]
-        out.append(TrackLine(kind: "search", id: -1, label: L("Search Subtitles"), detail: say[subSearch] ?? L("Your languages, from OpenSubtitles")))
+        out.append(TrackLine(kind: "search", id: -1, label: L("Search Subtitles"), detail: say[subSearch] ?? L("Your languages, from OpenSubtitles"),
+                             dim: subSearch == "none"))
         out.append(TrackLine(kind: "file", id: -2, label: L("Add Subtitle File"), detail: L("An .srt or .ass file of your own")))
         return out
     }
@@ -306,13 +335,17 @@ final class Osd {
 
     func searchSubs() {
         if subSearch == "searching" { return }
+        // already asked: nothing new until the next title
+        if subSearch == "none" { app?.toast(L("No subtitles in your languages for this one"), secs: 5); return }
         subSearch = "searching"
         Task {
             if let data = try? await Core.shared.raw("playback.searchSubs"),
                let d = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 subSearch = ((d["count"] as? NSNumber)?.intValue ?? 0) > 0 ? "added" : "none"
+                if subSearch == "none" { app?.toast(L("No subtitles in your languages for this one"), secs: 5) }
             } else {
                 subSearch = "failed"
+                app?.toast(L("OpenSubtitles isn't answering, try again in a bit"), secs: 5)
             }
         }
     }
@@ -351,8 +384,11 @@ final class Osd {
         case .fwd: player.seek(by: 10)
         case .match: openMatch()
         case .next: app?.playNext(); return
-        case .hz: player.setRefreshMatch(!player.refreshMatch)
-        case .exit: app?.stopPlayback()
+        case .vol: player.setMuted(!player.muted)
+        case .full:
+            #if os(macOS)
+            WindowState.shared.toggle()
+            #endif
         }
         show()
     }
@@ -429,10 +465,9 @@ final class Osd {
         if k == .back {
             if exitArmed || player.state == .ended { app?.stopPlayback(); return true }
             if shown { hideNow(); return true }
-            // first back with the controls down: land on exit, a second one leaves
+            // first back with the controls down: land on the back button, a second one leaves
             show()
-            zone = .row
-            rowIndex = buttons.count - 1
+            zone = .back
             exitArmed = true
             return true
         }
@@ -454,17 +489,23 @@ final class Osd {
             case .right: heldSeek(1); return true
             case .ok: player.togglePause()
             case .down: zone = .row; rowIndex = buttons.firstIndex(of: .play) ?? 4
-            case .up:
-                if pillShown { zone = .skip } else { hideNow(); return true }
+            case .up: zone = pillShown ? .skip : .back
             default: break
             }
         case .skip:
             switch k {
             case .down: zone = .bar
+            case .up: zone = .back
             case .ok: skipAction()
             default: break
             }
-            if !pillShown { zone = .bar }
+            if !pillShown && zone == .skip { zone = .bar }
+        case .back:
+            switch k {
+            case .down: zone = pillShown ? .skip : .bar
+            case .ok: app?.stopPlayback(); return true
+            default: break
+            }
         case .row:
             switch k {
             case .left: rowIndex = max(0, rowIndex - 1)
@@ -767,6 +808,8 @@ struct PlayerView: View {
         }
         // the end: the next episode card takes the focus, otherwise back to where we were
         .onChange(of: player.state) {
+            // a new title: its subtitles haven't been looked for yet
+            if player.state == .opening { osd?.subSearch = "" }
             if player.state == .playing { osd?.show(5); app.scheduleTip(); player.setSubtitleLift(true) }
             guard player.state == .ended else { return }
             if player.next != nil { osd?.show(); osd?.zone = .skip } else { app.stopPlayback() }
@@ -817,6 +860,12 @@ struct OsdView: View {
             .frame(width: W - margin, alignment: .trailing)
             .padding(.top, 56 * u)
 
+            // the way out, top left like every page's back (a key reaches it going up, back arms it)
+            RoundButton(icon: "chevron.left", u: u, size: 76, lit: osd.exitArmed || (osd.zone == .back && !Input.pointing)) {
+                osd.app?.stopPlayback()
+            }
+            .offset(x: margin, y: 56 * u)
+
             // logo / title in a fixed box, bottom edge at H-336, the episode line under it
             LogoBox(url: p.logo, title: p.title, titleSize: 54 * u, leading: true)
                 .frame(width: 520 * u, height: 150 * u)
@@ -861,7 +910,7 @@ struct OsdView: View {
 
     private func buttonRow(W: CGFloat, H: CGFloat, margin: CGFloat) -> some View {
         let p = osd.player
-        let focusOf: (Osd.Button) -> Bool = { b in osd.zone == .row && osd.buttons[safe: osd.rowIndex] == b }
+        let focusOf: (Osd.Button) -> Bool = { b in osd.lit(b) }
         let subLabel = p.tracks.first { $0.type == "sub" && $0.selected }.map { Lang.name($0.lang) } ?? L("Off")
         let audioLabel: String = {
             guard let t = p.tracks.first(where: { $0.type == "audio" && $0.selected }) else { return L("Audio") }
@@ -870,9 +919,10 @@ struct OsdView: View {
             let known = !(t.lang ?? "").isEmpty && t.lang != "und"
             return (known ? Lang.name(t.lang) : L("Audio")) + (ch.isEmpty ? "" : "  ·  " + ch)
         }()
-        // a narrow screen (phones): the capsule moves right of the left buttons, and where even that
-        // runs into the right ones, those two go without their labels
+        // a narrow screen: where the row runs into the right buttons, subtitles and audio go without
+        // their labels. phones: the capsule leads on the left, the rest follow it
         let compact = margin + fullLeftW + 18 * u + transportW + 18 * u > W - margin - rightW
+        let phone = Platform.phone
         let left = HStack(spacing: 18 * u) {
             rowButton(.subs, text: compact ? "" : subLabel, icon: "tv.subtitles", focused: focusOf(.subs))
             rowButton(.audio, text: compact ? "" : audioLabel, icon: "speaker.wave.2", focused: focusOf(.audio))
@@ -882,6 +932,7 @@ struct OsdView: View {
             GlassEffectContainer(spacing: 18 * u) {
                 HStack(spacing: 18 * u) {
                     left
+                        .padding(.leading, phone ? transportW + 18 * u : 0)
                         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { leftW = $0 }
                         // the width with the labels, to know when they don't fit
                         .background(alignment: .leading) {
@@ -899,10 +950,13 @@ struct OsdView: View {
                         if osd.buttons.contains(.next) {
                             rowButton(.next, text: L("Next Episode"), icon: "forward.end.fill", focused: focusOf(.next))
                         }
-                        if osd.buttons.contains(.hz) {
-                            rowButton(.hz, text: L("Match Hz"), icon: p.refreshMatch ? "checkmark" : "tv", focused: focusOf(.hz))
+                        if osd.buttons.contains(.vol) {
+                            VolumeControl(osd: osd, u: u)
                         }
-                        rowButton(.exit, text: "", icon: "xmark", focused: focusOf(.exit))
+                        if osd.buttons.contains(.full) {
+                            rowButton(.full, text: "", icon: WindowState.shared.fullScreen ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right",
+                                      focused: focusOf(.full))
+                        }
                     }
                     .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { rightW = $0 }
                 }
@@ -910,17 +964,20 @@ struct OsdView: View {
             .padding(.horizontal, margin)
             .frame(width: W, height: 104 * u)
 
-            // transport in one glass capsule: 14 round the 76 circles, 10 round play
-            HStack(spacing: 10 * u) {
+            // transport in one glass capsule: 14 round the 76 circles, 10 round play. ios: as tall as
+            // the other buttons (76), 6 round its 64 play
+            let small = Platform.ios
+            HStack(spacing: (small ? 4 : 10) * u) {
                 ForEach([Osd.Button.rew, .play, .fwd], id: \.self) { b in
-                    TransportKey(osd: osd, b: b, focused: focusOf(b), u: u)
+                    TransportKey(osd: osd, b: b, focused: focusOf(b), small: small, u: u)
                 }
             }
-            .padding(.horizontal, 14 * u)
-            .frame(height: 104 * u)
+            .padding(.horizontal, (small ? 6 : 14) * u)
+            .frame(height: (small ? 76 : 104) * u)
             .glassEffect(.regular, in: .capsule)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { transportW = $0 }
-            .offset(x: max((W - transportW) / 2, margin + leftW + 18 * u))
+            .frame(height: 104 * u)
+            .offset(x: phone ? margin : max((W - transportW) / 2, margin + leftW + 18 * u))
         }
         .frame(width: W, height: 104 * u, alignment: .topLeading)
         .offset(y: H - 86 * u - 52 * u)
@@ -930,7 +987,10 @@ struct OsdView: View {
         GlassButton(text: text, icon: icon, focused: focused, u: u)
             .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("osd")) } action: { osd.buttonFrames[b] = $0 }
             .onContinuousHover { phase in
-                if case .active = phase, Input.pointerLive { osd.zone = .row; osd.rowIndex = osd.buttons.firstIndex(of: b) ?? 0; osd.show() }
+                if case .active = phase {
+                    if osd.hover != b { osd.hover = b }
+                    if Input.pointerLive { osd.zone = .row; osd.rowIndex = osd.buttons.firstIndex(of: b) ?? 0; osd.show() }
+                } else if osd.hover == b { osd.hover = nil }
             }
             .onTapGesture { osd.act(b) }
     }
@@ -941,15 +1001,16 @@ private struct TransportKey: View {
     let osd: Osd
     let b: Osd.Button
     let focused: Bool
+    var small = false
     let u: CGFloat
     @GestureState private var down = false
 
     var body: some View {
         // touch: play is the white one, the others light while pressed
         let foc = Theme.touch ? b == .play || down : focused
-        let d = (b == .play ? 84 : 76) * u
+        let d = (small ? (b == .play ? 64 : 58) : (b == .play ? 84 : 76)) * u
         Image(systemName: b == .play ? (osd.player.paused ? "play.fill" : "pause.fill") : b == .rew ? "arrow.counterclockwise" : "arrow.clockwise")
-            .font(.system(size: (b == .play ? 34 : 28) * u, weight: .semibold))
+            .font(.system(size: (b == .play ? 34 : 28) * (small ? 0.76 : 1) * u, weight: .semibold))
             .contentTransition(.symbolEffect(.replace))
             .foregroundStyle(foc ? Theme.focusFg : Theme.fg)
             .frame(width: d, height: d)
@@ -957,7 +1018,10 @@ private struct TransportKey: View {
             .animation(Theme.lift, value: foc)
             .contentShape(.circle)
             .onContinuousHover { phase in
-                if case .active = phase, Input.pointerLive { osd.zone = .row; osd.rowIndex = osd.buttons.firstIndex(of: b) ?? 0; osd.show() }
+                if case .active = phase {
+                    if osd.hover != b { osd.hover = b }
+                    if Input.pointerLive { osd.zone = .row; osd.rowIndex = osd.buttons.firstIndex(of: b) ?? 0; osd.show() }
+                } else if osd.hover == b { osd.hover = nil }
             }
             .onTapGesture { osd.act(b) }
             #if os(iOS)
@@ -976,7 +1040,8 @@ struct SkipPill: View {
     var body: some View {
         let p = osd.player
         let next = osd.nextUp
-        let foc = osd.zone == .skip || !osd.shown
+        // alone on screen it's the white one; with the controls up, the mouse lights it by being on it
+        let foc = !osd.shown || (Input.pointing ? Theme.mouse && osd.hoverPill : osd.zone == .skip)
         let label = osd.segment.map { $0.kind == "intro" ? L("Skip Intro") : $0.kind == "recap" ? L("Skip Recap") : L("Skip Credits") } ?? ""
         let cardW = 340 * u
         ZStack {
@@ -1010,6 +1075,7 @@ struct SkipPill: View {
         .shadow(color: .black.opacity(foc ? 0.55 : 0.28), radius: 22 * u, y: 16 * u)
         .animation(.easeOut(duration: 0.14), value: foc)
         .contentShape(.rect)
+        .onHover { osd.hoverPill = $0 }
         .onTapGesture { osd.skipAction() }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .padding(.trailing, Theme.margin(u))
@@ -1114,9 +1180,9 @@ struct TrackPicker: View {
                                 .padding(.leading, 30 * u).padding(.bottom, 22 * u)
                                 .frame(maxWidth: .infinity, minHeight: 84 * u, alignment: .bottomLeading)
                         } else {
-                            let value = l.kind == "search" ? (osd.subSearch == "searching" ? "…" : "›") : l.kind == "file" ? "›" : l.selected ? "✓" : ""
+                            let value = l.kind == "search" ? (osd.subSearch == "searching" ? "…" : osd.subSearch == "none" ? "" : "›") : l.kind == "file" ? "›" : l.selected ? "✓" : ""
                             // no lift: it would eat the inset and crowd the corners
-                            SettingsRow(line: SettingsModel.Line(label: l.label, detail: l.detail, value: value),
+                            SettingsRow(line: SettingsModel.Line(label: l.label, detail: l.detail, value: value, dim: l.dim),
                                         focused: osd.pickerIndex == i, u: u, grow: 1)
                                 .id(i)
                                 .onContinuousHover { phase in if case .active = phase, Input.pointerLive { osd.pickerIndex = i } }
@@ -1175,5 +1241,53 @@ enum Lang {
         if let r = regional[l + "-" + region.uppercased()] ?? regional[l + "-" + region] { return Lc(r) }
         if let n = names[l] { return Lc(n) }
         return l.uppercased()
+    }
+}
+
+/// the mouse's volume (mac): a speaker (mute) and a slider in one capsule, the wheel turns it too
+private struct VolumeControl: View {
+    let osd: Osd
+    let u: CGFloat
+    @State private var onSpeaker = false
+    @State private var onTrack = false
+    @State private var dragging = false
+
+    var body: some View {
+        let p = osd.player
+        let frac = p.muted ? 0 : max(0, min(1, p.volume / 100))
+        let speaker = onSpeaker && Theme.mouse
+        let live = (onTrack && Theme.mouse) || dragging
+        HStack(spacing: 6 * u) {
+            Image(systemName: p.muted || p.volume <= 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
+                .font(.system(size: 26 * u, weight: .semibold))
+                .foregroundStyle(speaker ? Theme.focusFg : Theme.fg)
+                .frame(width: 68 * u, height: 68 * u)
+                .background { Circle().fill(Color.white).opacity(speaker ? 1 : 0) }
+                .animation(.easeOut(duration: 0.14), value: speaker)
+                .contentShape(.circle)
+                .onHover { onSpeaker = $0 }
+                .onTapGesture { osd.act(.vol); osd.show() }
+                .padding(.leading, 4 * u)
+            GeometryReader { g in
+                let w = g.size.width
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.white.opacity(0.25)).frame(height: 8 * u)
+                    Capsule().fill(live ? Theme.accent : Color.white).frame(width: frac * w, height: 8 * u)
+                    Circle().fill(Color.white).frame(width: 22 * u, height: 22 * u)
+                        .scaleEffect(live ? 1 : 0.5)
+                        .animation(.easeOut(duration: 0.14), value: live)
+                        .offset(x: frac * w - 11 * u)
+                }
+                .frame(width: w, height: g.size.height)
+                .contentShape(.rect)
+                .onHover { onTrack = $0 }
+                .gesture(DragGesture(minimumDistance: 0)
+                    .onChanged { v in dragging = true; p.setVolume(v.location.x / max(1, w) * 100); osd.show() }
+                    .onEnded { _ in dragging = false })
+            }
+            .padding(.trailing, 30 * u)
+        }
+        .frame(width: 300 * u, height: 76 * u)
+        .glassEffect(.regular.tint(.white.opacity(0.06)), in: .capsule)
     }
 }

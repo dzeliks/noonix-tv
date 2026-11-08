@@ -16,8 +16,15 @@ FocusScope {
     property int rowIndex: 3
     property string exitArmed: ""        // back once more exits
     readonly property bool nextButton: nextReady && Player.state !== "ended"
-    // no refresh switching on android
-    readonly property var buttons: ["subs", "audio", "match", "rew", "play", "fwd"].concat(nextButton ? ["next"] : [], Theme.android ? [] : ["hz"], ["exit"])
+    // the way out is the back button top left for everyone (a remote reaches it going up, its back
+    // key arms it). the mouse also gets volume + fullscreen bottom right (refresh matching lives in settings)
+    readonly property bool mouse: Theme.mouse
+    // fullscreen only where the window can be something else and has no title bar of its own
+    readonly property bool fullButton: mouse && !Theme.android && !Remote.titleBar
+    // phones: play and the jumps lead the row on the left, the rest follow
+    readonly property bool phone: Desktop.phone
+    readonly property var buttons: (phone ? ["rew", "play", "fwd", "subs", "audio", "match"] : ["subs", "audio", "match", "rew", "play", "fwd"])
+        .concat(nextButton ? ["next"] : [], mouse ? ["vol"] : [], fullButton ? ["full"] : [])
     property bool pickerOpen: false          // a track picker covers the left side
     readonly property bool chromeShown: shown || Player.state === "ended"
     // lifted, the line's foot sits a little above the seek bar (77 % on a tv, higher on a phone)
@@ -197,7 +204,8 @@ FocusScope {
         }
         else if (b === "match") openMatch()
         else if (b === "next") { Player.playNext(); return }
-        else if (b === "hz") Player.setRefreshMatch(!Player.refreshMatch)
+        else if (b === "full") Remote.toggleFullScreen()
+        else if (b === "vol") Player.setMuted(!Player.muted)
         else if (b === "exit") osd.exit()
         show()
     }
@@ -226,8 +234,8 @@ FocusScope {
         if (k === Qt.Key_Escape || k === Qt.Key_Back) {
             if (exitArmed === "exit" || Player.state === "ended") { osd.exit(); return }
             if (shown) { hide(); return }
-            // first back with the controls down: land on exit, a second one leaves
-            show(); zone = "row"; rowIndex = buttons.length - 1; exitArmed = "exit"
+            // first back with the controls down: land on the back button, a second one leaves
+            show(); zone = "back"; exitArmed = "exit"
             return
         }
         exitArmed = ""
@@ -243,8 +251,7 @@ FocusScope {
             else if (k === Qt.Key_Right) { heldSeek(1); return }
             else if (k === Qt.Key_Return || k === Qt.Key_Enter) Player.togglePause()
             else if (k === Qt.Key_Down) { zone = "row"; rowIndex = buttons.indexOf("play") }
-            else if (k === Qt.Key_Up && pillShown) zone = "skip"
-            else if (k === Qt.Key_Up) { hide(); return }
+            else if (k === Qt.Key_Up) zone = pillShown ? "skip" : "back"
         } else if (zone === "row") {
             if (k === Qt.Key_Left) rowIndex = Math.max(0, rowIndex - 1)
             else if (k === Qt.Key_Right) rowIndex = Math.min(buttons.length - 1, rowIndex + 1)
@@ -252,7 +259,11 @@ FocusScope {
             else if (k === Qt.Key_Return || k === Qt.Key_Enter) act(buttons[rowIndex])
         } else if (zone === "skip") {
             if (k === Qt.Key_Down) zone = "bar"
+            else if (k === Qt.Key_Up) zone = "back"
             else if (k === Qt.Key_Return || k === Qt.Key_Enter) skipAction()
+        } else if (zone === "back") {
+            if (k === Qt.Key_Down) zone = pillShown ? "skip" : "bar"
+            else if (k === Qt.Key_Return || k === Qt.Key_Enter) { osd.exit(); return }
         }
         show()
     }
@@ -271,10 +282,20 @@ FocusScope {
             acceptedButtons: Qt.LeftButton
             acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
             onTapped: {
+                // the second click of a double click: fullscreen, and the first one's pause undone
+                if (tapCount === 2 && !osd.pickerOpen && !Theme.android) {
+                    if (pauseFlip) Player.togglePause()
+                    pauseFlip = false
+                    Remote.toggleFullScreen()
+                    osd.show()
+                    return
+                }
+                pauseFlip = false
                 if (osd.pickerOpen) win.closePickers()
-                else if (osd.shown) Player.togglePause()
+                else if (osd.shown) { Player.togglePause(); pauseFlip = true }
                 else osd.show()
             }
+            property bool pauseFlip: false
         }
         TapHandler {
             acceptedDevices: PointerDevice.TouchScreen
@@ -370,10 +391,11 @@ FocusScope {
             y: parent.height - 214 * osd.u
             height: 8 * osd.u
             readonly property real frac: osd.dur > 0 ? Math.min(1, osd.pos / osd.dur) : 0
-            readonly property bool foc: osd.zone === "bar"
+            readonly property bool foc: Theme.pointing ? Theme.hover(barMa) || barMa.pressed : osd.zone === "bar"
             Rectangle { anchors.fill: parent; radius: height / 2; color: Qt.rgba(1, 1, 1, 0.25) }
             // click or drag along the bar to go there
             MouseArea {
+                id: barMa
                 anchors { fill: parent; topMargin: -24 * osd.u; bottomMargin: -24 * osd.u }
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
@@ -467,16 +489,20 @@ FocusScope {
             font { family: Theme.text; pixelSize: 25 * osd.u; weight: Font.Medium; features: { "tnum": 1 } }
         }
 
-        // a narrow screen (phones): the capsule moves right of the left buttons, and where even that
-        // runs into the right ones, those two go without their labels
+        // a narrow screen (phones): the capsule moves next to the left buttons, and where the row still
+        // runs out of room every button goes without its label (the icons say it)
         TextMetrics { id: subM; font: Qt.font({ family: Theme.display, pixelSize: 27 * osd.u, weight: Font.DemiBold }); text: osd.subLabel }
         TextMetrics { id: audioM; font: subM.font; text: osd.audioLabel }
+        TextMetrics { id: nextM; font: subM.font; text: qsTr("Next Episode") }
+        // the right row with its labels (not rightRow itself: its width follows compact)
+        readonly property real rightFull: (osd.nextButton ? nextM.advanceWidth + (64 + 44 + 18) * osd.u : 0)
+                                          + (osd.mouse ? (300 + 18) * osd.u : 0) + (osd.fullButton ? (76 + 18) * osd.u : 0)
         readonly property bool compact: Theme.margin + subM.advanceWidth + audioM.advanceWidth + 2 * (64 + 44) * osd.u + 76 * osd.u
-                                        + 3 * 18 * osd.u + transport.width + 18 * osd.u > rightRow.x
+                                        + 3 * 18 * osd.u + transport.width + 18 * osd.u > width - Theme.margin - rightFull
         // the row at H-86: glass at rest, white when focused
         Row {
             id: leftRow
-            x: Theme.margin
+            x: osd.phone ? transport.x + transport.width + 18 * osd.u : Theme.margin
             y: parent.height - 86 * osd.u - height / 2
             spacing: 18 * osd.u
             RowButton { id: subsBtn; key: "subs"; icon: "subtitles"; text: chrome.compact ? "" : osd.subLabel }
@@ -486,24 +512,26 @@ FocusScope {
         // transport in one glass capsule
         Item {
             id: transport
-            x: Math.max((parent.width - width) / 2, leftRow.x + leftRow.width + 18 * osd.u)
+            x: osd.phone ? Theme.margin : Math.max((parent.width - width) / 2, leftRow.x + leftRow.width + 18 * osd.u)
             y: parent.height - 86 * osd.u - height / 2
-            // 14 round the 76 circles and 10 round play: the end circles sit concentric in the capsule
-            width: tRow.width + 28 * osd.u
-            height: 104 * osd.u
+            // 14 round the 76 circles and 10 round play: the end circles sit concentric in the capsule.
+            // android: as tall as the other buttons (76), 6 round its 64 play
+            readonly property bool small: Theme.android
+            width: tRow.width + (small ? 12 : 28) * osd.u
+            height: (small ? 76 : 104) * osd.u
             Glass { anchors.fill: parent; kind: "chip"; radius: height / 2 }
             Row {
                 id: tRow
                 anchors.centerIn: parent
-                spacing: 10 * osd.u
+                spacing: (transport.small ? 4 : 10) * osd.u
                 Repeater {
                     model: ["rew", "play", "fwd"]
                     Item {
                         required property var modelData
                         // touch: play is the white one, the others light while pressed
                         readonly property bool foc: Theme.touch ? modelData === "play" || tp.down
-                                                                : osd.zone === "row" && osd.buttons[osd.rowIndex] === modelData
-                        width: (modelData === "play" ? 84 : 76) * osd.u
+                                                                : Theme.lit(osd.zone === "row" && osd.buttons[osd.rowIndex] === modelData, tp)
+                        width: (transport.small ? (modelData === "play" ? 64 : 58) : (modelData === "play" ? 84 : 76)) * osd.u
                         height: width
                         anchors.verticalCenter: parent.verticalCenter
                         Rectangle {
@@ -516,7 +544,7 @@ FocusScope {
                         }
                         Symbol {
                             anchors.centerIn: parent
-                            width: (modelData === "play" ? 46 : 38) * osd.u; height: width
+                            width: (modelData === "play" ? 46 : 38) * (transport.small ? 0.76 : 1) * osd.u; height: width
                             weight: 2.2
                             color: parent.foc ? Theme.focusFg : Theme.fg
                             name: modelData === "play" ? (Player.paused ? "play" : "pause") : modelData === "rew" ? "back10" : "fwd10"
@@ -536,9 +564,84 @@ FocusScope {
             anchors { right: parent.right; rightMargin: Theme.margin }
             y: parent.height - 86 * osd.u - height / 2
             spacing: 18 * osd.u
-            RowButton { key: "next"; icon: "next"; text: qsTr("Next Episode"); visible: osd.nextButton }
-            RowButton { key: "hz"; icon: Player.refreshMatch ? "check" : "tv"; text: qsTr("Match Hz"); visible: !Theme.android }
-            RowButton { key: "exit"; icon: "xmark" }
+            // short of room the labels go first (the icons say it)
+            RowButton { key: "next"; icon: "next"; text: chrome.compact ? "" : qsTr("Next Episode"); visible: osd.nextButton }
+            Volume { visible: osd.mouse; anchors.verticalCenter: parent.verticalCenter }
+            RowButton { key: "full"; icon: Remote.fullScreen ? "unfullscreen" : "fullscreen"; visible: osd.fullButton }
+        }
+
+        // the way out, top left like every page's back
+        RoundButton {
+            x: Theme.margin
+            y: 56 * osd.u
+            size: 76
+            icon: "chevronleft"
+            lit: osd.exitArmed === "exit" || (osd.zone === "back" && !Theme.pointing)
+            onClicked: osd.exit()
+        }
+    }
+
+    // the mouse: a speaker (mute) and a slider, the wheel on either turns it
+    component Volume: Item {
+        id: vol
+        readonly property bool foc: Theme.lit(osd.zone === "row" && osd.buttons[osd.rowIndex] === "vol", volPt) || volMa.pressed
+        width: 300 * osd.u
+        height: 76 * osd.u
+        Glass { anchors.fill: parent; kind: "chip"; radius: height / 2; tint: 0.12 }
+        Item {
+            id: spk
+            width: vol.height; height: width
+            Rectangle {
+                anchors.fill: parent; anchors.margins: 4 * osd.u
+                radius: width / 2
+                color: volPt.containsMouse ? "white" : "transparent"
+                Behavior on color { ColorAnimation { duration: 140 } }
+            }
+            Symbol {
+                anchors.centerIn: parent
+                width: 34 * osd.u; height: width
+                name: Player.muted || Player.volume <= 0 ? "speakermute" : "audio"
+                weight: 2.2
+                color: volPt.containsMouse ? Theme.focusFg : Theme.fg
+            }
+            Pointer {
+                id: volPt
+                okKey: false
+                onPointed: { osd.zone = "row"; osd.rowIndex = osd.buttons.indexOf("vol"); osd.show() }
+                onTapped: osd.act("vol")
+            }
+        }
+        Item {
+            id: track
+            anchors { left: spk.right; leftMargin: 6 * osd.u; right: parent.right; rightMargin: 30 * osd.u; verticalCenter: parent.verticalCenter }
+            height: 8 * osd.u
+            readonly property real frac: Player.muted ? 0 : Math.max(0, Math.min(1, Player.volume / 100))
+            Rectangle { anchors.fill: parent; radius: height / 2; color: Qt.rgba(1, 1, 1, 0.25) }
+            Rectangle { height: parent.height; radius: height / 2; width: track.frac * parent.width; color: vol.foc || volMa.containsMouse ? Theme.accent : "white" }
+            Rectangle {
+                width: 22 * osd.u; height: width; radius: width / 2
+                x: track.frac * track.width - width / 2
+                anchors.verticalCenter: parent.verticalCenter
+                color: "white"
+                scale: volMa.containsMouse || volMa.pressed ? 1 : 0.5
+                Behavior on scale { NumberAnimation { duration: 140 } }
+            }
+            MouseArea {
+                id: volMa
+                anchors { fill: parent; topMargin: -30 * osd.u; bottomMargin: -30 * osd.u; leftMargin: -10 * osd.u; rightMargin: -10 * osd.u }
+                hoverEnabled: true
+                cursorShape: Qt.PointingHandCursor
+                function set(x) { Player.setVolume(Math.round(Math.max(0, Math.min(1, (x - 10 * osd.u) / track.width)) * 100)); osd.show() }
+                onPressed: function (m) { set(m.x) }
+                onPositionChanged: function (m) { if (pressed) set(m.x); else if (Input.pointerLive()) osd.show() }
+            }
+        }
+        WheelHandler {
+            onWheel: function (e) {
+                var step = e.angleDelta.y > 0 ? 5 : e.angleDelta.y < 0 ? -5 : 0
+                if (step) Player.setVolume((Player.muted ? 0 : Player.volume) + step)
+                osd.show()
+            }
         }
     }
 
@@ -546,7 +649,8 @@ FocusScope {
     Item {
         id: pill
         readonly property bool next: osd.nextUp
-        readonly property bool foc: osd.zone === "skip" || !osd.shown
+        // alone on screen it's the white one; with the controls up, the mouse lights it by being on it
+        readonly property bool foc: !osd.shown || (Theme.pointing ? Theme.hover(pillPt) : osd.zone === "skip")
         anchors { right: parent.right; rightMargin: Theme.margin }
         y: parent.height - (osd.shown ? 300 : 150) * osd.u - height
         Behavior on y { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
@@ -610,6 +714,13 @@ FocusScope {
                 : osd.segment.kind === "recap" ? qsTr("Skip Recap") : qsTr("Skip Credits")
             color: pill.foc ? Theme.focusFg : Theme.fg
             font { family: Theme.display; pixelSize: 29 * osd.u; weight: Font.DemiBold }
+        }
+        Pointer {
+            id: pillPt
+            okKey: false
+            enabled: osd.pillShown
+            onPointed: { osd.zone = "skip"; osd.show() }
+            onTapped: osd.skipAction()
         }
     }
 

@@ -10,7 +10,7 @@ Item {
     property bool focused: false
     // with the mouse in use only the card under it: moving off lets it down
     // a finger down on it: lit and sunk in (Pointer), not lifted
-    readonly property bool lifted: focused && (Input.pointing !== true || point.containsMouse) && !(Theme.android && point.down)
+    readonly property bool lifted: focused && (Input.pointing !== true || Theme.hover(point)) && !(Theme.android && point.down)
     readonly property bool wide: style !== "poster"
     readonly property real u: Theme.u
     property real posterW: 214 * u
@@ -143,7 +143,7 @@ Item {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
-                text: Input.pointing ? (Qt.platform.os === "android" ? qsTr("Tap to undo") : qsTr("Click to undo")) : qsTr("Press OK to undo")
+                text: Theme.say(qsTr("Press OK to undo"), qsTr("Tap to undo"), qsTr("Click to undo"))
                 color: "white"
                 font { family: Theme.display; pixelSize: 22 * card.u; weight: Font.DemiBold }
             }

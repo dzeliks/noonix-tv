@@ -456,20 +456,6 @@ FocusScope {
                     id: actionsRow
                     spacing: 26 * page.bu
                     anchors.verticalCenter: parent.verticalCenter
-                    // the way back on the page itself (the pointer's; the remote has its own key too).
-                    // the focus starts on play, left of it is this
-                    GlassButton {
-                        id: backBtn
-                        // a phone has its own back (gesture or key)
-                        visible: !Theme.touch
-                        glass: true
-                        source: artGlass
-                        u: page.bu
-                        icon: "arrowleft"
-                        text: qsTr("Back")
-                        KeyNavigation.right: playBtn
-                        onClicked: page.back()
-                    }
                     GlassButton {
                         id: playBtn
                         // a finger: the white one (a remote shows it by focus)
@@ -485,7 +471,6 @@ FocusScope {
                             var t = page.playTarget()
                             return (t.season === 1 && t.episode === 1 ? qsTr("Play") : qsTr("Continue")) + "  S" + t.season + " E" + t.episode
                         }
-                        KeyNavigation.left: backBtn.visible ? backBtn : null
                         KeyNavigation.right: overBtn.visible ? overBtn : srcBtn
                         onClicked: page.play(page.playTarget(), null)
                     }
@@ -550,7 +535,7 @@ FocusScope {
                     readonly property var modelData: seasonsRow.seasons[index] || ({})
                     readonly property bool sel: modelData.number === page.seasonNo
                     readonly property bool foc: ListView.isCurrentItem && seasonsRow.activeFocus
-                    readonly property bool lit: foc && (!Input.pointing || sp.containsMouse)
+                    readonly property bool lit: Theme.lit(foc, sp)
                     height: (page.tight ? 44 : 56) * page.u
                     width: sLabel.implicitWidth + 44 * page.bu
                     radius: height / 2
@@ -659,5 +644,28 @@ FocusScope {
             cardW: page.cardW
             artH: page.cardW * 9 / 16
         }
+    }
+    // the mouse's way back: top left, wherever the page is scrolled (a remote has its key, a phone its
+    // gesture). scrolled, the page slides under a shade like under a toolbar
+    Rectangle {
+        width: page.width
+        height: 190 * page.u
+        visible: opacity > 0
+        opacity: Theme.mouse && scroller.contentY > 20 * page.u ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 180 } }
+        gradient: Gradient {
+            GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.92) }
+            GradientStop { position: 0.6; color: Qt.rgba(0, 0, 0, 0.7) }
+            GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0) }
+        }
+    }
+    RoundButton {
+        visible: Theme.mouse
+        // in line with play under it
+        x: Theme.margin
+        y: 40 * page.u
+        size: 72
+        icon: "chevronleft"
+        onClicked: page.back()
     }
 }

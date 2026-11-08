@@ -461,6 +461,32 @@ impl Account {
         Ok(())
     }
 
+    async fn delete(&self, path: &str) -> Result<()> {
+        if dry_run() {
+            tracing::info!("trakt dry run: DELETE {path}");
+            return Ok(());
+        }
+        self.send(reqwest::Method::DELETE, path, None, 0).await.map(|_| ())
+    }
+
+    /// a title's watching starts over on trakt too: its plays leave the history, a paused spot goes
+    pub async fn clear_title(&self, kind: &str, tmdb: i64) -> Result<()> {
+        let key = if kind == "movie" { "movies" } else { "shows" };
+        self.post("/sync/history/remove", json!({ key: [{ "ids": { "tmdb": tmdb } }] })).await?;
+        for p in self.playback().await.unwrap_or_default() {
+            let ours = if kind == "movie" {
+                p.get("kind").and_then(Value::as_str) == Some("movie") && p.get("id").and_then(Value::as_i64) == Some(tmdb)
+            } else {
+                p.get("kind").and_then(Value::as_str) == Some("episode") && p.get("show").and_then(Value::as_i64) == Some(tmdb)
+            };
+            if let (true, Some(id)) = (ours, p.get("playbackId").and_then(Value::as_i64)) {
+                self.delete(&format!("/sync/playback/{id}")).await?;
+            }
+        }
+        self.invalidate().await;
+        Ok(())
+    }
+
     pub async fn set_watchlist(&self, kind: &str, tmdb: i64, on: bool) -> Result<()> {
         let key = if kind == "movie" { "movies" } else { "shows" };
         let body = json!({ key: [{ "ids": { "tmdb": tmdb } }] });

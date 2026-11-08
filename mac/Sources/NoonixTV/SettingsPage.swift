@@ -17,6 +17,8 @@ final class SettingsModel {
         var checked = false
         var badge = ""
         var header = false
+        /// nothing to do here right now: greyed out
+        var dim = false
         var act = ""
         /// "brand": the app's own card at the top of about
         var kind = ""
@@ -652,6 +654,7 @@ struct SettingsRow: View {
             VStack(alignment: .leading, spacing: 4 * u) {
                 if !line.label.isEmpty {
                     Text(line.label).font(Theme.text(26 * u, .medium)).foregroundStyle(lit ? Theme.focusFg : Theme.fg)
+                        .opacity(line.dim && !lit ? 0.45 : 1)
                         .lineLimit(1)
                 }
                 if !line.detail.isEmpty {
@@ -683,7 +686,7 @@ struct SettingsRow: View {
         }
         .padding(.horizontal, 30 * u)
         .frame(maxWidth: .infinity, minHeight: (line.detail.isEmpty ? 84 : 108) * u, alignment: .leading)
-        .background { RoundedRectangle(cornerRadius: 24 * u).fill(lit ? Color.white : .clear) }
+        .background { RoundedRectangle(cornerRadius: 24 * u).fill(lit ? Color.white.opacity(line.dim ? 0.42 : 1) : .clear) }
         .scaleEffect(lit ? grow : 1)
         .animation(Theme.lift, value: lit)
         .contentShape(.rect)

@@ -349,12 +349,16 @@ bool Input::eventFilter(QObject *obj, QEvent *ev)
             m_lastPos = p;
             m_moved.start();
             setPointing(true);
+            // a finger's press also comes as a mouse move: not a mouse
+            if (static_cast<QMouseEvent *>(ev)->source() == Qt::MouseEventNotSynthesized)
+                setMouseMode(true);
         }
         return false;
     }
     // a finger points too, it just never moves the mouse
     if (ev->type() == QEvent::TouchBegin) {
         setPointing(true);
+        setMouseMode(false);
         return false;
     }
     if (ev->type() != QEvent::KeyPress && ev->type() != QEvent::KeyRelease)
@@ -367,6 +371,17 @@ bool Input::eventFilter(QObject *obj, QEvent *ev)
         const bool arrow = k->key() == Qt::Key_Up || k->key() == Qt::Key_Down || k->key() == Qt::Key_Left || k->key() == Qt::Key_Right;
         keepPointing = m_pointing && !arrow && ev->spontaneous()
             && QJniObject::callStaticMethod<jboolean>("io/github/dzeliks/noonixtv/NoonixActivity", "lastKeyVirtual", "()Z");
+#endif
+        // a remote's or a pad's key (posted, not a keyboard's): the mouse's controls go
+        if (!ev->spontaneous() && k->nativeVirtualKey() != pointerKeyMark) {
+            if (m_keyboardPosted > 0)
+                --m_keyboardPosted;
+            else
+                setMouseMode(false);
+        }
+#ifdef Q_OS_ANDROID
+        if (ev->spontaneous() && k->text().trimmed().isEmpty() && !keepPointing)
+            setMouseMode(false);
 #endif
         if (k->nativeVirtualKey() != pointerKeyMark && !keepPointing) {
             const bool fromMouse = m_pointing;
@@ -439,8 +454,10 @@ bool Input::eventFilter(QObject *obj, QEvent *ev)
             if (action == QLatin1String("BACK"))
                 m_keyBack = QString::number(k->key());
             // a held key seeks on; anything else acts once
-            if (!k->isAutoRepeat() || action == QLatin1String("RW") || action == QLatin1String("FF"))
+            if (!k->isAutoRepeat() || action == QLatin1String("RW") || action == QLatin1String("FF")) {
+                ++m_keyboardPosted;
                 m_remote->Key(action);
+            }
             else if (action == QLatin1String("BACK") && !m_escFired && m_escDown.isValid() && m_escDown.elapsed() >= holdMs) {
                 m_escFired = true;
                 emit holdBack();

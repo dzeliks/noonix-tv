@@ -5,6 +5,15 @@ import sys
 import xml.etree.ElementTree as ET
 
 T = {
+    # ---- 0.4.0: clear progress, subtitles none
+    "Clear Watch Progress": "Obriši napredak gledanja",
+    "Clear Watch Progress?": "Obrisati napredak gledanja?",
+    "%1 starts over here, and its plays and paused spot are removed from Trakt too.": "%1 kreće ispočetka, a odgledano i sačuvano mesto brišu se i sa Trakta.",
+    "Clear": "Obriši",
+    "Watch progress cleared": "Napredak gledanja obrisan",
+    "Couldn't clear the progress": "Brisanje napretka nije uspelo",
+    "No subtitles in your languages for this one": "Nema titlova na tvojim jezicima za ovo",
+    "OpenSubtitles isn't answering, try again in a bit": "OpenSubtitles se ne javlja, probaj ponovo malo kasnije",
     # ---- touch and mouse wording (android pass 2026-11-06)
     "Tap a folder to open it, Back goes up": "Dodirni folder da ga otvoriš, Nazad ide gore",
     "Click a folder to open it, Back goes up": "Klikni folder da ga otvoriš, Nazad ide gore",
@@ -53,6 +62,7 @@ T = {
     "Continue Watching": "Nastavi gledanje",
     "Recently Played": "Nedavno gledano",
     "Popular TV Shows": "Popularne serije",
+    "Popular Shows": "Popularne serije",
     "Popular Movies": "Popularni filmovi",
     "Trending Shows": "Serije u trendu",
     "Trending Movies": "Filmovi u trendu",

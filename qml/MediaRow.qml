@@ -14,8 +14,12 @@ FocusScope {
     property alias currentIndex: list.currentIndex
     readonly property var current: items.length ? items[Math.min(list.currentIndex, items.length - 1)] : null
     readonly property real u: Theme.u
-    readonly property real cardH: style === "poster" ? 214 * u * 1.5 : 400 * u * 9 / 16 + 92 * u
-    readonly property real cardW: (style === "poster" ? 214 : 400) * u
+    // a poster's width on the 1080 grid (search's two rows draw them smaller)
+    property real posterW: 214
+    // how far the row fades out at its right end (0: none) while there's more to the right
+    property real fadeEnd: 0
+    readonly property real cardH: style === "poster" ? posterW * u * 1.5 : 400 * u * 9 / 16 + 92 * u
+    readonly property real cardW: (style === "poster" ? posterW : 400) * u
     readonly property int restSlot: style === "poster" ? 2 : 1
     // a hair too wide for the screen (4 landscape cards): the margin gives way, the row stays put
     readonly property real overrun: items.length * (cardW + list.spacing) - list.spacing + 2 * Theme.margin - width
@@ -68,6 +72,14 @@ FocusScope {
         restore()
     }
     Component.onCompleted: sync()
+    // a narrower or wider row (search's keyboard column comes or goes): the cards settle back to
+    // where the keys keep them
+    onWidthChanged: if (!Input.pointing && items.length) Qt.callLater(settle)
+    function settle() {
+        var step = cardW + list.spacing, start = list.originX - list.leftMargin
+        var end = Math.max(start, list.originX + list.contentWidth + list.rightMargin - list.width)
+        list.contentX = Math.max(start, Math.min(end, start + (list.currentIndex - restSlot) * step))
+    }
     // the next change is a removal: it animates (a refresh just changes)
     property bool sliding: false
     function slide() { sliding = true; slideEnd.restart() }
@@ -155,6 +167,9 @@ FocusScope {
         highlightMoveVelocity: -1
         boundsBehavior: Flickable.StopAtBounds
         model: cards
+        readonly property real moreRight: contentX < originX + contentWidth + rightMargin - width - 1 ? 1 : 0
+        property real fadeAmount: moreRight
+        Behavior on fadeAmount { NumberAnimation { duration: 260 } }
         // a title leaves to the side, fading, while the others close up
         remove: Transition {
             enabled: row.sliding
@@ -169,6 +184,7 @@ FocusScope {
             required property string cardKey
             media: row.byKey[cardKey] || ({})
             style: row.style
+            posterW: row.posterW * row.u
             undoable: row.undoable
             ListView.onReused: leaveT = 0
             focused: ListView.isCurrentItem && (list.activeFocus || row.menuItem === media)
@@ -186,6 +202,25 @@ FocusScope {
             var p = card.mapToItem(null, -card.width * 0.05, -card.artH * 0.05)
             row.menu(row.current, list.currentIndex, Qt.rect(p.x, p.y, card.width * 1.1, card.artH * 1.1))
         }
+    }
+
+    // the fade: the list drawn through a shader, with room for a focused card growing out of it
+    ShaderEffectSource {
+        id: listTex
+        readonly property real pad: row.cardH * 0.08
+        sourceItem: row.fadeEnd > 0 ? list : null
+        hideSource: true
+        visible: false
+        sourceRect: Qt.rect(0, -pad, list.width, list.height + 2 * pad)
+    }
+    ShaderEffect {
+        visible: row.fadeEnd > 0
+        x: list.x; y: list.y - listTex.pad
+        width: list.width; height: list.height + 2 * listTex.pad
+        property var source: listTex
+        property real edge: row.fadeEnd / Math.max(1, list.width)
+        property real amount: list.fadeAmount
+        fragmentShader: "qrc:/shaders/sidefade.frag.qsb"
     }
 
     ListWheel { id: wheel; view: list; across: true; cards: true; restX: Theme.margin + row.restSlot * (row.cardW + list.spacing); cardW: row.cardW }

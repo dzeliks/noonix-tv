@@ -13,6 +13,7 @@ struct Card: View {
     /// waiting out its undo time: the cover pulls in, a line round the border drains
     var removal: Removal?
     @State private var me = UUID()
+    @Environment(\.pageLive) private var pageLive
     private var lifted: Bool { focused && (!PointerMode.shared.on || PointerMode.shared.onCard) }
 
     var wide: Bool { style != "poster" }
@@ -53,9 +54,10 @@ struct Card: View {
             }
             .frame(width: artW, height: artH)
             .animation(.easeInOut(duration: 0.42), value: removing)
-            // where the focused card's art is, for the card menu
+            // where the focused card's art is, for the card menu (a page kept alive under another
+            // one keeps its focus, it mustn't move the menu)
             .background {
-                if focused {
+                if focused && pageLive {
                     GeometryReader { g in
                         let f = g.frame(in: .named("root"))
                         Color.clear.onAppear { AppModel.current?.focusedArt = f }.onChange(of: f) { AppModel.current?.focusedArt = f }
@@ -155,11 +157,15 @@ struct CardStrip: View {
     var undoable = false
     /// pulled on past an end (+1 the last, -1 the first)
     var pastEnd: ((Int) -> Void)?
+    /// a poster size of its own (search's rows share the height)
+    var posterW: CGFloat? = nil
+    /// a row that runs on past its end: the last stretch fades out
+    var fadeEnd: CGFloat = 0
     let point: (Int) -> Void
     let activate: (Int) -> Void
 
-    private var cardW: CGFloat { (style == "poster" ? 214 : 400) * u }
-    private var cardH: CGFloat { style == "poster" ? 214 * u * 1.5 : 400 * u * 9 / 16 + 92 * u }
+    private var cardW: CGFloat { style == "poster" ? posterW ?? 214 * u : 400 * u }
+    private var cardH: CGFloat { style == "poster" ? cardW * 1.5 : 400 * u * 9 / 16 + 92 * u }
     private var step: CGFloat { cardW + spacing }
     private var margin: CGFloat { Theme.margin(u) }
 
@@ -186,7 +192,7 @@ struct CardStrip: View {
     /// the keys would have it, so they go on from there without a jump)
     @ViewBuilder private func arrows(_ first: Int) -> some View {
         let size = 64 * u, y = (style == "poster" ? cardH : 400 * u * 9 / 16) / 2 - size / 2
-        let show = over && pointer.on
+        let show = over && Theme.mouse
         ZStack(alignment: .topLeading) {
             if show && first > 0 {
                 RoundButton(icon: "chevron.left", u: u) {
@@ -220,7 +226,7 @@ struct CardStrip: View {
             ForEach(range.map { ($0, items[$0]) }, id: \.1.id) { i, it in
                 let l = labels?(it)
                 Card(media: it, style: style, focused: focused && i == index, u: u, label: l?.0, sublabel: l?.1,
-                     removal: undoable ? AppModel.current?.removal(it) : nil)
+                     posterW: posterW, removal: undoable ? AppModel.current?.removal(it) : nil)
                     .overlay(alignment: .topTrailing) {
                         if badge?(it) == true {
                             Circle().fill(Color.black.opacity(0.55))
@@ -249,6 +255,19 @@ struct CardStrip: View {
             }
         }
         .frame(width: width, height: cardH + 30 * u, alignment: .topLeading)
+        .mask {
+            // the end in view: no fade
+            let on = fadeEnd > 0 && first < lastFirst
+            HStack(spacing: 0) {
+                Rectangle()
+                LinearGradient(colors: [.black, .black.opacity(on ? 0 : 1)], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: fadeEnd)
+            }
+            // room for a lifted card's growth and shadow
+            .padding(.vertical, -200 * u)
+            .padding(.leading, -200 * u)
+            .animation(.easeOut(duration: 0.25), value: on)
+        }
         .overlay(alignment: .topLeading) { arrows(first) }
         .onHover { inside in
             over = inside
@@ -299,11 +318,15 @@ struct MediaRowView: View {
     let active: Bool
     let u: CGFloat
     let width: CGFloat
+    /// search's rows: their own poster size, title and end fade
+    var posterW: CGFloat? = nil
+    var title: String? = nil
+    var fadeEnd: CGFloat = 0
     let point: (Int) -> Void
     let activate: (Int) -> Void
 
-    static func height(_ style: String, u: CGFloat) -> CGFloat {
-        let cardH = style == "poster" ? 214 * u * 1.5 : 400 * u * 9 / 16 + 92 * u
+    static func height(_ style: String, u: CGFloat, posterW: CGFloat? = nil) -> CGFloat {
+        let cardH = style == "poster" ? (posterW ?? 214 * u) * 1.5 : 400 * u * 9 / 16 + 92 * u
         return 31 * u * 1.2 + gap(u) + cardH + 30 * u
     }
     /// room under the title for the focused card's growth (less on a short screen: the cards come first)
@@ -311,15 +334,15 @@ struct MediaRowView: View {
 
     var body: some View {
         let style = model.row.style
-        let cardW = (style == "poster" ? 214 : 400) * u
+        let cardW = style == "poster" ? posterW ?? 214 * u : 400 * u
         let spacing = (style == "poster" ? 34 : 44) * u
         VStack(alignment: .leading, spacing: Self.gap(u)) {
             HStack {
                 // a placeholder row (no title yet) has a placeholder title
-                if model.row.title.isEmpty {
+                if (title ?? model.row.title).isEmpty {
                     Capsule().fill(Theme.skeleton).frame(width: 260 * u, height: 24 * u)
                 } else {
-                    Text(Lc(model.row.title))
+                    Text(title ?? Lc(model.row.title))
                         .font(Theme.display(31 * u, .semibold))
                         .foregroundStyle(active ? Theme.fg : Theme.fg2)
                         .animation(.easeInOut(duration: 0.18), value: active)
@@ -350,10 +373,10 @@ struct MediaRowView: View {
                 } else {
                     CardStrip(items: model.items, style: style, index: model.index, focused: active, u: u, width: width,
                               restSlot: model.restSlot, spacing: spacing, undoable: Rails.undoable.contains(model.id),
-                              point: point, activate: activate)
+                              posterW: posterW, fadeEnd: fadeEnd, point: point, activate: activate)
                 }
             }
-            .frame(width: width, height: MediaRowView.height(style, u: u) - 31 * u * 1.2 - Self.gap(u), alignment: .topLeading)
+            .frame(width: width, height: MediaRowView.height(style, u: u, posterW: posterW) - 31 * u * 1.2 - Self.gap(u), alignment: .topLeading)
             .animation(.easeOut(duration: 0.14), value: model.loaded)
         }
         .frame(width: width, alignment: .leading)

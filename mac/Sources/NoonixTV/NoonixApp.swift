@@ -49,10 +49,34 @@ struct NoonixApp: App {
     }
 }
 
+/// the window as the player's buttons see it: its own title bar (with the system's full screen
+/// button) or not, full screen or not (qml Remote.titleBar / fullScreen)
+@MainActor @Observable
+final class WindowState {
+    static let shared = WindowState()
+    var titleBar = false
+    var fullScreen = false
+    #if os(macOS)
+    @ObservationIgnored private var watching = false
+    func watch() {
+        guard !watching else { return }
+        watching = true
+        for n in [NSWindow.didEnterFullScreenNotification, NSWindow.didExitFullScreenNotification] {
+            NotificationCenter.default.addObserver(forName: n, object: nil, queue: .main) { _ in
+                MainActor.assumeIsolated { WindowState.shared.fullScreen = NSApp.keyWindow?.styleMask.contains(.fullScreen) ?? false }
+            }
+        }
+    }
+    func toggle() { (NSApp.keyWindow ?? NSApp.windows.first { $0.styleMask.contains(.titled) })?.toggleFullScreen(nil) }
+    #endif
+}
+
 /// the window's own title bar (settings), or the page right up to the window's edge
 @MainActor
 func showTitleBar(_ on: Bool) {
+    WindowState.shared.titleBar = on
     #if os(macOS)
+    WindowState.shared.watch()
     for w in NSApp.windows where w.styleMask.contains(.titled) {
         w.titleVisibility = on ? .visible : .hidden
         w.titlebarAppearsTransparent = !on

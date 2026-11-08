@@ -33,6 +33,15 @@ enum Page: String, CaseIterable, Identifiable {
 struct Removal: Equatable {
     let item: Item
     let until: Date
+    /// clear watch progress instead of hiding: progress.clear's args
+    var clear: ClearTarget? = nil
+}
+
+struct ClearTarget: Equatable {
+    let profile: Int
+    let kind: String
+    let tmdb: Int
+    var args: [String: Any] { ["profile": profile, "kind": kind, "tmdb": tmdb] }
 }
 
 /// one titled row: its items load once and stay; index = the focused card
@@ -178,6 +187,7 @@ final class AppModel {
     var navIndex = 1
     /// the exit prompt is up: 0 = exit, 1 = stay (focused first)
     var exitChoice: Int?
+    var confirm: ConfirmModel?
     /// torrents / a debrid service explained (or the torrents question), over setup or settings
     var help: SourcesHelpModel?
     /// an addon or extension: what it brings, before it's added or once it's in
@@ -417,8 +427,8 @@ final class AppModel {
         if let p = profileEdit { p.typed(t); return true }
         // the search page's keyboard has the focus
         if page == .search, detailStack.isEmpty, sources == nil, !playing, picker == nil, setup == nil, menu == nil, finder == nil {
-            // enter stays what it is on the grid or a suggestion
-            if case .submit = t, navFocused || search.zone != "keys" { return false }
+            // enter stays what it is on a card or a suggestion
+            if case .submit = t, navFocused || !["keys", "field"].contains(search.zone) { return false }
             navFocused = false
             search.typed(t)
             return true
@@ -533,10 +543,10 @@ final class AppModel {
     }
     func removal(_ it: Item) -> Removal? { removals[AppModel.removalKey(it)] }
 
-    func dismiss(_ it: Item) {
+    func dismiss(_ it: Item, clear: ClearTarget? = nil) {
         let k = AppModel.removalKey(it)
         guard removals[k] == nil else { return }
-        let r = Removal(item: it, until: Date().addingTimeInterval(AppModel.removalSecs))
+        let r = Removal(item: it, until: Date().addingTimeInterval(AppModel.removalSecs), clear: clear)
         removals[k] = r
         Task {
             try? await Task.sleep(for: .seconds(AppModel.removalSecs))
@@ -556,7 +566,9 @@ final class AppModel {
         }
         let profile = profiles?.current ?? 0
         Task {
-            if (try? await Core.shared.raw("home.dismiss", ["item": r.item.json, "profile": profile])) == nil {
+            if let c = r.clear {
+                if (try? await Core.shared.raw("progress.clear", c.args)) == nil { toast(L("Couldn't clear the progress")) }
+            } else if (try? await Core.shared.raw("home.dismiss", ["item": r.item.json, "profile": profile])) == nil {
                 toast(L("Couldn't remove it"))
             }
             try? await Task.sleep(for: .seconds(0.6))
@@ -758,21 +770,14 @@ final class AppModel {
     private var wheelPage: PageScroll? {
         if let d = detailStack.last { return d.scroll }
         if page == .library { return library.scroll }
-        // search: the grid, not the column beside it
-        if page == .search {
-            #if os(macOS)
-            let x = NSApp.keyWindow?.mouseLocationOutsideOfEventStream.x ?? 0
-            #else
-            let x = touchX
-            #endif
-            return x < size.width - Theme.margin(u) - 575 * u ? search.grid.scroll : nil
-        }
+        // search: its rows scroll sideways by themselves
+        if page == .search { return nil }
         return rails[page]?.scroll
     }
     /// nothing over the page
     private var pageOnTop: Bool {
         splash == nil && !entry.isOpen && help == nil && folderPicker == nil && extSheet == nil && profileSheet == nil
-            && profileEdit == nil && trakt == nil && traktChoice == nil && site == nil && setup == nil && picker == nil && exitChoice == nil && !playing
+            && profileEdit == nil && trakt == nil && traktChoice == nil && site == nil && setup == nil && picker == nil && exitChoice == nil && confirm == nil && !playing
             && finder == nil && sources == nil && menu == nil
     }
     #if os(macOS)
@@ -806,7 +811,7 @@ final class AppModel {
         guard pageOnTop else { return false }
         if let d = detailStack.last { return d.leaveMouse() }
         if page == .library { return library.head ? false : library.leaveMouse(!navFocused) }
-        if page == .search { return search.zone == "grid" ? search.grid.leaveMouse(!navFocused) : false }
+        if page == .search { return !navFocused && ["rows", "grid"].contains(search.zone) && !PointerMode.shared.onCard }
         return rails[page]?.leaveMouse(!navFocused) ?? false
     }
 
@@ -843,6 +848,10 @@ final class AppModel {
         }
         if exitChoice != nil {
             exitKey(k)
+            return true
+        }
+        if confirm != nil {
+            confirmKey(k)
             return true
         }
         // menu = the toast's undo first
@@ -1010,19 +1019,33 @@ final class SearchModel {
     }
     var typing: Bool { query.trimmingCharacters(in: .whitespaces).count > 1 }
     var busy = false
-    /// keys | suggestions | grid
+    /// keys | suggestions (the terminal's column) | field | chips | rows | grid (one squeezed row)
     var zone = "keys"
     var suggestion = 0
-    /// the results' columns (more over a phone's full width)
-    @ObservationIgnored var cols = 4
+    var chip = 0
+    /// the on-screen keyboard is for a remote or a pad: picked by what came into search, up when one
+    /// takes over while here, gone when a real keyboard types
+    var osk = false
+    /// bumped: the field takes the focus, the caret at the end
+    var fieldFocus = 0
+    /// the row the focus was in: 0 shows, 1 movies
+    var lastRow = 0
     var trending: [Item] = []
-    /// popular answered (placeholder posters until then)
+    /// popular answered (placeholder rows until then)
     var popularKnown = false
+    let shows = RowModel(Row(id: "search-shows", title: "", style: "poster"))
+    let movies = RowModel(Row(id: "search-movies", title: "", style: "poster"))
+    /// a docked phone keyboard leaves room for one sideways row of both
     let grid = GridModel()
     let kb = KeyboardModel()
-    @ObservationIgnored private var popularItems: [Item] = []
+    @ObservationIgnored private var popShows: [Item] = []
+    @ObservationIgnored private var popMovies: [Item] = []
     /// up out of the page (into the top bar)
     @ObservationIgnored var upFromTop: () -> Void = {}
+    /// the touch path: bring up the phone's keyboard
+    @ObservationIgnored var imeOpen: () -> Void = {}
+    /// the suggestion chips are showing (no column, something to suggest)
+    var chipsShown: Bool { !osk && !suggestions.isEmpty }
 
     init() {
         kb.enterLabel = L("search")
@@ -1032,7 +1055,7 @@ final class SearchModel {
             switch n {
             case "backspace": if !query.isEmpty { query.removeLast() }
             case "clear": query = ""
-            case "enter": if !grid.items.isEmpty { zone = "grid" }
+            case "enter": _ = focusRows(0)
             default: break
             }
         }
@@ -1040,8 +1063,8 @@ final class SearchModel {
             guard let self else { return }
             if d == "up" {
                 if !suggestions.isEmpty { zone = "suggestions"; suggestion = suggestions.count - 1 } else { upFromTop() }
-            } else if d == "left", !grid.items.isEmpty {
-                zone = "grid"
+            } else if d == "left" {
+                _ = focusRows(1)
             }
         }
     }
@@ -1060,26 +1083,74 @@ final class SearchModel {
         return out
     }
 
+    var remoteish: Bool { ["pad", "remote"].contains(PointerMode.shared.kind) }
+    func pickKeyboard() { setOsk(!Theme.touch && !Theme.mouse && remoteish) }
+    func setOsk(_ on: Bool) {
+        guard on != osk else { return }
+        osk = on
+        if on, ["field", "chips"].contains(zone) { zone = "keys" } else if !on, ["keys", "suggestions"].contains(zone) { focusField() }
+    }
+
+    func focusField() {
+        zone = "field"
+        #if os(iOS)
+        imeOpen()
+        #else
+        fieldFocus += 1
+        #endif
+    }
+
+    /// the rows: the one the focus was in, or the first that has titles. false: nothing to go to
+    @discardableResult
+    func focusRows(_ which: Int? = nil) -> Bool {
+        if squeezed {
+            guard !grid.items.isEmpty else { return false }
+            zone = "grid"
+            return true
+        }
+        var r = which ?? lastRow
+        if r == 1 && movies.items.isEmpty { r = 0 }
+        if r == 0 && shows.items.isEmpty { r = 1 }
+        guard !(r == 0 ? shows : movies).items.isEmpty else { return false }
+        zone = "rows"
+        lastRow = r
+        return true
+    }
+    /// a docked phone keyboard leaves less than two rows (the view says)
+    @ObservationIgnored var squeezed = false
+
+    /// up out of the results: the chips, the field, or the bar (the keyboard column is to the right)
+    private func upFromRows() -> Bool {
+        if osk { return false }
+        if chipsShown && !Theme.touch { zone = "chips" } else { focusField() }
+        return true
+    }
+
     func popular() async {
-        if popularItems.isEmpty {
-            let movies = (try? await Core.shared.call("home.row", ["id": "popular-movie"], as: [Item].self)) ?? []
-            let shows = (try? await Core.shared.call("home.row", ["id": "popular-tv"], as: [Item].self)) ?? []
-            // shows and movies by turns, a show first
-            var mix: [Item] = []
-            for i in 0..<max(movies.count, shows.count) {
-                if i < shows.count { mix.append(shows[i]) }
-                if i < movies.count { mix.append(movies[i]) }
-            }
-            popularItems = mix
+        if !popularKnown {
+            popShows = (try? await Core.shared.call("home.row", ["id": "popular-tv"], as: [Item].self)) ?? []
+            popMovies = (try? await Core.shared.call("home.row", ["id": "popular-movie"], as: [Item].self)) ?? []
             popularKnown = true
         }
         if trending.isEmpty { trending = (try? await Core.shared.call("home.row", ["id": "trending-tv"], as: [Item].self)) ?? [] }
-        if !typing { grid.items = popularItems }
+        if !typing { show(popShows, popMovies) }
+    }
+
+    private func show(_ s: [Item], _ m: [Item]) {
+        let same = shows.items.map(\.id) == s.map(\.id) && movies.items.map(\.id) == m.map(\.id)
+        shows.items = s
+        movies.items = m
+        shows.loaded = popularKnown || typing
+        movies.loaded = shows.loaded
+        if !same { shows.index = 0; movies.index = 0; grid.index = 0 }
+        grid.items = s + m
+        // the focus was in a row that went empty
+        if zone == "rows", (lastRow == 0 ? s : m).isEmpty, !focusRows() { zone = osk ? "keys" : "field" }
     }
 
     func run() async {
         let q = query.trimmingCharacters(in: .whitespaces)
-        guard q.count > 1 else { grid.items = popularItems; suggested = []; busy = false; return }
+        guard q.count > 1 else { show(popShows, popMovies); suggested = []; busy = false; return }
         busy = true
         Task {
             let got = (try? await Core.shared.call("tmdb.suggest", ["query": q], as: [String].self)) ?? []
@@ -1087,17 +1158,89 @@ final class SearchModel {
         }
         let found = (try? await Core.shared.call("tmdb.search", ["query": q], as: [Item].self)) ?? []
         if q == query.trimmingCharacters(in: .whitespaces) {
-            grid.items = found
-            grid.index = 0
+            show(found.filter { !$0.isMovie }, found.filter(\.isMovie))
             busy = false
         }
     }
 
+    /// a real keyboard while the field doesn't have it (the bar, a row, the terminal's keys)
     func typed(_ t: Typed) {
         switch t {
-        case .text(let s): zone = "keys"; query += s
+        case .text(let s):
+            query += s
+            if osk { zone = "keys" } else { focusField() }
         case .erase: if !query.isEmpty { query.removeLast() }
-        case .submit: if !grid.items.isEmpty { zone = "grid" }
+        case .submit: Platform.hideKeyboard(); focusRows(0)
+        }
+    }
+
+    /// the zones (qml Search); false = up into the top bar
+    func key(_ k: Key, app: AppModel) -> Bool {
+        switch zone {
+        case "suggestions":
+            let n = suggestions.count
+            if n == 0 { zone = "keys"; return kb.key(k) }
+            switch k {
+            case .up: if suggestion > 0 { suggestion -= 1 } else { return false }
+            case .down:
+                if suggestion < n - 1 { suggestion += 1 } else { zone = "keys"; kb.enterAt("top", 0.5) }
+            case .left: focusRows()
+            case .ok: if let t = suggestions[safe: suggestion] { query = t }
+            case .back: return false
+            default: break
+            }
+            return true
+        case "field":
+            switch k {
+            case .up, .back: return false
+            case .down: if chipsShown && !Theme.touch { zone = "chips" } else { focusRows(0) }
+            case .ok: focusRows(0)
+            default: break
+            }
+            return true
+        case "chips":
+            let n = suggestions.count
+            if n == 0 { focusField(); return true }
+            chip = min(chip, n - 1)
+            switch k {
+            case .left: chip = max(0, chip - 1)
+            case .right: chip = min(n - 1, chip + 1)
+            case .up: focusField()
+            case .down: focusRows(0)
+            case .ok: if let t = suggestions[safe: chip] { query = t }
+            case .back: return false
+            default: break
+            }
+            return true
+        case "rows":
+            let row = lastRow == 0 ? shows : movies
+            switch k {
+            case .left: row.index = max(0, row.index - 1)
+            case .right:
+                if row.index < row.items.count - 1 { row.index += 1 } else if osk { zone = lastRow == 0 && !suggestions.isEmpty ? "suggestions" : "keys" }
+            case .up:
+                if lastRow == 1, !shows.items.isEmpty { lastRow = 0 } else { return upFromRows() }
+            case .down: if lastRow == 0, !movies.items.isEmpty { lastRow = 1 }
+            case .ok: if let it = row.current { app.open(it) }
+            case .menu: if let it = row.current { app.menu = CardMenu(item: it, row: nil, at: app.focusedArt) }
+            case .back: return false
+            default: break
+            }
+            return true
+        case "grid":
+            switch k {
+            case .left: grid.index = max(0, grid.index - 1)
+            case .right: grid.index = min(max(0, grid.items.count - 1), grid.index + 1)
+            case .up: return upFromRows()
+            case .ok: if grid.items.indices.contains(grid.index) { app.open(grid.items[grid.index]) }
+            case .menu: if grid.items.indices.contains(grid.index) { app.menu = CardMenu(item: grid.items[grid.index], row: nil, at: app.focusedArt) }
+            case .back: return false
+            default: break
+            }
+            return true
+        default:
+            if k == .back { return false }
+            return kb.key(k)
         }
     }
 }

@@ -22,6 +22,9 @@ enum Theme {
     nonisolated(unsafe) static var safeBottom: CGFloat = 0
     /// a finger is what's in use (qml Theme.touch): the system keyboard types, no focus marks
     @MainActor static var touch: Bool { Platform.ios && PointerMode.shared.on }
+    /// a mouse is in use (qml Theme.mouse): the pointer's own controls show (back top left, volume,
+    /// full screen). a key ends it
+    @MainActor static var mouse: Bool { !Platform.ios && PointerMode.shared.on }
     /// the words for the remote, or for a finger (qml Theme.say)
     @MainActor static func say(_ remote: String, _ tap: String) -> String { touch ? tap : remote }
     static func margin(_ u: CGFloat) -> CGFloat { max(96 * u, safeSide + 20 * u) }

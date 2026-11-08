@@ -35,6 +35,9 @@ class Player : public QObject
     Q_PROPERTY(QVariantMap videoParams READ videoParams NOTIFY videoParamsChanged)
     // the tv follows the video's frame rate (setting, switchable while playing)
     Q_PROPERTY(bool refreshMatch READ refreshMatch NOTIFY refreshMatchChanged)
+    // mpv's own volume (0..100) and mute, for the pointer's slider (a remote keeps the pc's)
+    Q_PROPERTY(double volume READ volume NOTIFY volumeChanged)
+    Q_PROPERTY(bool muted READ muted NOTIFY volumeChanged)
     // subtitle timing in seconds (+ = later); follows what was set for this release + subtitle
     Q_PROPERTY(double subDelay READ subDelay NOTIFY subDelayChanged)
     // the current subtitle as text, and whether it sits lifted over the controls: android hdr comes
@@ -77,8 +80,12 @@ public:
     QVariantMap videoParams() const { return m_vp; }
     bool refreshMatch() const { return m_refresh; }
     double subDelay() const { return m_subDelay; }
+    double volume() const { return m_volume; }
+    bool muted() const { return m_muted; }
     Q_INVOKABLE void setSubDelay(double secs);
     Q_INVOKABLE void setRefreshMatch(bool on);
+    Q_INVOKABLE void setVolume(double v);
+    Q_INVOKABLE void setMuted(bool on);
 
     // {kind, tmdb, season?, episode?, stream, start?}
     Q_INVOKABLE void play(const QVariantMap &request);
@@ -115,6 +122,7 @@ signals:
     void tracksChanged();
     void videoParamsChanged();
     void refreshMatchChanged();
+    void volumeChanged();
     void subDelayChanged();
     void subTextChanged();
     void notice(const QString &text);
@@ -168,4 +176,6 @@ private:
     QSet<QString> m_addedSubs;
     QString m_subSig;             // the subtitle on screen as last told to the core
     double m_subDelay = 0;
+    double m_volume = 95;
+    bool m_muted = false;
 };

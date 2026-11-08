@@ -36,6 +36,9 @@
 #include <execinfo.h>
 #include <pthread.h>
 #include <unistd.h>
+#if defined(__GLIBC__)
+#include <malloc.h>
+#endif
 #endif
 
 #ifdef Q_OS_ANDROID
@@ -125,6 +128,12 @@ void watchStalls()
 
 int main(int argc, char *argv[])
 {
+#if defined(__GLIBC__)
+    // big blocks (video packets, decoded art) get their own mappings and go straight back when
+    // freed; glibc's moving threshold would park them in arenas that never shrink (gbs after a few plays)
+    mallopt(M_MMAP_THRESHOLD, 64 * 1024);
+    mallopt(M_TRIM_THRESHOLD, 256 * 1024);
+#endif
 #ifdef Q_OS_ANDROID
     stderrToLogcat();
 #endif

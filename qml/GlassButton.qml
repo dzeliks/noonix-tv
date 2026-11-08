@@ -10,7 +10,7 @@ Item {
     property bool primary: false
     // a finger: the main button is always the white one, the rest light while pressed (no remote focus look)
     readonly property bool touch: Theme.touch
-    readonly property bool lit: touch ? primary || gbPt.down : focused
+    readonly property bool lit: touch ? primary || gbPt.down : Theme.lit(focused, gbPt)
     property bool glass: false           // real liquid glass at rest (over video), flat fill otherwise
     property GlassSource source: null    // glass inside the scene: what it refracts (never the scene itself)
     property real iconSize: 34 * u
@@ -27,7 +27,7 @@ Item {
         id: body
         anchors.fill: parent
         // a finger down sinks it (Pointer) instead
-        scale: b.focused && !b.touch && !(Theme.android && gbPt.down) ? 1.08 : 1
+        scale: b.lit && !b.touch && !(Theme.android && gbPt.down) ? 1.08 : 1
         Behavior on scale { SpringAnimation { spring: Theme.springK; damping: Theme.springDamp; epsilon: 0.0005 } }
         RectangularShadow {
             anchors.fill: bg

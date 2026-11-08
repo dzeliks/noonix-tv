@@ -504,7 +504,7 @@ FocusScope {
                 id: brandLine
                 Item {
                     id: br
-                    readonly property bool foc: page.currentIndex === index && page.activeFocus && (!Theme.touch || brPt.down)
+                    readonly property bool foc: page.currentIndex === index && Theme.lit(page.activeFocus, brPt)
                     readonly property real u: settings.u
                     height: 220 * u
                     Rectangle {
