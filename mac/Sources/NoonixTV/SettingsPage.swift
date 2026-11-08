@@ -508,17 +508,27 @@ struct SettingsPage: View {
         let pageX = margin + 420 * u + 80 * u
         ZStack(alignment: .topLeading) {
             Wallpaper()
-            VStack(spacing: 8 * u) {
-                ForEach(Array(SettingsModel.sections.enumerated()), id: \.offset) { i, s in
-                    SettingsRow(line: .init(label: s.name, value: "›"), focused: active && !m.inPage && m.section == i, u: u)
-                        .opacity(m.section == i || (active && !m.inPage) ? 1 : 0.6)
-                        .onContinuousHover { phase in
-                            if case .active = phase, Input.pointerLive { app.navFocused = false; m.inPage = false; m.section = i }
+            // a short screen (a phone): the sections scroll too
+            ScrollViewReader { proxy in
+                ScrollView(.vertical) {
+                    VStack(spacing: 8 * u) {
+                        ForEach(Array(SettingsModel.sections.enumerated()), id: \.offset) { i, s in
+                            SettingsRow(line: .init(label: s.name, value: "›"), focused: active && !m.inPage && m.section == i, u: u)
+                                .opacity(m.section == i || (active && !m.inPage) ? 1 : 0.6)
+                                .onContinuousHover { phase in
+                                    if case .active = phase, Input.pointerLive { app.navFocused = false; m.inPage = false; m.section = i }
+                                }
+                                .onTapGesture { m.section = i; m.showNow() }
+                                .id(i)
                         }
-                        .onTapGesture { m.section = i; m.showNow() }
+                    }
+                    .padding(.bottom, 40 * u + Theme.safeBottom)
                 }
+                .scrollIndicators(.never)
+                .scrollBounceBehavior(.basedOnSize)
+                .onChange(of: m.section) { if !Input.pointerHolds { withAnimation(.easeOut(duration: 0.18)) { proxy.scrollTo(m.section) } } }
             }
-            .frame(width: 420 * u)
+            .frame(width: 420 * u, height: H - 200 * u)
             .offset(x: margin, y: 200 * u)
 
             ScrollViewReader { proxy in
