@@ -274,15 +274,11 @@ struct ProfileEditView: View {
                 .frame(width: min(inner, count * 90 * u - 18 * u + 20 * u), height: 92 * u)
                 .onChange(of: model.choice) { withAnimation(.easeOut(duration: 0.22)) { proxy.scrollTo(model.choice, anchor: .center) } }
             }
-            EntryField(text: model.name, placeholder: L("Name"), active: true, size: 28 * u, u: u)
-                .overlay {
-                    if touch {
-                        ImeField(text: model.name, limit: 20, open: open, words: true,
-                                 edited: { model.name = $0 }, done: { model.create() })
-                    }
-                }
+            EntryField(text: model.name, placeholder: L("Name"), active: true, size: 28 * u, u: u,
+                       ime: touch ? ImeField(text: model.name, limit: 20, open: open, words: true, shown: true, size: 28 * u, placeholder: L("Name"),
+                                             edited: { model.name = $0 }, done: { model.create() }) : nil)
                 .contentShape(.rect)
-                .onTapGesture { model.onLooks = false; if touch { open += 1 } }
+                .onTapGesture { model.onLooks = false }
             if touch {
                 // the phone's keyboard has no done of ours
                 GlassButton(text: model.editId != 0 ? L("Save") : L("Create"), primary: true, focused: false, u: u)

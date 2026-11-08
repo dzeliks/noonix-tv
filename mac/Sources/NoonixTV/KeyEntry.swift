@@ -147,23 +147,18 @@ struct KeyEntryView: View {
                 Text(model.hint).font(Theme.text(24 * u)).foregroundStyle(Theme.fg2)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             }
-            EntryField(text: model.text, placeholder: model.placeholder, secret: model.secret, active: model.isOpen, size: 26 * u, u: u)
-                .overlay {
-                    if touch {
-                        ImeField(text: model.text, secret: model.secret, open: open,
-                                 edited: { model.text = $0; model.status = "" }, done: { model.submit() })
-                    }
-                }
-                .contentShape(.rect)
-                .onTapGesture { if touch { open += 1 } }
+            // a finger: the phone's own field in the capsule (select, copy, paste from its menu)
+            EntryField(text: model.text, placeholder: model.placeholder, secret: model.secret, active: model.isOpen, size: 26 * u, u: u,
+                       ime: touch ? ImeField(text: model.text, secret: model.secret, open: open, shown: true, size: 26 * u, placeholder: model.placeholder,
+                                             edited: { model.text = $0; model.status = "" }, done: { model.submit() }) : nil)
             Text(model.status).font(Theme.text(24 * u, .medium))
                 .foregroundStyle(model.ok ? Color(red: 0x30 / 255, green: 0xD1 / 255, blue: 0x58 / 255) : model.busy ? Theme.fg2 : Color(red: 1, green: 0x9F / 255, blue: 0x0A / 255))
                 .frame(height: 30 * u)
             if touch {
                 // the phone's keyboard has no done of ours; keys are long, pasting is how they arrive
                 HStack(spacing: 20 * u) {
-                    GlassButton(text: L("Paste"), focused: false, u: u)
-                        .onTapGesture { model.text += Platform.paste()?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""; model.status = "" }
+                    // the system's paste button: no "allow paste" prompt each time
+                    PasteKey(u: u) { model.text += $0.trimmingCharacters(in: .whitespacesAndNewlines); model.status = "" }
                     GlassButton(text: L("Done"), primary: true, focused: false, u: u)
                         .onTapGesture { model.submit() }
                 }
@@ -186,6 +181,24 @@ struct KeyEntryView: View {
         // in the middle of the app, part of it (not a window of its own in the corner)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { if touch { open += 1 } }
+    }
+}
+
+/// paste without the system asking each time (a read from code does): the system's button,
+/// in the card's capsule look
+struct PasteKey: View {
+    let u: CGFloat
+    let got: (String) -> Void
+    var body: some View {
+        PasteButton(payloadType: String.self) { s in
+            guard let t = s.first else { return }
+            Task { @MainActor in got(t) }
+        }
+        .labelStyle(.titleOnly)
+        .buttonBorderShape(.capsule)
+        .controlSize(.extraLarge)
+        .tint(Color(white: 0.26))
+        .font(Theme.display(27 * u, .semibold))
     }
 }
 
@@ -232,9 +245,15 @@ struct EntryField: View {
     let active: Bool
     let size: CGFloat
     let u: CGFloat
+    /// the phone's own field in place of the drawn line
+    var ime: ImeField?
 
     var body: some View {
-        FieldLine(text: text, placeholder: placeholder, secret: secret, active: active, size: size, u: u)
+        Group {
+            if let ime { ime.frame(maxWidth: .infinity) } else {
+                FieldLine(text: text, placeholder: placeholder, secret: secret, active: active, size: size, u: u)
+            }
+        }
             .padding(.horizontal, 28 * u)
             .frame(maxWidth: .infinity, minHeight: 64 * u, maxHeight: 64 * u, alignment: .leading)
             .background {

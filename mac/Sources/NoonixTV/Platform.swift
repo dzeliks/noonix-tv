@@ -57,14 +57,6 @@ enum Platform {
         #endif
     }
 
-    static func paste() -> String? {
-        #if os(iOS)
-        UIPasteboard.general.string
-        #else
-        NSPasteboard.general.string(forType: .string)
-        #endif
-    }
-
     /// the system keyboard goes away (ios)
     static func hideKeyboard() {
         #if os(iOS)

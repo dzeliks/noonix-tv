@@ -163,6 +163,8 @@ struct ImeField: UIViewRepresentable {
             f.font = .systemFont(ofSize: size, weight: .medium)
             f.attributedPlaceholder = NSAttributedString(string: placeholder, attributes: [.foregroundColor: UIColor.white.withAlphaComponent(0.42)])
         }
+        f.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        f.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         f.autocorrectionType = .no
         f.spellCheckingType = .no
         f.autocapitalizationType = words ? .words : .none
