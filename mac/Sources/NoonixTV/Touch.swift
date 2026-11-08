@@ -44,6 +44,7 @@ enum Touch {
         let down = Down(target: nil, action: nil)
         down.cancelsTouchesInView = false
         down.delaysTouchesBegan = false
+        down.delaysTouchesEnded = false
         down.delegate = handler
         w.addGestureRecognizer(down)
     }
@@ -110,10 +111,27 @@ enum Touch {
         }
     }
 
-    /// any finger down: the pointer takes over (before a tap lands)
+    /// any finger down: the pointer takes over (before a tap lands); where it rests is pressed
+    /// (FingerDown) until it lifts or moves. never recognizes, so it takes nothing from the views
     final class Down: UIGestureRecognizer {
+        private var start = CGPoint.zero
         override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent) {
-            MainActor.assumeIsolated { Input.touched() }
+            let all = event.allTouches ?? touches
+            let p = touches.first?.location(in: nil) ?? .zero
+            start = p
+            MainActor.assumeIsolated {
+                Input.touched()
+                FingerDown.shared.at = all.count == 1 ? p : nil
+            }
+        }
+        override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent) {
+            guard let p = touches.first?.location(in: nil), hypot(p.x - start.x, p.y - start.y) > 10 else { return }
+            MainActor.assumeIsolated { if FingerDown.shared.at != nil { FingerDown.shared.at = nil } }
+        }
+        override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent) { lift() }
+        override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent) { lift() }
+        private func lift() {
+            MainActor.assumeIsolated { FingerDown.shared.at = nil }
             state = .failed
         }
     }

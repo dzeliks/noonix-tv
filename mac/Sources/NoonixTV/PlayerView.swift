@@ -1003,7 +1003,8 @@ private struct TransportKey: View {
     let focused: Bool
     var small = false
     let u: CGFloat
-    @GestureState private var down = false
+    @State private var box = CGRect.zero
+    private var down: Bool { FingerDown.on(box) }
 
     var body: some View {
         // touch: play is the white one, the others light while pressed
@@ -1025,7 +1026,7 @@ private struct TransportKey: View {
             }
             .onTapGesture { osd.act(b) }
             #if os(iOS)
-            .simultaneousGesture(DragGesture(minimumDistance: 0).updating($down) { _, d, _ in d = true })
+            .pressBox($box)
             #endif
     }
 }

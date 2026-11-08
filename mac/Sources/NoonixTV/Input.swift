@@ -18,6 +18,26 @@ extension Key { var picks: Bool { [.up, .down, .left, .right, .ok].contains(self
 enum Typed { case text(String), erase, submit }
 
 /// the mouse is what's in use (observed: the rows' page arrows come and go with it)
+/// a finger resting on the screen (ios): what's under it shows pressed. no gesture, so the views'
+/// own taps stay free; a finger that moves (a scroll) presses nothing
+@MainActor @Observable
+final class FingerDown {
+    static let shared = FingerDown()
+    var at: CGPoint?
+    static func on(_ r: CGRect) -> Bool { shared.at.map { r.contains($0) } ?? false }
+}
+
+extension View {
+    /// keeps `box` on the view's place on screen (FingerDown.on(box) = pressed)
+    func pressBox(_ box: Binding<CGRect>) -> some View {
+        #if os(iOS)
+        onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { box.wrappedValue = $0 }
+        #else
+        self
+        #endif
+    }
+}
+
 @MainActor @Observable
 final class PointerMode {
     static let shared = PointerMode()

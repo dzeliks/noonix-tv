@@ -423,7 +423,8 @@ struct SourceRow: View {
     let s: Source
     let focused: Bool
     /// a finger down on it (reset when a scroll takes the touch)
-    @GestureState private var down = false
+    @State private var box = CGRect.zero
+    private var down: Bool { FingerDown.on(box) }
     /// a finger sees no focus, only the press (qml foc)
     private var lit: Bool { Theme.touch ? down : focused }
     let u: CGFloat
@@ -480,7 +481,7 @@ struct SourceRow: View {
         .animation(Theme.lift, value: lit)
         .padding(.horizontal, 28 * u)
         #if os(iOS)
-        .simultaneousGesture(DragGesture(minimumDistance: 0).updating($down) { _, d, _ in d = true })
+        .pressBox($box)
         #endif
     }
 }

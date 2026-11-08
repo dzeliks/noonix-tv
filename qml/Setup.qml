@@ -420,7 +420,9 @@ FocusScope {
             target: setup.Window.window
             function onActiveFocusItemChanged() {
                 var it = setup.Window.activeFocusItem
-                if (!scroller.interactive || !it) return
+                // a finger or the mouse put the focus where it is: it's already in view (a press
+                // while swiping threw the page to the list's end)
+                if (!scroller.interactive || !it || Input.pointing) return
                 var inCol = false
                 for (var p = it; p; p = p.parent) {
                     // a list scrolls itself: its box is what has to show

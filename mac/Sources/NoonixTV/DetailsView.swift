@@ -587,7 +587,8 @@ struct GlassButton: View {
     var width: CGFloat?
 
     /// a finger down on it (reset when a scroll takes the touch)
-    @GestureState private var down = false
+    @State private var box = CGRect.zero
+    private var down: Bool { FingerDown.on(box) }
 
     /// a finger: the main button is the white one, the rest light while pressed (qml lit)
     private var lit: Bool { Theme.touch ? primary || down : focused }
@@ -632,7 +633,7 @@ struct GlassButton: View {
         .shadow(color: .black.opacity(lit ? 0.5 : 0), radius: 18 * u, y: 14 * u)
         .animation(.easeOut(duration: 0.16), value: lit)
         #if os(iOS)
-        .simultaneousGesture(DragGesture(minimumDistance: 0).updating($down) { _, d, _ in d = true })
+        .pressBox($box)
         #endif
     }
 }

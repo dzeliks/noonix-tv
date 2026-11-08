@@ -592,7 +592,8 @@ struct BrandRow: View {
     let version: String
     let focused: Bool
     /// a finger down on it (reset when a scroll takes the touch)
-    @GestureState private var down = false
+    @State private var box = CGRect.zero
+    private var down: Bool { FingerDown.on(box) }
     /// a finger sees no focus, only the press (qml foc)
     private var lit: Bool { Theme.touch ? down : focused }
     let u: CGFloat
@@ -627,7 +628,7 @@ struct BrandRow: View {
         .animation(Theme.lift, value: lit)
         .contentShape(.rect)
         #if os(iOS)
-        .simultaneousGesture(DragGesture(minimumDistance: 0).updating($down) { _, d, _ in d = true })
+        .pressBox($box)
         #endif
     }
 }
@@ -637,7 +638,8 @@ struct SettingsRow: View {
     let line: SettingsModel.Line
     let focused: Bool
     /// a finger down on it (reset when a scroll takes the touch)
-    @GestureState private var down = false
+    @State private var box = CGRect.zero
+    private var down: Bool { FingerDown.on(box) }
     /// a finger sees no focus, only the press (qml foc)
     private var lit: Bool { Theme.touch ? down : focused }
     let u: CGFloat
@@ -691,7 +693,7 @@ struct SettingsRow: View {
         .animation(Theme.lift, value: lit)
         .contentShape(.rect)
         #if os(iOS)
-        .simultaneousGesture(DragGesture(minimumDistance: 0).updating($down) { _, d, _ in d = true })
+        .pressBox($box)
         #endif
     }
 }
