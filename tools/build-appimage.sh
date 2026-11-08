@@ -54,7 +54,7 @@ cat > "$appdir/noonix-tv.desktop" <<DESK
 [Desktop Entry]
 Type=Application
 Name=Noonix TV
-Comment=Movies and shows on the TV
+Comment=Movies and shows, in the living room and out of it
 Exec=noonix-tv
 Icon=noonix-tv
 Categories=AudioVideo;Video;Player;TV;

@@ -177,7 +177,7 @@ struct Hero: View {
                             .foregroundStyle(Theme.fg)
                             .padding(.top, 4 * u)
                     }
-                    MetaLine(item: cur, details: details, u: u)
+                    MetaLine(item: cur, details: details, u: u, maxWidth: size.width * 0.42)
                 }
                 .frame(width: size.width * 0.42, alignment: .leading)
                 .padding(.leading, margin)

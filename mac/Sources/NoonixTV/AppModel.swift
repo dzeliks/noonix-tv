@@ -161,7 +161,11 @@ final class AppModel {
     /// the 1920x1080 grid: by height, but a taller window (16:10, a mac's own screen) scales by
     /// width and just gets more room below. a phone draws larger (qml Desktop.boost): its grid is
     /// narrower and shorter
-    var u: CGFloat { max(0.4 * Platform.boost, Platform.boost * min(size.height / 1080, size.width / 1920)) }
+    /// (no floor on a phone, like android: the floor cost an iphone its room under the top bar)
+    var u: CGFloat {
+        let fit = Platform.boost * min(size.height / 1080, size.width / 1920)
+        return Platform.phone ? fit : max(0.4 * Platform.boost, fit)
+    }
     /// a phone in landscape: the layouts that run short of room (qml Theme.short)
     var short: Bool { size.height / u < 900 }
 

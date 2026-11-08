@@ -5,7 +5,7 @@
 <h1 align="center">Noonix TV</h1>
 
 <p align="center">
-  A cross-platform media player for the living room: browse and play your own movies and shows, and the
+  A cross-platform media player for the living room and out of it: browse and play your own movies and shows, and the
   sources you connect, with a remote, a controller, a mouse or a touch screen.
 </p>
 
