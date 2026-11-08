@@ -46,7 +46,8 @@
   preferred and hidden release patterns sort the rest. The full list is always one press away.
 - **Quality that fits your setup**: a built-in benchmark measures your internet speed and your
   PC's playback performance, then recommends the best picture quality both can handle: Light,
-  Full HD, 4K or Maximum.
+  Full HD, 4K or Maximum. Low memory mode keeps phones and older PCs with little memory running
+  smoothly, and turns itself on for small Android phones.
 - **A setup for everyone**: a guided first run that works with just the remote and sensible
   defaults for beginners, with every folder, language and addon open to fine-tuning for advanced
   users.
