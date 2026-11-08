@@ -249,8 +249,8 @@ final class AppModel {
     var profileEdit: ProfileEditModel?
     /// opens on the last profile without asking who's watching
     var autoLogin = false
-    /// what was used last, for the key hints: keyboard or pad (and which pad)
-    var inputKind = "keyboard"
+    /// what was used last, for the key hints: keyboard, pad (and which pad) or the apple tv's remote
+    var inputKind = Platform.tv ? "remote" : "keyboard"
     var padKind = "other"
     var heroCache: [String: Details] = [:]
 
@@ -294,6 +294,11 @@ final class AppModel {
         } }
         #if os(macOS)
         Input.wheel = { [weak self] e in self?.wheel(e) ?? false }
+        #elseif os(tvOS)
+        TVRemote.install { [weak self] k in
+            if self?.inputKind != "remote" { self?.inputKind = "remote" }
+            return self?.key(k) ?? false
+        }
         #else
         Input.wheel = { [weak self] dy in self?.drag(dy) ?? false }
         Touch.back = { [weak self] in _ = self?.key(.back) }
@@ -345,6 +350,8 @@ final class AppModel {
         #if os(macOS)
         let screen = NSApp.keyWindow?.screen ?? NSScreen.main
         let hdr = (screen?.maximumPotentialExtendedDynamicRangeColorComponentValue ?? 1) > 1
+        #elseif os(tvOS)
+        let hdr = TVDisplay.hdr
         #else
         let hdr = ((UIApplication.shared.connectedScenes.first as? UIWindowScene)?.screen.potentialEDRHeadroom ?? 1) > 1
         #endif
@@ -1098,6 +1105,8 @@ final class SearchModel {
     var remoteish: Bool { ["pad", "remote"].contains(PointerMode.shared.kind) }
     func pickKeyboard() { setOsk(!Theme.touch && !Theme.mouse && remoteish) }
     func setOsk(_ on: Bool) {
+        // apple tv: always ours (a keyboard types into it too; the system's takes the whole screen)
+        let on = on || Platform.tv
         guard on != osk else { return }
         osk = on
         if on, ["field", "chips"].contains(zone) { zone = "keys" } else if !on, ["keys", "suggestions"].contains(zone) { focusField() }
@@ -1105,7 +1114,7 @@ final class SearchModel {
 
     func focusField() {
         zone = "field"
-        #if os(iOS)
+        #if !os(macOS)
         imeOpen()
         #else
         fieldFocus += 1

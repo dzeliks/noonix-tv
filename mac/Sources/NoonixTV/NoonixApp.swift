@@ -1,5 +1,5 @@
 import SwiftUI
-#if os(iOS)
+#if !os(macOS)
 import UIKit
 import AVFAudio
 #endif
@@ -36,7 +36,9 @@ struct NoonixApp: App {
                 .environment(app)
                 .ignoresSafeArea()
                 .persistentSystemOverlays(.hidden)
+                #if os(iOS)
                 .statusBarHidden()
+                #endif
                 .task { await app.start() }
         }
         // leaving the app pauses the video (the place is kept like a quit's)
@@ -85,11 +87,18 @@ func showTitleBar(_ on: Bool) {
     #endif
 }
 
-#if os(iOS)
+#if !os(macOS)
 /// the video's sound plays with the silent switch on, like any video app
 final class Launch: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+        #if os(tvOS)
+        // every press and swipe of the remote comes to the app first (TVRemote.swift)
+        TVApp.take(application)
+        // the database back when tvos cleared the caches, and kept from now on (TVStore.swift)
+        TVStore.restore()
+        TVStore.install()
+        #endif
         return true
     }
 }

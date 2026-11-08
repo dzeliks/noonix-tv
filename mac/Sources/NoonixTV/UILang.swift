@@ -100,6 +100,8 @@ final class UILang: @unchecked Sendable {
         "Starts Noonix TV when you sign in, handy on a Mac made for the TV": "Pokreće Noonix TV kad se prijaviš, zgodno za Mac namenjen televizoru",
         "Couldn't change it: move Noonix TV to Applications first": "Nije promenjeno: prvo premesti Noonix TV u Aplikacije",
         "A real keyboard works too, and ⌘V pastes. Back closes this.": "Radi i prava tastatura, a ⌘V lepi. Nazad zatvara.",
+        "A real keyboard works too. Back closes this.": "Radi i prava tastatura. Nazad zatvara.",
+        "Hold OK while watching to say if the source and subtitles fit.": "Dok gledaš, zadrži OK da kažeš da li izvor i titlovi odgovaraju.",
         "The player could not start.": "Plejer nije mogao da se pokrene.",
         "Open in Another Player": "Otvori u drugom plejeru",
         "Video playback through MPVKit (LGPL)": "Puštanje videa preko MPVKit-a (LGPL)",

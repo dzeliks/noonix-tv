@@ -66,6 +66,8 @@ final class SourcesFlow {
         let on = lib["on"] as? Bool != false, folders = lib["folders"] as? [[String: Any]] ?? []
         let files = (lib["files"] as? NSNumber)?.intValue ?? 0, unmatched = (lib["unmatched"] as? NSNumber)?.intValue ?? 0
         let scanning = lib["scanning"] as? Bool == true
+        // apple tv: no folders of its own (network shares, below)
+        if !Platform.tv {
         out.append(Line(label: L("On this Mac"), header: true))
         out.append(Line(label: L("Use the library"),
                         detail: !on ? L("Off: only the sources below play")
@@ -90,6 +92,7 @@ final class SourcesFlow {
                                 value: scanning ? "…" : L("Scan"), act: "lib:scan"))
             }
         }
+        }
         out.append(Line(label: L("Addons and extensions"), header: true))
         for e in exts {
             let missing = (e["missingKeys"] as? [[String: Any]])?.first
@@ -107,7 +110,10 @@ final class SourcesFlow {
                             value: a["enabled"] as? Bool == true ? "›" : L("Off"), act: "addon:\(id)"))
         }
         out.append(Line(label: L("Add an addon or extension"), detail: L("Its address: a Stremio addon (…/manifest.json) or a Noonix TV extension. Optional"), value: "+", act: "src:url"))
-        out.append(Line(label: L("Open an extension file"), detail: L("A .noonix file on this Mac"), value: "+", act: "src:file"))
+        // apple tv has no files to open
+        if !Platform.tv {
+            out.append(Line(label: L("Open an extension file"), detail: L("A .noonix file on this Mac"), value: "+", act: "src:file"))
+        }
         return out
     }
 

@@ -5,17 +5,21 @@
 #   mac/ios.sh            the simulator (apple silicon)
 #   mac/ios.sh device     an iphone / ipad (needs CODESIGN_ID and PROFILE, a .mobileprovision)
 #   mac/ios.sh ipa        an unsigned .ipa for sideloading (altstore, sideloadly sign it with your apple id)
+#   mac/ios.sh tv         apple tv: the simulator (tv-device, tv-ipa: the same for a real apple tv)
 #   CORE=0 mac/ios.sh     the app only (the core as last built)
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(dirname "$here")
 kind=${1:-sim}
-if [[ $kind == device || $kind == ipa ]]; then
-    t=aarch64-apple-ios; dest="generic/platform=iOS"; sdk=iphoneos; plat=iPhoneOS
-else
-    t=aarch64-apple-ios-sim; dest="generic/platform=iOS Simulator"; sdk=iphonesimulator; plat=iPhoneSimulator
-fi
-export IPHONEOS_DEPLOYMENT_TARGET=26.0
+tv=0; [[ $kind == tv* ]] && tv=1
+case $kind in
+    device|ipa) t=aarch64-apple-ios; dest="generic/platform=iOS"; sdk=iphoneos; plat=iPhoneOS;;
+    tv) t=aarch64-apple-tvos-sim; dest="generic/platform=tvOS Simulator"; sdk=appletvsimulator; plat=AppleTVSimulator;;
+    tv-device|tv-ipa) t=aarch64-apple-tvos; dest="generic/platform=tvOS"; sdk=appletvos; plat=AppleTVOS;;
+    *) t=aarch64-apple-ios-sim; dest="generic/platform=iOS Simulator"; sdk=iphonesimulator; plat=iPhoneSimulator;;
+esac
+core=core-ios; [[ $tv == 1 ]] && core=core-tvos
+export IPHONEOS_DEPLOYMENT_TARGET=26.0 TVOS_DEPLOYMENT_TARGET=26.0
 conf=${CONF:-Release}
 
 if [[ ${CORE:-1} != 0 ]]; then
@@ -23,8 +27,8 @@ if [[ ${CORE:-1} != 0 ]]; then
     cargo build --release --no-default-features --target "$t" --manifest-path "$repo/core/Cargo.toml" \
         --target-dir "${CARGO_TARGET_DIR:-$here/.build/cargo}"
 fi
-mkdir -p "$here/.build/core-ios"
-cp "${CARGO_TARGET_DIR:-$here/.build/cargo}/$t/release/libnoonix_core.a" "$here/.build/core-ios/libnoonix_core.a"
+mkdir -p "$here/.build/$core"
+cp "${CARGO_TARGET_DIR:-$here/.build/cargo}/$t/release/libnoonix_core.a" "$here/.build/$core/libnoonix_core.a"
 
 cd "$here"
 xcodebuild -scheme NoonixTV -destination "$dest" -configuration "$conf" -derivedDataPath "$here/.build/xc-$kind" \
@@ -55,9 +59,17 @@ for f in "$repo"/qml/assets/kitty/*.svg "$here/Resources/tmdb.pdf"; do
         "$n.$e" > "$cat_dir/$n.imageset/Contents.json"
 done
 icon_plist=$(mktemp)
-xcrun actool "$cat_dir" "$here/Resources/AppIcon.icon" --compile "$app" --app-icon AppIcon --platform "$sdk" \
-    --target-device iphone --target-device ipad --minimum-deployment-target 26.0 \
-    --output-partial-info-plist "$icon_plist" >/dev/null
+if [[ $tv == 1 ]]; then
+    # apple tv: a layered icon + top shelf brand assets, made from the same icon
+    python3 "$here/tvos-assets.py" "$here/Resources/tvos" "$cat_dir"
+    xcrun actool "$cat_dir" --compile "$app" --app-icon "App Icon & Top Shelf Image" --launch-image LaunchImage --platform "$sdk" \
+        --target-device tv --minimum-deployment-target 26.0 \
+        --output-partial-info-plist "$icon_plist" >/dev/null
+else
+    xcrun actool "$cat_dir" "$here/Resources/AppIcon.icon" --compile "$app" --app-icon AppIcon --platform "$sdk" \
+        --target-device iphone --target-device ipad --minimum-deployment-target 26.0 \
+        --output-partial-info-plist "$icon_plist" >/dev/null
+fi
 
 cat > "$app/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -74,10 +86,11 @@ cat > "$app/Info.plist" <<PLIST
     <key>CFBundleSupportedPlatforms</key><array><string>$plat</string></array>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
     <key>CFBundleLocalizations</key><array><string>en</string><string>sr-Latn</string></array>
-    <key>LSRequiresIPhoneOS</key><true/>
+$(if [[ $tv == 1 ]]; then echo '    <key>UIDeviceFamily</key><array><integer>3</integer></array>
+'; else echo '    <key>LSRequiresIPhoneOS</key><true/>
+    <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>'; fi)
     <key>MinimumOSVersion</key><string>26.0</string>
-    <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>
-    <key>UILaunchScreen</key><dict><key>UIColorName</key><string>Launch</string></dict>
+$([[ $tv == 1 ]] || echo '    <key>UILaunchScreen</key><dict><key>UIColorName</key><string>Launch</string></dict>')
     <key>UIRequiresFullScreen</key><true/>
     <key>UIStatusBarHidden</key><true/>
     <key>UIViewControllerBasedStatusBarAppearance</key><false/>
@@ -98,18 +111,19 @@ cat > "$app/Info.plist" <<PLIST
 PLIST
 /usr/libexec/PlistBuddy -c "Merge $icon_plist" "$app/Info.plist" >/dev/null 2>&1 || true
 
-if [[ $kind == ipa ]]; then
+if [[ $kind == ipa || $kind == tv-ipa ]]; then
     codesign --force --sign - "$app" >/dev/null 2>&1
     pay=$(mktemp -d)
     mkdir "$pay/Payload"
     cp -R "$app" "$pay/Payload/"
     ipa="$here/dist-ios/Noonix-TV-$version-ios.ipa"
+    [[ $tv == 1 ]] && ipa="$here/dist-ios/Noonix-TV-$version-tvos.ipa"
     rm -f "$ipa"
     (cd "$pay" && zip -qry "$ipa" Payload)
     rm -rf "$pay"
     echo "$ipa"
     exit 0
-elif [[ $kind == device ]]; then
+elif [[ $kind == device || $kind == tv-device ]]; then
     cp "${PROFILE:?a .mobileprovision}" "$app/embedded.mobileprovision"
     codesign --force --sign "${CODESIGN_ID:?a signing identity}" --entitlements "${ENTITLEMENTS:-/dev/null}" "$app"
 else

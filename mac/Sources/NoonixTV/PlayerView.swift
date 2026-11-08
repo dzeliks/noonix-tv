@@ -1025,7 +1025,7 @@ private struct TransportKey: View {
                 } else if osd.hover == b { osd.hover = nil }
             }
             .onTapGesture { osd.act(b) }
-            #if os(iOS)
+            #if !os(macOS)
             .pressBox($box)
             #endif
     }
@@ -1076,7 +1076,7 @@ struct SkipPill: View {
         .shadow(color: .black.opacity(foc ? 0.55 : 0.28), radius: 22 * u, y: 16 * u)
         .animation(.easeOut(duration: 0.14), value: foc)
         .contentShape(.rect)
-        .onHover { osd.hoverPill = $0 }
+        .hover { osd.hoverPill = $0 }
         .onTapGesture { osd.skipAction() }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
         .padding(.trailing, Theme.margin(u))
@@ -1121,11 +1121,13 @@ struct SeekBar: View {
             }
             .overlay(alignment: .topLeading) { chip(w: w, frac: frac) }
             .contentShape(.rect.inset(by: -24 * u))
+            #if !os(tvOS)
             .gesture(DragGesture(minimumDistance: 0).onChanged { v in
                 if osd.picker != nil || osd.match != nil { osd.closePickers() }
                 if p.duration > 0 { p.seek(to: max(0, min(1, v.location.x / w)) * p.duration) }
                 osd.show(5, .bar)
             })
+            #endif
         }
     }
 }
@@ -1266,7 +1268,7 @@ private struct VolumeControl: View {
                 .background { Circle().fill(Color.white).opacity(speaker ? 1 : 0) }
                 .animation(.easeOut(duration: 0.14), value: speaker)
                 .contentShape(.circle)
-                .onHover { onSpeaker = $0 }
+                .hover { onSpeaker = $0 }
                 .onTapGesture { osd.act(.vol); osd.show() }
                 .padding(.leading, 4 * u)
             GeometryReader { g in
@@ -1281,10 +1283,12 @@ private struct VolumeControl: View {
                 }
                 .frame(width: w, height: g.size.height)
                 .contentShape(.rect)
-                .onHover { onTrack = $0 }
+                .hover { onTrack = $0 }
+                #if !os(tvOS)
                 .gesture(DragGesture(minimumDistance: 0)
                     .onChanged { v in dragging = true; p.setVolume(v.location.x / max(1, w) * 100); osd.show() }
                     .onEnded { _ in dragging = false })
+                #endif
             }
             .padding(.trailing, 30 * u)
         }

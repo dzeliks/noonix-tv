@@ -204,7 +204,13 @@ fn places(_files: bool) -> Vec<Value> {
 }
 
 /// where looking starts: home and its video folder (files: its downloads), then the drives
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+/// apple tv: no folders of its own (network shares only)
+#[cfg(target_os = "tvos")]
+fn places(_files: bool) -> Vec<Value> {
+    Vec::new()
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios", target_os = "tvos")))]
 fn places(files: bool) -> Vec<Value> {
     let mut out = Vec::new();
     let home = std::env::var(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).unwrap_or_default();

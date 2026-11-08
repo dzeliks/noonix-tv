@@ -164,7 +164,8 @@ struct KeyEntryView: View {
                 }
             } else {
                 KeyboardView(model: model.kb, u: u / 2, width: inner, active: true)
-                Text(L("A real keyboard works too, and ⌘V pastes. Back closes this."))
+                // apple tv: no clipboard
+                Text(Platform.tv ? L("A real keyboard works too. Back closes this.") : L("A real keyboard works too, and ⌘V pastes. Back closes this."))
                     .font(Theme.text(22 * u)).foregroundStyle(Theme.fg3)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             }
@@ -190,6 +191,9 @@ struct PasteKey: View {
     let u: CGFloat
     let got: (String) -> Void
     var body: some View {
+        #if os(tvOS)
+        EmptyView()
+        #else
         PasteButton(payloadType: String.self) { s in
             guard let t = s.first else { return }
             Task { @MainActor in got(t) }
@@ -199,6 +203,7 @@ struct PasteKey: View {
         .controlSize(.extraLarge)
         .tint(Color(white: 0.26))
         .font(Theme.display(27 * u, .semibold))
+        #endif
     }
 }
 

@@ -135,7 +135,7 @@ final class SourcesModel {
         case .advanced:
             switch k {
             case .ok: toggleTemplate()
-            case .down: zone = showTemplate ? .copy : .list
+            case .down: zone = showTemplate && !Platform.tv ? .copy : .list
             case .up: zone = askTorrents ? .torrents : addons.count > 1 ? .chips : .advanced
             default: break
             }
@@ -150,7 +150,7 @@ final class SourcesModel {
             switch k {
             case .up:
                 if index > 0 { index -= 1 }
-                else if !unsupported.isEmpty { zone = showTemplate ? .copy : .advanced }
+                else if !unsupported.isEmpty { zone = showTemplate && !Platform.tv ? .copy : .advanced }
                 else if askTorrents { zone = .torrents }
                 else if addons.count > 1 { zone = .chips }
             case .down: index = min(max(0, shown.count - 1), index + 1)
@@ -282,10 +282,13 @@ struct SourcesView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .background { RoundedRectangle(cornerRadius: 24 * u).fill(Color.black.opacity(0.35)) }
         .overlay(alignment: .bottomTrailing) {
-            GlassButton(text: model.copied ? L("Copied") : L("Copy"), icon: "doc.on.doc", focused: model.zone == .copy, u: u, height: 56 * u, flat: true)
-                .padding(18 * u)
-                .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.zone = .copy } }
-                .onTapGesture { model.zone = .copy; model.copyTemplate() }
+            // apple tv: nothing to copy to, the text is there to read
+            if !Platform.tv {
+                GlassButton(text: model.copied ? L("Copied") : L("Copy"), icon: "doc.on.doc", focused: model.zone == .copy, u: u, height: 56 * u, flat: true)
+                    .padding(18 * u)
+                    .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.zone = .copy } }
+                    .onTapGesture { model.zone = .copy; model.copyTemplate() }
+            }
         }
     }
 
@@ -480,7 +483,7 @@ struct SourceRow: View {
         .scaleEffect(lit ? 1.02 : 1)
         .animation(Theme.lift, value: lit)
         .padding(.horizontal, 28 * u)
-        #if os(iOS)
+        #if !os(macOS)
         .pressBox($box)
         #endif
     }

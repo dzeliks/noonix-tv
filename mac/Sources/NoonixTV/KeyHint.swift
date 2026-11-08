@@ -16,6 +16,7 @@ struct KeyHint: View {
     private var pointed: Bool { Platform.ios && (PointerMode.shared.on || Platform.phone) }
 
     private static let keys = ["MENU": "M", "OK": "Return", "BACK": "Esc"]
+    private static let remote = ["MENU": "HOLD OK", "OK": "OK", "BACK": "BACK"]
     private static let positions = ["MENU": "north", "OK": "south", "BACK": "east"]
 
     var body: some View {
@@ -35,7 +36,8 @@ struct KeyHint: View {
                     .overlay { face }
                     .frame(height: 46 * u)
             } else {
-                Text(Self.keys[key] ?? key)
+                // the remote's caps as on linux; the siri remote has no menu key: the ok click held
+                Text(app.inputKind == "remote" ? Self.remote[key] ?? key : Self.keys[key] ?? key)
                     .font(Theme.display(24 * u, .bold)).tracking(0.8 * u)
                     .foregroundStyle(Color.white.opacity(0.85))
                     .padding(.horizontal, 14 * u)

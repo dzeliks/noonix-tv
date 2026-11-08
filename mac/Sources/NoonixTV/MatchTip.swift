@@ -22,7 +22,8 @@ struct MatchTipView: View {
                 Text(L("How's this one?"))
                     .font(Theme.display(46 * u, .bold)).foregroundStyle(Theme.fg)
                     .padding(.top, 30 * u)
-                Text(Theme.say(L("Press Menu while watching to say if the source and subtitles fit."),
+                // the siri remote has no menu key: its click, held
+                Text(Theme.say(Platform.tv ? L("Hold OK while watching to say if the source and subtitles fit.") : L("Press Menu while watching to say if the source and subtitles fit."),
                                L("Tap the screen while watching, then the speech bubble, to say if the source and subtitles fit.")))
                     .font(Theme.text(27 * u, .medium)).foregroundStyle(Theme.fg2)
                     .multilineTextAlignment(.center)

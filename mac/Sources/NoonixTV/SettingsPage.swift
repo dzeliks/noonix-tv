@@ -146,8 +146,9 @@ final class SettingsModel {
             out.append(Line(label: L("Hide"), detail: ex.isEmpty ? L("None. Releases with these words never show") : ex.joined(separator: ", "),
                             value: "›", act: "patterns:excluded"))
             out.append(Line(label: L("Advanced"), header: true))
-            out.append(Line(label: L("Noonix formatter for AIOStreams"), detail: L("If you run your own AIOStreams: paste it into its Formatter › Custom when a source says Unsupported formatting"),
-                            value: copied ? L("Copied") : L("Copy"), act: "copy-template"))
+            // apple tv has no clipboard to copy it to
+            if !Platform.tv { out.append(Line(label: L("Noonix formatter for AIOStreams"), detail: L("If you run your own AIOStreams: paste it into its Formatter › Custom when a source says Unsupported formatting"),
+                            value: copied ? L("Copied") : L("Copy"), act: "copy-template")) }
             if let p = prefs {
                 out.append(Line(label: L("Show sources that need downloading"), checkable: true, checked: p["showUncached"] as? Bool == true, act: "pref:showUncached"))
             }
@@ -195,10 +196,13 @@ final class SettingsModel {
             out.append(Line(label: L("Add profile"), value: "+", act: "profile-add"))
             out.append(Line(label: L("Sign in automatically"), detail: L("Open on the last profile without asking who's watching"),
                             checkable: true, checked: app.autoLogin, act: "auto-login"))
-            out.append(Line(label: L("Another device"), header: true))
-            out.append(Line(label: L("Export this profile"), detail: L("%1's languages, sources and history as a file, for Noonix TV on another device", app.currentProfile?.name ?? ""),
-                            value: "›", act: "profile-export"))
-            out.append(Line(label: L("Import a profile"), detail: L("A .noonix file from another device, as a new profile"), value: "+", act: "profile-import"))
+            // apple tv: no files of its own to save to or pick from (network shares: later)
+            if !Platform.tv {
+                out.append(Line(label: L("Another device"), header: true))
+                out.append(Line(label: L("Export this profile"), detail: L("%1's languages, sources and history as a file, for Noonix TV on another device", app.currentProfile?.name ?? ""),
+                                value: "›", act: "profile-export"))
+                out.append(Line(label: L("Import a profile"), detail: L("A .noonix file from another device, as a new profile"), value: "+", act: "profile-import"))
+            }
         case "audio":
             guard let p = prefs, let opts = langOptions?["audio"] as? [[String: Any]] else { break }
             out.append(Line(label: L("In order of preference: the first one a source has plays"), header: true))
@@ -637,7 +641,7 @@ struct BrandRow: View {
         .scaleEffect(lit ? 1.02 : 1)
         .animation(Theme.lift, value: lit)
         .contentShape(.rect)
-        #if os(iOS)
+        #if !os(macOS)
         .pressBox($box)
         #endif
     }
@@ -683,6 +687,8 @@ struct SettingsRow: View {
                     .overlay { Text(line.badge).font(Theme.rounded(22 * u, .bold)).foregroundStyle(.white) }
             }
             if line.checkable {
+                #if os(tvOS)
+                // apple tv has no switch of its own: the tv ui's
                 Capsule()
                     .fill(line.checked ? Color(red: 0x30 / 255, green: 0xD1 / 255, blue: 0x58 / 255) : lit ? Color.black.opacity(0.18) : Color.white.opacity(0.2))
                     .frame(width: 84 * u, height: 48 * u)
@@ -690,6 +696,17 @@ struct SettingsRow: View {
                         Circle().fill(.white).frame(width: 40 * u, height: 40 * u).padding(4 * u)
                     }
                     .animation(.spring(response: 0.3, dampingFraction: 0.6), value: line.checked)
+                #else
+                // the system's liquid glass switch; the row flips it (keys, a click or a tap)
+                Toggle("", isOn: .constant(line.checked))
+                    .labelsHidden()
+                    .toggleStyle(.switch)
+                    .tint(Color(red: 0x30 / 255, green: 0xD1 / 255, blue: 0x58 / 255))
+                    #if os(macOS)
+                    .controlSize(.large)
+                    #endif
+                    .allowsHitTesting(false)
+                #endif
             } else if !line.value.isEmpty {
                 Text(line.value).font(Theme.text(24 * u)).foregroundStyle(lit ? Theme.focusFg : Theme.fg2)
                     // copy turning into copied can't push the text next to it onto a new line
@@ -702,7 +719,7 @@ struct SettingsRow: View {
         .scaleEffect(lit ? grow : 1)
         .animation(Theme.lift, value: lit)
         .contentShape(.rect)
-        #if os(iOS)
+        #if !os(macOS)
         .pressBox($box)
         #endif
     }

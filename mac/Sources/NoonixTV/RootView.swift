@@ -1,5 +1,5 @@
 import SwiftUI
-#if os(iOS)
+#if !os(macOS)
 import UIKit
 #endif
 
@@ -17,7 +17,7 @@ struct RootView: View {
                 }
             }
             .onChange(of: g.size, initial: true) {
-                #if os(iOS)
+                #if !os(macOS)
                 // the notch and the home bar (qml Main safeProbe): set before the size makes it all lay out again
                 if let w = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).flatMap(\.windows).first {
                     Theme.safeSide = max(w.safeAreaInsets.left, w.safeAreaInsets.right)
@@ -219,7 +219,7 @@ struct TopNav: View {
                         .animation(Theme.lift, value: on)
                         .animation(Theme.lift, value: hover)
                         .contentShape(.circle)
-                        .onHover { inside in hover = inside ? -1 : hover == -1 ? nil : hover }
+                        .hover { inside in hover = inside ? -1 : hover == -1 ? nil : hover }
                         .onTapGesture { app.openPicker() }
                 }
                 Spacer()
@@ -260,7 +260,7 @@ struct TopNav: View {
                     .background { Capsule().fill(Color.white.opacity(lit ? 0.1 : 0)).animation(.easeOut(duration: 0.14), value: lit) }
                     .contentShape(.capsule)
                     .onGeometryChange(for: CGRect.self) { $0.frame(in: .named("pill")) } action: { tabs[i] = $0 }
-                    .onHover { inside in hover = inside ? i : hover == i ? nil : hover }
+                    .hover { inside in hover = inside ? i : hover == i ? nil : hover }
                     .onTapGesture {
                         app.navFocused = true
                         if app.navIndex != i { app.choose(p) } else { app.navFocused = false }

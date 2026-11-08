@@ -264,7 +264,7 @@ struct ProfileEditView: View {
                             .frame(width: 72 * u, height: 92 * u)
                             .id(i)
                             .contentShape(.rect)
-                            .onHover { inside in pointedLook = inside ? i : pointedLook == i ? nil : pointedLook }
+                            .hover { inside in pointedLook = inside ? i : pointedLook == i ? nil : pointedLook }
                             .onTapGesture { model.choice = i; model.onLooks = false }
                         }
                     }
@@ -285,7 +285,7 @@ struct ProfileEditView: View {
                     .onTapGesture { model.create() }
             } else {
                 KeyboardView(model: model.kb, u: u / 2, width: inner, active: !model.onLooks)
-                Text(L("Up to pick a colour or a picture. Pictures: PNG or JPG files in %1", Platform.ios ? "Files › Noonix TV › Avatars" : model.dir))
+                Text(Platform.tv ? L("Up to pick a colour.") : L("Up to pick a colour or a picture. Pictures: PNG or JPG files in %1", Platform.ios ? "Files › Noonix TV › Avatars" : model.dir))
                     .font(Theme.text(22 * u)).foregroundStyle(Theme.fg3)
                     .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
             }
@@ -478,7 +478,7 @@ struct TraktCodeView: View {
                 Text(model.userCode ?? "· · · ·")
                     .font(Theme.rounded(96 * u, .bold)).tracking(10 * u)
                     .foregroundStyle(Theme.fg)
-                    .textSelection(.enabled)
+                    .selectable()
                 Spinner(size: 44 * u)
                 Text(L("Back cancels")).font(Theme.text(22 * u)).foregroundStyle(Theme.fg3)
             }

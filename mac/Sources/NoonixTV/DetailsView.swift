@@ -632,7 +632,7 @@ struct GlassButton: View {
         .contentShape(.capsule)
         .shadow(color: .black.opacity(lit ? 0.5 : 0), radius: 18 * u, y: 14 * u)
         .animation(.easeOut(duration: 0.16), value: lit)
-        #if os(iOS)
+        #if !os(macOS)
         .pressBox($box)
         #endif
     }

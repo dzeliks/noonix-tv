@@ -174,6 +174,7 @@ struct KeyboardView: View {
                             .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.point(r, i) } }
                             .gesture(k.v == "backspace" ? nil : TapGesture().onEnded { model.point(r, i); model.press(k, at: (r, i)) })
                             // no tap here: it would hold the press back for about a second
+                            #if !os(tvOS)
                             .gesture(k.v == "backspace" ? DragGesture(minimumDistance: 0)
                                 .onChanged { _ in
                                     guard !model.mouseHeld else { return }
@@ -183,6 +184,7 @@ struct KeyboardView: View {
                                     model.holdBackspace { model.mouseHeld }
                                 }
                                 .onEnded { _ in model.mouseHeld = false } : nil)
+                            #endif
                     }
                 }
             }

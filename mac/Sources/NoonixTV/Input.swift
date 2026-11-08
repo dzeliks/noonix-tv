@@ -43,7 +43,7 @@ final class PointerMode {
     static let shared = PointerMode()
     var on = false
     /// what pressed the last key: keyboard | pad | remote (the dev fifo stands in for a remote)
-    var kind = "keyboard"
+    var kind = Platform.tv ? "remote" : "keyboard"
     func pressed(_ k: String) { if kind != k { kind = k } }
     /// the mouse is on a card: with the mouse in use only that card is lifted (moving off lets it down)
     private(set) var onCard = false

@@ -85,7 +85,7 @@ struct Card: View {
             }
         }
         .frame(width: artW, height: artH + (wide ? 92 * u : 0), alignment: .top)
-        .onHover { PointerMode.shared.card(me, $0) }
+        .hover { PointerMode.shared.card(me, $0) }
         .onDisappear { PointerMode.shared.card(me, false) }
     }
 }
@@ -269,7 +269,7 @@ struct CardStrip: View {
             .animation(.easeOut(duration: 0.25), value: on)
         }
         .overlay(alignment: .topLeading) { arrows(first) }
-        .onHover { inside in
+        .hover { inside in
             over = inside
             side.past = pastEnd
             if inside { Input.row = side } else if Input.row === side { Input.row = nil }

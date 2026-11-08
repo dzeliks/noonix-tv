@@ -304,6 +304,8 @@ struct SearchPage: View {
         let keyboardUp = app.keyboardTop < H
         #if os(macOS)
         let editable = !osk && !ime, native = false
+        #elseif os(tvOS)
+        let editable = false, native = false
         #else
         // the system's own field (select, paste) whenever there's no on-screen keyboard
         let editable = false, native = !osk

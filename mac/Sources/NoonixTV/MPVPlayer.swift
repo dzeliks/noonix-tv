@@ -5,6 +5,11 @@ import UIKit
 #endif
 import Libmpv
 import Observation
+#if os(tvOS)
+import AVFoundation
+import AVKit
+import CoreMedia
+#endif
 
 /// moltenvk sets a 1x1 drawable to finish a frame early (flicker), and edr only switches on from
 /// the main thread (mpv#13651). handed over async: mpv's vo thread sets it while making the
@@ -15,6 +20,7 @@ final class VideoLayer: CAMetalLayer {
         set { if newValue.width > 1 && newValue.height > 1 { super.drawableSize = newValue } }
     }
 
+    #if !os(tvOS)
     override var wantsExtendedDynamicRangeContent: Bool {
         get { super.wantsExtendedDynamicRangeContent }
         set {
@@ -27,6 +33,7 @@ final class VideoLayer: CAMetalLayer {
     }
 
     private func setEDR(_ on: Bool) { super.wantsExtendedDynamicRangeContent = on }
+    #endif
 }
 
 /// libmpv in the window (gpu-next on moltenvk), with the core's bookkeeping around it like the
@@ -224,6 +231,9 @@ final class MPVPlayer {
     /// leaves the video: saves the point (and scrobbles) like the tv app
     func stop(reason: String = "user") {
         stopTicks()
+        #if os(tvOS)
+        TVDisplay.reset()
+        #endif
         command(["stop"])
         if session != 0 {
             let args: [String: Any] = ["position": position, "duration": duration, "reason": reason]
@@ -235,6 +245,29 @@ final class MPVPlayer {
     }
 
     // ---- mpv side
+
+    #if os(tvOS)
+    /// the decoded picture's size and colours, once the first frame is out (up to a second)
+    private func videoParams() async -> TVDisplay.Video? {
+        for _ in 0..<20 {
+            guard let mpv else { return nil }
+            var w: Int64 = 0, h: Int64 = 0
+            mpv_get_property(mpv, "video-params/w", MPV_FORMAT_INT64, &w)
+            mpv_get_property(mpv, "video-params/h", MPV_FORMAT_INT64, &h)
+            if w > 0 && h > 0 {
+                let str = { (n: String) -> String in
+                    guard let c = mpv_get_property_string(mpv, n) else { return "" }
+                    defer { mpv_free(c) }
+                    return String(cString: c)
+                }
+                return TVDisplay.Video(width: Int32(w), height: Int32(h), gamma: str("video-params/gamma"),
+                                       primaries: str("video-params/primaries"), codec: str("video-format"))
+            }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        return nil
+    }
+    #endif
 
     private func set(_ name: String, _ value: String) {
         guard let mpv else { return }
@@ -309,6 +342,9 @@ final class MPVPlayer {
                                    "chapters": chapters(), "tracks": tracks.filter { $0.type == "sub" && !$0.external }.map(\.json),
                                    "dvProfile": 0]
         let mine = session
+        #if os(tvOS)
+        let rate = fps
+        #endif
         Task {
             let data = try? await Core.shared.raw("playback.loaded", args)
             guard mine == session else { return }
@@ -320,6 +356,11 @@ final class MPVPlayer {
                 let pick = (r["subPick"] as? NSNumber)?.intValue ?? 0
                 if pick > 0 { set("sid", String(pick)) } else if pick == -1 { set("sid", "no") }
             }
+            #if os(tvOS)
+            // the tv to the video's frame rate and hdr first, then it plays
+            await TVDisplay.match(fps: rate, video: videoParams())
+            guard mine == session else { return }
+            #endif
             set("pause", "no")
             state = .playing
             tick("start")
@@ -481,3 +522,59 @@ enum DecodeBench {
         }
     }
 }
+
+#if os(tvOS)
+/// apple tv: the tv's mode follows the video (frame rate, hdr10 / hlg). tvos only switches when
+/// match content is on in its settings (video and audio), like for every other app
+@MainActor
+enum TVDisplay {
+    struct Video {
+        var width: Int32
+        var height: Int32
+        var gamma: String
+        var primaries: String
+        var codec: String
+    }
+
+    /// nil where the system has none (the simulator)
+    private static var manager: AVDisplayManager? {
+        guard let w = UIApplication.shared.connectedScenes.compactMap({ ($0 as? UIWindowScene)?.windows.first }).first,
+              w.responds(to: NSSelectorFromString("avDisplayManager")) else { return nil }
+        return w.avDisplayManager
+    }
+
+    /// the tv can show hdr (whether it's in an hdr mode right now or not)
+    static var hdr: Bool { AVPlayer.eligibleForHDRPlayback }
+
+    static func match(fps: Double, video: Video?) async {
+        guard let manager, manager.isDisplayCriteriaMatchingEnabled, let video else { return }
+        var ext: [CFString: Any] = [:]
+        switch video.gamma {
+        case "pq":
+            ext[kCMFormatDescriptionExtension_TransferFunction] = kCMFormatDescriptionTransferFunction_SMPTE_ST_2084_PQ
+        case "hlg":
+            ext[kCMFormatDescriptionExtension_TransferFunction] = kCMFormatDescriptionTransferFunction_ITU_R_2100_HLG
+        default:
+            ext[kCMFormatDescriptionExtension_TransferFunction] = kCMFormatDescriptionTransferFunction_ITU_R_709_2
+        }
+        let wide = video.primaries == "bt.2020"
+        ext[kCMFormatDescriptionExtension_ColorPrimaries] = wide ? kCMFormatDescriptionColorPrimaries_ITU_R_2020 : kCMFormatDescriptionColorPrimaries_ITU_R_709_2
+        ext[kCMFormatDescriptionExtension_YCbCrMatrix] = wide ? kCMFormatDescriptionYCbCrMatrix_ITU_R_2020 : kCMFormatDescriptionYCbCrMatrix_ITU_R_709_2
+        let codec = video.codec.contains("hevc") ? kCMVideoCodecType_HEVC : kCMVideoCodecType_H264
+        var desc: CMVideoFormatDescription?
+        guard CMVideoFormatDescriptionCreate(allocator: nil, codecType: codec, width: video.width, height: video.height,
+                                             extensions: ext as CFDictionary, formatDescriptionOut: &desc) == noErr,
+              let desc else { return }
+        manager.preferredDisplayCriteria = AVDisplayCriteria(refreshRate: Float(fps > 0 ? fps : 0), formatDescription: desc)
+        // the tv goes dark while it switches: the video waits for it (never longer than 8 s)
+        try? await Task.sleep(for: .milliseconds(250))
+        let start = Date()
+        while manager.isDisplayModeSwitchInProgress, Date().timeIntervalSince(start) < 8 {
+            try? await Task.sleep(for: .milliseconds(100))
+        }
+    }
+
+    /// back to the mode the tv had for the menus
+    static func reset() { manager?.preferredDisplayCriteria = nil }
+}
+#endif

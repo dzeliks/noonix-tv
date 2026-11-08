@@ -598,7 +598,7 @@ struct SetupView: View {
         VStack(spacing: 12 * u) {
             TraktCodeLine(code: c.userCode, url: c.url, u: u)
             Text(c.userCode ?? "· · · ·").font(Theme.rounded(84 * u, .bold)).tracking(8 * u).foregroundStyle(Theme.fg)
-                .textSelection(.enabled)
+                .selectable()
             Spinner(size: 44 * u)
         }
         .frame(maxWidth: .infinity)

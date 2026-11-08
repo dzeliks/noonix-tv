@@ -15,7 +15,7 @@ pub struct Paths {
     pub state: PathBuf,
 }
 
-#[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+#[cfg(all(unix, not(target_vendor = "apple"), not(target_os = "android")))]
 fn xdg(var: &str, fallback: &str) -> PathBuf {
     match std::env::var_os(var) {
         Some(v) if !v.is_empty() => PathBuf::from(v),
@@ -28,7 +28,7 @@ pub fn home() -> PathBuf {
     std::env::var_os(var).map(PathBuf::from).unwrap_or_else(|| PathBuf::from("/"))
 }
 
-#[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+#[cfg(all(unix, not(target_vendor = "apple"), not(target_os = "android")))]
 fn paths() -> Paths {
     Paths {
         config: xdg("XDG_CONFIG_HOME", ".config").join("noonix-tv"),
@@ -48,6 +48,17 @@ fn paths() -> Paths {
     }
     let support = lib.join("Application Support/Noonix TV");
     Paths { config: support.join("config"), data: support.clone(), cache: lib.join("Caches/Noonix TV"), state: lib.join("Logs/Noonix TV") }
+}
+
+// apple tv: an app keeps nothing but its caches (the system may clear them when space runs low;
+// the app keeps a copy of the settings in its defaults, TVStore.swift)
+#[cfg(target_os = "tvos")]
+fn paths() -> Paths {
+    if let Some(base) = std::env::var_os("NOONIX_HOME").map(PathBuf::from) {
+        return Paths { config: base.join("config"), data: base.join("data"), cache: base.join("cache"), state: base.join("state") };
+    }
+    let base = home().join("Library/Caches/Noonix TV");
+    Paths { config: base.join("config"), data: base.join("data"), cache: base.join("cache"), state: base.join("state") }
 }
 
 // the app's private files folder (qt points HOME at it). NOONIX_HOME moves it all

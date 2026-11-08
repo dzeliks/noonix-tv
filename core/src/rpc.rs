@@ -178,9 +178,9 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
         }
         "setup.finish" => {
             store::with(|c| store::set_setting(c, "app", "setup_done", &json!(true))).await?;
-            // an appimage lands in the app menu unless setup turned it off
+            // an appimage lands in the app menu unless setup turned it off (linux: xdg files)
             let menu = store::with(|c| store::get_setting(c, "app", "menu_entry")).await?;
-            if menu.is_none() {
+            if menu.is_none() && cfg!(target_os = "linux") {
                 if let Err(e) = tokio::task::spawn_blocking(|| desktop::set_menu(true)).await? {
                     tracing::warn!("app menu entry: {e:#}");
                 }
