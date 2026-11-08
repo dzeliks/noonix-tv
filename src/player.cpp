@@ -21,7 +21,7 @@
 #include <QScreen>
 #include <QVariant>
 #include <mpv/client.h>
-#if defined(__GLIBC__)
+#if defined(__GLIBC__) || defined(Q_OS_ANDROID)
 #include <malloc.h>
 #elif defined(Q_OS_WIN)
 #ifndef NOMINMAX
@@ -141,12 +141,12 @@ Player::Player(bool nativeVideo, QObject *parent)
     // ~20 s of a 4k remux ahead (minutes of anything smaller), a little behind for a quick rewind.
     // mpv keeps its packets for reuse, so this is also about what stays after a stop
 #ifdef Q_OS_ANDROID
-    opt("demuxer-max-bytes", "128MiB");
+    opt("demuxer-max-bytes", m_lowMemory ? "48MiB" : "128MiB");
 #else
-    opt("demuxer-max-bytes", "200MiB");
+    opt("demuxer-max-bytes", m_lowMemory ? "48MiB" : "200MiB");
 #endif
-    opt("demuxer-max-back-bytes", "32MiB");
-    opt("demuxer-readahead-secs", "60");
+    opt("demuxer-max-back-bytes", m_lowMemory ? "8MiB" : "32MiB");
+    opt("demuxer-readahead-secs", m_lowMemory ? "20" : "60");
     opt("network-timeout", "30");
     opt("terminal", "yes");
     opt("msg-level", "all=warn");
@@ -299,10 +299,12 @@ void Player::onCorePush(const QString &name, const QString &json)
 }
 
 // a played file leaves its packets behind in the allocator (hundreds of mb at 4k): back to the system
-static void giveBackMemory()
+void Player::giveBackMemory()
 {
 #if defined(__GLIBC__)
     malloc_trim(0);
+#elif defined(Q_OS_ANDROID)
+    mallopt(M_PURGE, 0);
 #elif defined(Q_OS_WIN)
     _heapmin();
     HeapCompact(GetProcessHeap(), 0);
@@ -746,6 +748,25 @@ void Player::drain()
             break;
         }
     }
+}
+
+// low memory mode: a short buffer (~30 s of 1080p), little kept behind. options, so the next file takes them
+void Player::setLowMemory(bool on)
+{
+    if (on == m_lowMemory)
+        return;
+    m_lowMemory = on;
+    if (!m_mpv)
+        return;
+#ifdef Q_OS_ANDROID
+    const char *ahead = on ? "48MiB" : "128MiB";
+#else
+    const char *ahead = on ? "48MiB" : "200MiB";
+#endif
+    mpv_set_property_string(m_mpv, "demuxer-max-bytes", ahead);
+    mpv_set_property_string(m_mpv, "demuxer-max-back-bytes", on ? "8MiB" : "32MiB");
+    mpv_set_property_string(m_mpv, "demuxer-readahead-secs", on ? "20" : "60");
+    emit lowMemoryChanged();
 }
 
 void Player::setVolume(double v)

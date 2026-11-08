@@ -662,6 +662,7 @@ FocusScope {
         anchors.fill: parent
         z: 10
         onMeasured: setup.loadQuality()
+        onLowMemoryOn: setup.loadQuality()
         onClosed: continueBtn.forceActiveFocus()
     }
     ProfileAdd {

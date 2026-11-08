@@ -89,6 +89,9 @@ Window {
         Api.call("settings.app", {}, function (ok, d) {
             if (ok) win.autoLogin = !!d.auto_login
             if (ok) win.matchTipOff = !!d.match_tip_off
+            if (ok) Theme.lowMode = d.low_memory || "auto"
+            // the core keeps playback to 1080p in low memory mode: it needs to know what automatic found
+            if (ok && (d.low_ram === true) !== Desktop.lowRam) Api.call("settings.setApp", { key: "low_ram", value: Desktop.lowRam })
             if (ok && d.controls) Input.setBindings(d.controls)
             // the language picked in setup, else what the pc's locale says
             Desktop.setLanguage(ok && d.ui_lang ? d.ui_lang : Desktop.systemLanguage)
@@ -228,7 +231,7 @@ Window {
             Loader {
                 id: moviesL
                 anchors.fill: parent
-                active: win.page === "movies" || item !== null || win.warmed >= 1
+                active: win.page === "movies" || (!Theme.lowMemory && (item !== null || win.warmed >= 1))
                 asynchronous: win.page !== "movies"
                 visible: win.page === "movies" && !win.detailStack.length
                 focus: visible && !nav.activeFocus
@@ -245,7 +248,7 @@ Window {
             Loader {
                 id: showsL
                 anchors.fill: parent
-                active: win.page === "shows" || item !== null || win.warmed >= 2
+                active: win.page === "shows" || (!Theme.lowMemory && (item !== null || win.warmed >= 2))
                 asynchronous: win.page !== "shows"
                 visible: win.page === "shows" && !win.detailStack.length
                 focus: visible && !nav.activeFocus
@@ -262,7 +265,7 @@ Window {
             Loader {
                 id: searchL
                 anchors.fill: parent
-                active: win.page === "search" || item !== null || win.warmed >= 4
+                active: win.page === "search" || (!Theme.lowMemory && (item !== null || win.warmed >= 4))
                 asynchronous: win.page !== "search"
                 visible: win.page === "search" && !win.detailStack.length
                 focus: visible && !nav.activeFocus
@@ -276,7 +279,7 @@ Window {
             Loader {
                 id: settingsL
                 anchors.fill: parent
-                active: win.page === "settings" || item !== null || win.warmed >= 5
+                active: win.page === "settings" || (!Theme.lowMemory && (item !== null || win.warmed >= 5))
                 asynchronous: win.page !== "settings"
                 visible: win.page === "settings" && !win.detailStack.length
                 focus: visible && !nav.activeFocus
@@ -285,7 +288,7 @@ Window {
             Loader {
                 id: libraryL
                 anchors.fill: parent
-                active: win.page === "library" || item !== null || win.warmed >= 3
+                active: win.page === "library" || (!Theme.lowMemory && (item !== null || win.warmed >= 3))
                 asynchronous: win.page !== "library"
                 visible: win.page === "library" && !win.detailStack.length
                 focus: visible && !nav.activeFocus
@@ -369,7 +372,13 @@ Window {
         return { home: homeL, movies: moviesL, shows: showsL, search: searchL, library: libraryL, settings: settingsL }[page] || homeL
     }
     function focusPage() { var l = currentPage(); if (l) l.forceActiveFocus() }
-    onPageChanged: if (!nav.activeFocus) focusPage()
+    onPageChanged: {
+        if (!nav.activeFocus) focusPage()
+        if (Theme.lowMemory) trimLater.restart()
+    }
+    // low memory: the page just left is gone, its memory back to the system once it's torn down
+    Timer { id: trimLater; interval: 2500; onTriggered: Player.trimMemory() }
+    Binding { target: Player; property: "lowMemory"; value: Theme.lowMemory }
 
     function back() {
         if (sources.visible) { sources.close(); return }
@@ -1346,7 +1355,7 @@ Window {
     Timer {
         interval: 1500
         repeat: true
-        running: win.warmed < 6 && win.homeReady && !!win.profile && !win.playing && !splash.visible
+        running: win.warmed < 6 && win.homeReady && !!win.profile && !win.playing && !splash.visible && !Theme.lowMemory
         onTriggered: win.warmed++
     }
     // every face the ui draws with, opened while home sits idle: a first use (details, settings)

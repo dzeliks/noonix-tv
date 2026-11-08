@@ -37,6 +37,7 @@ class Player : public QObject
     Q_PROPERTY(bool refreshMatch READ refreshMatch NOTIFY refreshMatchChanged)
     // mpv's own volume (0..100) and mute, for the pointer's slider (a remote keeps the pc's)
     Q_PROPERTY(double volume READ volume NOTIFY volumeChanged)
+    Q_PROPERTY(bool lowMemory READ lowMemory WRITE setLowMemory NOTIFY lowMemoryChanged)
     Q_PROPERTY(bool muted READ muted NOTIFY volumeChanged)
     // subtitle timing in seconds (+ = later); follows what was set for this release + subtitle
     Q_PROPERTY(double subDelay READ subDelay NOTIFY subDelayChanged)
@@ -85,6 +86,11 @@ public:
     Q_INVOKABLE void setSubDelay(double secs);
     Q_INVOKABLE void setRefreshMatch(bool on);
     Q_INVOKABLE void setVolume(double v);
+    bool lowMemory() const { return m_lowMemory; }
+    void setLowMemory(bool on);
+    // freed memory back to the system (glibc, bionic, windows heaps); after a video and on a page change
+    static void giveBackMemory();
+    Q_INVOKABLE void trimMemory() { giveBackMemory(); }
     Q_INVOKABLE void setMuted(bool on);
 
     // {kind, tmdb, season?, episode?, stream, start?}
@@ -111,6 +117,7 @@ public:
 
 signals:
     void benchDecoded(double fps, bool done);
+    void lowMemoryChanged();
     void stateChanged();
     void positionChanged();
     void durationChanged();
@@ -178,4 +185,5 @@ private:
     double m_subDelay = 0;
     double m_volume = 95;
     bool m_muted = false;
+    bool m_lowMemory = false;
 };

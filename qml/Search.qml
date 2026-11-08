@@ -20,8 +20,11 @@ FocusScope {
     readonly property bool searching: query.trim().length > 1
     readonly property var showList: searching ? results.filter(function (x) { return x.kind === "show" }) : popTv
     readonly property var movieList: searching ? results.filter(function (x) { return x.kind === "movie" }) : popMovies
-    // one list for the single sideways row a docked phone keyboard leaves room for
-    readonly property var shown: showList.concat(movieList)
+    // one list for the single sideways row a docked phone keyboard leaves room for; the pill
+    // beside the field picks all, shows or movies (all each time search opens)
+    property string kind: "all"
+    readonly property var shown: kind === "show" ? showList : kind === "movie" ? movieList : showList.concat(movieList)
+    onKindChanged: grid.positionViewAtBeginning()
     property var suggested: []
 
     // the on-screen keyboard is for a remote or a pad only: picked by what came into search, and it
@@ -151,6 +154,7 @@ FocusScope {
         if (zone === "grid" && shown.length) grid.forceActiveFocus()
         else if (zone === "suggestions" && osk && suggestions.length) sugBox.forceActiveFocus()
         else if (zone === "chips" && chips.visible && !ime) chips.forceActiveFocus()
+        else if (zone === "kinds" && kinds.visible) kinds.forceActiveFocus()
         else if (osk) keys.forceActiveFocus()
         else focusField()
     }
@@ -158,6 +162,8 @@ FocusScope {
     // busy from the first letter on: the wait isn't "no results"
     onQueryChanged: {
         var q = query.trim()
+        // a new search starts on all; back from a title keeps the pick
+        if (!q) kind = "all"
         if (q.length < 2) { results = []; suggested = []; busy = false; debounce.stop(); return }
         busy = true
         debounce.restart()
@@ -301,7 +307,7 @@ FocusScope {
     }
     // nothing found: say so where the results would be
     Column {
-        visible: search.searching && !search.busy && search.results.length === 0 && !search.tight
+        visible: search.searching && !search.busy && (search.squeezed ? search.shown.length : search.results.length) === 0 && !search.tight
         x: (search.areaRight - width) / 2
         y: search.areaTop + (search.squeezed ? 40 : 160) * search.u
         spacing: 22 * search.u
@@ -316,7 +322,9 @@ FocusScope {
             width: Math.min(implicitWidth, search.areaRight - 2 * Theme.margin)
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideRight
-            text: qsTr("No results for “%1”").arg(search.query.trim())
+            text: (search.squeezed && search.kind === "show" && search.results.length ? qsTr("No shows for “%1”")
+                   : search.squeezed && search.kind === "movie" && search.results.length ? qsTr("No movies for “%1”")
+                   : qsTr("No results for “%1”")).arg(search.query.trim())
             color: Theme.fg
             font { family: Theme.display; pixelSize: 34 * search.u; weight: Font.DemiBold }
         }
@@ -339,7 +347,7 @@ FocusScope {
         id: field
         x: search.flat ? Theme.margin : search.columnX
         y: search.topY - 8 * search.u
-        width: search.flat ? search.fullW : search.columnW
+        width: search.flat ? search.fullW - (kinds.visible ? kinds.width + 16 * search.u : 0) : search.columnW
         height: 64 * search.u
         radius: height / 2
         color: Qt.rgba(1, 1, 1, editLine.activeFocus ? 0.14 : 0.1)
@@ -390,7 +398,90 @@ FocusScope {
     }
     function imeOpen() { zone = "keys"; imeIn.open() }
     // opened by touch: typing is what search is for
-    onVisibleChanged: if (visible && ime) Qt.callLater(imeOpen)
+    onVisibleChanged: {
+        if (visible && ime) Qt.callLater(imeOpen)
+    }
+
+    // ---- small screens: all | shows | movies beside the field, same height, a white capsule on the pick
+    FocusScope {
+        id: kinds
+        visible: search.squeezed
+        x: field.x + field.width + 16 * search.u
+        y: field.y
+        width: kindRow.width + 2 * inset
+        height: field.height
+        readonly property real inset: 6 * search.u
+        readonly property var order: ["all", "show", "movie"]
+        readonly property int at: order.indexOf(search.kind)
+        onActiveFocusChanged: if (activeFocus) search.zone = "kinds"
+        function step(d) { var i = Math.max(0, Math.min(2, at + d)); search.kind = order[i] }
+        Keys.onLeftPressed: step(-1)
+        Keys.onRightPressed: step(1)
+        Keys.onUpPressed: search.upFromTop()
+        Keys.onDownPressed: { if (chips.visible && !search.ime) { search.zone = "chips"; chips.forceActiveFocus() } else if (search.shown.length) { search.zone = "grid"; grid.forceActiveFocus() } }
+        Keys.onPressed: function (e) { search.typeKey(e) }
+        Rectangle {
+            anchors.fill: parent
+            radius: height / 2
+            color: Qt.rgba(1, 1, 1, 0.1)
+            border.width: 1 * search.u
+            border.color: Qt.rgba(1, 1, 1, kinds.activeFocus ? 0.3 : 0.14)
+        }
+        // the pick: slides between the segments
+        // the picked segment's place (each segment hands it over while it's the pick)
+        property real pickX: 0
+        property real pickW: 0
+        Rectangle {
+            x: kinds.inset + kinds.pickX
+            y: kinds.inset
+            width: kinds.pickW
+            height: kinds.height - 2 * kinds.inset
+            radius: height / 2
+            color: "white"
+            opacity: Theme.touch || kinds.activeFocus || !Input.pointing ? 1 : 0.92
+            Behavior on x { enabled: kinds.visible; NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+            Behavior on width { enabled: kinds.visible; NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
+        }
+        Row {
+            id: kindRow
+            x: kinds.inset
+            height: kinds.height
+            Repeater {
+                id: kindRep
+                model: [qsTr("All"), qsTr("Shows"), qsTr("Movies")]
+                Item {
+                    id: seg
+                    required property string modelData
+                    required property int index
+                    readonly property bool picked: kinds.at === index
+                    // sized for the bold pick: nothing shifts when the pick moves
+                    TextMetrics { id: segBold; text: seg.modelData; font { family: Theme.display; pixelSize: 24 * search.u; weight: Font.DemiBold } }
+                    width: Math.ceil(segBold.advanceWidth) + 2 * 26 * search.u
+                    height: kindRow.height
+                    Binding { target: kinds; property: "pickX"; value: seg.x; when: seg.picked; restoreMode: Binding.RestoreNone }
+                    Binding { target: kinds; property: "pickW"; value: seg.width; when: seg.picked; restoreMode: Binding.RestoreNone }
+                    Text {
+                        id: segText
+                        anchors.centerIn: parent
+                        text: seg.modelData
+                        color: seg.picked ? Theme.focusFg : Theme.hover(segPt) ? Theme.fg : Theme.fg2
+                        font { family: Theme.display; pixelSize: 24 * search.u; weight: seg.picked ? Font.DemiBold : Font.Medium }
+                        Behavior on color { ColorAnimation { duration: 160 } }
+                    }
+                    Pointer {
+                        id: segPt
+                        okKey: false
+                        takesFocus: false
+                        onTapped: {
+                            search.kind = kinds.order[seg.index]
+                            // the keyboard (docked or floating) covers the results: picking means looking
+                            if (search.ime) Qt.inputMethod.hide()
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     // without the keyboard column: the suggestions as one row of chips under the field
     ListView {
@@ -411,8 +502,8 @@ FocusScope {
         preferredHighlightBegin: Theme.margin
         preferredHighlightEnd: width - Theme.margin
         onActiveFocusChanged: if (activeFocus) search.zone = "chips"
-        Keys.onUpPressed: search.focusField()
-        Keys.onDownPressed: search.focusRows(0)
+        Keys.onUpPressed: { if (kinds.visible) { search.zone = "kinds"; kinds.forceActiveFocus() } else search.focusField() }
+        Keys.onDownPressed: { if (search.squeezed) { if (search.shown.length) { search.zone = "grid"; grid.forceActiveFocus() } } else search.focusRows(0) }
         Keys.onReturnPressed: if (currentIndex >= 0 && currentIndex < search.suggestions.length) search.query = search.suggestions[currentIndex]
         Keys.onPressed: function (e) { search.typeKey(e) }
         delegate: KeyCap {

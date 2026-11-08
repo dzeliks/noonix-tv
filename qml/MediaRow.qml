@@ -156,7 +156,7 @@ FocusScope {
         rightMargin: Theme.margin - row.slack
         clip: false
         reuseItems: true
-        cacheBuffer: 1200 * row.u
+        cacheBuffer: (Theme.lowMemory ? 500 : 1200) * row.u
         keyNavigationEnabled: true
         onCurrentIndexChanged: row.remember()
         // the range would chase the current card through its slide

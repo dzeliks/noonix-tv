@@ -11,8 +11,10 @@ Item {
     readonly property real u: Theme.u
     // grid units between the top bar (with air under it) and the info's bottom: a short screen
     // gets a smaller logo and fewer lines of story instead of text running into the bar
-    readonly property real room: (height - infoBottom) / u - 165
-    readonly property real logoHeight: Math.max(Theme.short ? 64 : 96, Math.min(190, room - 95 - (curEpisode ? 45 : 0))) * u
+    // (a phone's top bar is smaller than the tv's)
+    readonly property real room: (height - infoBottom) / u - (Theme.short ? 135 : 165)
+    // a very short screen takes a smaller logo rather than one under the bar
+    readonly property real logoHeight: Math.max(Theme.short ? 40 : 96, Math.min(190, room - 95 - (curEpisode ? 45 : 0))) * u
     readonly property bool episode: item && item.kind === "episode"
     readonly property string kind: !item ? "" : (item.kind === "movie" ? "movie" : "show")
     readonly property int tmdbId: !item ? 0 : (episode ? item.show : item.id) || 0
@@ -93,7 +95,7 @@ Item {
             anchors.fill: parent
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
-            sourceSize.width: hero.width
+            sourceSize.width: Math.round(hero.width * Theme.backdropScale)
             opacity: front ? 1 : 0
             Behavior on opacity { enabled: !hero.snap; NumberAnimation { duration: 520; easing.type: Easing.InOutQuad } }
             onStatusChanged: if (status === Image.Ready && !front && source == hero.wanted) hero.show(index)
@@ -224,7 +226,7 @@ Item {
             font { family: Theme.text; pixelSize: 24 * hero.u }
             lineHeight: 1.16
             wrapMode: Text.WordWrap
-            maximumLineCount: Math.max(2, Math.min(7, Math.floor((hero.room - 78) / 28)))
+            maximumLineCount: Math.max(2, Math.min(7, Math.floor((hero.room - (Theme.short ? 108 : 78)) / 28)))
             elide: Text.ElideRight
             style: Text.Raised
             styleColor: Qt.rgba(0, 0, 0, 0.45)

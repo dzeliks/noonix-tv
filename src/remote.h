@@ -107,12 +107,18 @@ class Desktop : public QObject
     Q_PROPERTY(double boost READ boost CONSTANT)
     // dev: NOONIX_GRIDW=1000, the narrowest grid before the ui shrinks (0 = the layouts' own)
     Q_PROPERTY(double gridW READ gridW CONSTANT)
+    // the device's memory in mb, and whether low memory mode's "automatic" turns it on here: an
+    // android phone with under ~2.5 gb, or one android itself calls low on ram. NOONIX_LOWRAM=1|0 forces it
+    Q_PROPERTY(int totalRamMb READ totalRamMb CONSTANT)
+    Q_PROPERTY(bool lowRam READ lowRam CONSTANT)
 public:
     using QObject::QObject;
     void setEngine(QQmlEngine *e) { m_engine = e; }
     QString language() const { return m_language; }
     QString systemLanguage() const;
     bool phone() const;
+    int totalRamMb() const;
+    bool lowRam() const;
     double gridW() const { return qEnvironmentVariable("NOONIX_GRIDW").toDouble(); }
     double boost() const
     {

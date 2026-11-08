@@ -213,6 +213,42 @@ struct PosterGrid: View {
 /// with the query, suggestions and the on-screen keyboard. a mouse, a keyboard or a finger get one
 /// column: a real field (select, copy, paste), suggestion chips, then the results. results come in two
 /// rows, shows then movies, each scrolling sideways
+/// all | shows | movies for the one sideways row a small screen has: a white capsule slides to the pick
+struct KindPill: View {
+    let kind: String
+    let u: CGFloat
+    let pick: (String) -> Void
+    @Namespace private var ns
+
+    var body: some View {
+        let opts = [("all", L("All")), ("show", L("Shows")), ("movie", L("Movies"))]
+        HStack(spacing: 0) {
+            ForEach(opts, id: \.0) { id, label in
+                let on = kind == id
+                ZStack {
+                    // sized for the bold pick: nothing shifts when it moves
+                    Text(label).font(Theme.display(24 * u, .semibold)).hidden()
+                    Text(label).font(Theme.display(24 * u, on ? .semibold : .medium))
+                        .foregroundStyle(on ? Theme.focusFg : Theme.fg2)
+                }
+                .padding(.horizontal, 26 * u)
+                .frame(maxHeight: .infinity)
+                .background {
+                    if on { Capsule().fill(.white).matchedGeometryEffect(id: "pick", in: ns) }
+                }
+                .contentShape(.capsule)
+                .onTapGesture { withAnimation(.easeOut(duration: 0.24)) { pick(id) } }
+            }
+        }
+        .padding(6 * u)
+        .fixedSize(horizontal: true, vertical: false)
+        .background {
+            Capsule().fill(Color.white.opacity(0.1))
+                .overlay { Capsule().stroke(Color.white.opacity(0.14), lineWidth: 1 * u) }
+        }
+    }
+}
+
 struct SearchPage: View {
     @Environment(AppModel.self) private var app
     /// bumped to bring up the system keyboard (touch)
@@ -325,10 +361,12 @@ struct SearchPage: View {
                     .offset(y: squeezed ? listTop + (bottomY - listTop) / 2 - 36 * u : areaTop + 240 * u)
             }
             // nothing found: say so where the results would be
-            if s.typing && !s.busy && s.shows.items.isEmpty && s.movies.items.isEmpty && !tight {
+            let none = s.shows.items.isEmpty && s.movies.items.isEmpty
+            if s.typing && !s.busy && (squeezed ? s.grid.items.isEmpty : none) && !tight {
+                let q = s.query.trimmingCharacters(in: .whitespaces)
                 VStack(spacing: 22 * u) {
                     Image(systemName: "magnifyingglass").font(.system(size: 64 * u, weight: .light)).foregroundStyle(Theme.fg3)
-                    Text(L("No results for “%1”", s.query.trimmingCharacters(in: .whitespaces)))
+                    Text(none || s.kind == "all" ? L("No results for “%1”", q) : s.kind == "show" ? L("No shows for “%1”", q) : L("No movies for “%1”", q))
                         .font(Theme.display(34 * u, .semibold)).foregroundStyle(Theme.fg).lineLimit(1)
                         .frame(maxWidth: areaRight - 2 * margin)
                     Text(L("Check the spelling, or try the original title")).font(Theme.text(25 * u)).foregroundStyle(Theme.fg2)
@@ -337,41 +375,53 @@ struct SearchPage: View {
                 .offset(y: areaTop + (squeezed ? 40 : 160) * u)
             }
 
-            // the query: the column's top with the keyboard, the full width without it
+            // the query: the column's top with the keyboard, the full width without it; on a small
+            // screen the all | shows | movies pill beside it
             HStack(spacing: 16 * u) {
-                Image(systemName: "magnifyingglass").font(.system(size: 20 * u, weight: .semibold)).foregroundStyle(Theme.fg2)
-                    .frame(width: 26 * u, height: 26 * u)
-                if editable {
-                    #if os(macOS)
-                    EditLine(text: s.query, placeholder: L("Movies and shows"), size: 26 * u, focus: s.fieldFocus,
-                             holds: active && s.zone == "field" && app.menu == nil,
-                             edited: { s.query = $0 },
-                             done: { s.focusRows(0) },
-                             focused: { on in if on { app.navFocused = false; s.zone = "field" } })
-                    #endif
-                } else if native {
-                    ImeField(text: s.query, open: imeOpen, search: true, shown: true, size: 26 * u, placeholder: L("Movies and shows"),
-                             edited: { s.query = $0 }, done: {
-                                 Platform.hideKeyboard()
-                                 s.focusRows(0)
-                             })
-                } else {
-                    FieldLine(text: s.query, placeholder: L("Movies and shows"), active: active && s.zone == "keys", size: 26 * u, u: u)
+                HStack(spacing: 16 * u) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 20 * u, weight: .semibold)).foregroundStyle(Theme.fg2)
+                        .frame(width: 26 * u, height: 26 * u)
+                    if editable {
+                        #if os(macOS)
+                        EditLine(text: s.query, placeholder: L("Movies and shows"), size: 26 * u, focus: s.fieldFocus,
+                                 holds: active && s.zone == "field" && app.menu == nil,
+                                 edited: { s.query = $0 },
+                                 done: { s.focusRows(0) },
+                                 focused: { on in if on { app.navFocused = false; s.zone = "field" } })
+                        #endif
+                    } else if native {
+                        ImeField(text: s.query, open: imeOpen, search: true, shown: true, size: 26 * u, placeholder: L("Movies and shows"),
+                                 edited: { s.query = $0 }, done: {
+                                     Platform.hideKeyboard()
+                                     s.focusRows(0)
+                                 })
+                    } else {
+                        FieldLine(text: s.query, placeholder: L("Movies and shows"), active: active && s.zone == "keys", size: 26 * u, u: u)
+                    }
+                    Spacer(minLength: 0)
                 }
-                Spacer(minLength: 0)
+                .padding(.horizontal, 24 * u)
+                .frame(maxWidth: .infinity)
+                .frame(height: fieldH)
+                .background {
+                    let on = active && s.zone == "field" && editable || ime && keyboardUp
+                    Capsule().fill(Color.white.opacity(on ? 0.14 : 0.1))
+                        .overlay { Capsule().stroke(Color.white.opacity(on ? 0.3 : 0.14), lineWidth: 1 * u) }
+                }
+                .contentShape(.capsule)
+                .onTapGesture {
+                    app.navFocused = false
+                    if osk { s.zone = "keys" } else { s.focusField() }
+                }
+                if squeezed {
+                    KindPill(kind: s.kind, u: u) { k in
+                        s.kind = k
+                        // the keyboard covers the results: picking means looking
+                        Platform.hideKeyboard()
+                    }
+                }
             }
-            .padding(.horizontal, 24 * u)
             .frame(width: fieldW, height: fieldH)
-            .background {
-                let on = active && s.zone == "field" && editable || ime && keyboardUp
-                Capsule().fill(Color.white.opacity(on ? 0.14 : 0.1))
-                    .overlay { Capsule().stroke(Color.white.opacity(on ? 0.3 : 0.14), lineWidth: 1 * u) }
-            }
-            .contentShape(.capsule)
-            .onTapGesture {
-                app.navFocused = false
-                if osk { s.zone = "keys" } else { s.focusField() }
-            }
             .offset(x: fieldX, y: fieldY)
 
             if chipsShown {

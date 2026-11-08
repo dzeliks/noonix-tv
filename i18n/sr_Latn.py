@@ -5,6 +5,16 @@ import sys
 import xml.etree.ElementTree as ET
 
 T = {
+    # ---- 0.4.1: search pill, low memory mode
+    "All": "Sve",
+    "No shows for “%1”": "Nema serija za „%1“",
+    "No movies for “%1”": "Nema filmova za „%1“",
+    "Low memory mode": "Režim male memorije",
+    "For phones and older PCs with little memory: plays up to Full HD and keeps fewer pages and pictures ready": "Za telefone i starije računare sa malo memorije: pušta najviše Full HD i drži manje stranica i slika spremnim",
+    "Low memory mode plays up to Full HD": "Režim male memorije pušta najviše Full HD",
+    "Turn On Low Memory Mode": "Uključi režim male memorije",
+    "This device has little memory: Low Memory Mode helps it run smoothly": "Ovaj uređaj ima malo memorije: režim male memorije pomaže da radi glatko",
+    "This device is on the slow side: Low Memory Mode helps it run smoothly": "Ovaj uređaj je malo sporiji: režim male memorije pomaže da radi glatko",
     # ---- 0.4.0: clear progress, subtitles none
     "Clear Watch Progress": "Obriši napredak gledanja",
     "Clear Watch Progress?": "Obrisati napredak gledanja?",

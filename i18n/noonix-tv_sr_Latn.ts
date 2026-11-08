@@ -1225,6 +1225,14 @@ Ono što ne valja sređuje se na licu mesta.</translation>
             <translation>Popularni filmovi</translation>
         </message>
         <message>
+            <source>No shows for “%1”</source>
+            <translation>Nema serija za „%1“</translation>
+        </message>
+        <message>
+            <source>No movies for “%1”</source>
+            <translation>Nema filmova za „%1“</translation>
+        </message>
+        <message>
             <source>No results for “%1”</source>
             <translation>Nema rezultata za „%1“</translation>
         </message>
@@ -1235,6 +1243,10 @@ Ono što ne valja sređuje se na licu mesta.</translation>
         <message>
             <source>Movies and shows</source>
             <translation>Filmovi i serije</translation>
+        </message>
+        <message>
+            <source>All</source>
+            <translation>Sve</translation>
         </message>
         <message>
             <source>Suggestions</source>
@@ -1638,6 +1650,14 @@ Ono što ne valja sređuje se na licu mesta.</translation>
         <message>
             <source>Automatic</source>
             <translation>Automatski</translation>
+        </message>
+        <message>
+            <source>Low memory mode</source>
+            <translation>Režim male memorije</translation>
+        </message>
+        <message>
+            <source>For phones and older PCs with little memory: plays up to Full HD and keeps fewer pages and pictures ready</source>
+            <translation>Za telefone i starije računare sa malo memorije: pušta najviše Full HD i drži manje stranica i slika spremnim</translation>
         </message>
         <message>
             <source>Dim the controllers while playing</source>
@@ -2718,12 +2738,28 @@ Ono što ne valja sređuje se na licu mesta.</translation>
             <translation>Možeš da gledaš do %1</translation>
         </message>
         <message>
+            <source>This device has little memory: Low Memory Mode helps it run smoothly</source>
+            <translation>Ovaj uređaj ima malo memorije: režim male memorije pomaže da radi glatko</translation>
+        </message>
+        <message>
+            <source>This device is on the slow side: Low Memory Mode helps it run smoothly</source>
+            <translation>Ovaj uređaj je malo sporiji: režim male memorije pomaže da radi glatko</translation>
+        </message>
+        <message>
+            <source>Low memory mode plays up to Full HD</source>
+            <translation>Režim male memorije pušta najviše Full HD</translation>
+        </message>
+        <message>
             <source>No internet, so it follows the device. Change it any time in Settings › Sources</source>
             <translation>Nema interneta, pa važi uređaj. Promeni bilo kad u Podešavanja › Izvori</translation>
         </message>
         <message>
             <source>You can change the picture quality any time in Settings › Sources</source>
             <translation>Kvalitet slike možeš da promeniš bilo kad u Podešavanja › Izvori</translation>
+        </message>
+        <message>
+            <source>Turn On Low Memory Mode</source>
+            <translation>Uključi režim male memorije</translation>
         </message>
         <message>
             <source>Run Again</source>
@@ -2811,6 +2847,10 @@ Ono što ne valja sređuje se na licu mesta.</translation>
         <message>
             <source>Everything, up to untouched copies of 60 GB and more</source>
             <translation>Sve, do netaknutih kopija od 60 GB i više</translation>
+        </message>
+        <message>
+            <source>Low memory mode plays up to Full HD</source>
+            <translation>Režim male memorije pušta najviše Full HD</translation>
         </message>
         <message>
             <source>May stutter: wants about %1 Mbit/s, this connection has %2</source>

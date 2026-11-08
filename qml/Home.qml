@@ -208,7 +208,7 @@ FocusScope {
     // a hidden page keeps none
     readonly property var aheadDetails: {
         var v = detailsVersion, out = []
-        if (!home.visible) return out
+        if (!home.visible || Theme.lowMemory) return out
         for (var i = 0; i < near.length; ++i) {
             var d = details[keyOf(near[i])]
             if (d) out.push(d)
@@ -223,7 +223,7 @@ FocusScope {
             required property int index
             readonly property var d: home.aheadDetails[index] || ({})
             Image { visible: false; asynchronous: true; source: d.logo || ""; sourceSize.height: hero.logoHeight }
-            Image { visible: false; asynchronous: true; source: d.backdrop || ""; sourceSize.width: hero.width }
+            Image { visible: false; asynchronous: true; source: d.backdrop || ""; sourceSize.width: Math.round(hero.width * Theme.backdropScale) }
         }
     }
 
@@ -247,17 +247,20 @@ FocusScope {
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
         // short (a phone): one whole row of either kind (posters are the taller, their own room under
         // the cards included), clear of the gesture bar; the next row doesn't peek in
-        height: Math.max(parent.height * 0.47, Theme.short ? (40 + 18 + 214 * 1.5 + 30) * home.u + Theme.safeBottom : 0)
+        // (the gesture bar sits in the room under the cards, not under that room)
+        height: Math.max(parent.height * 0.47, Theme.short ? (40 + 18 + 214 * 1.5) * home.u + Math.max(30 * home.u, Theme.safeBottom + 6 * home.u) : 0)
         focus: true
         clip: false
         model: home.shown
         spacing: 8 * home.u
         // every row built ahead while idle (about ten): one built on the way down costs ~25 ms
-        cacheBuffer: 6 * parent.height
+        cacheBuffer: (Theme.lowMemory ? 1.5 : 6) * parent.height
         // the view is the bottom half of the page: drawn up to the top of the window, or a row
         // would vanish as it leaves the view
         displayMarginBeginning: y
         keyNavigationEnabled: true
+        // a phone: the last row ends well clear of the gesture bar
+        footer: Item { width: 1; height: Theme.short ? 56 * home.u + Theme.safeBottom : 0 }
         // a held key: the glide keeps up with the repeats instead of starting over a row behind each time
         property real lastStep: 0
         onCurrentIndexChanged: {

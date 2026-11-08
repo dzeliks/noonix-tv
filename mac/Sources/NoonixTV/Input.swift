@@ -489,6 +489,7 @@ enum DevKeys {
                             if line == "touch" { Input.touched(); return }
                             if line.hasPrefix("drag:"), let d = Double(line.dropFirst(5)) { Input.touched(); _ = Input.wheel?(d); return }
                             if line.hasPrefix("fling:"), let v = Double(line.dropFirst(6)) { AppModel.current?.fling(v); return }
+                            if line.hasPrefix("kind:") { withAnimation(.easeOut(duration: 0.24)) { AppModel.current?.search.kind = String(line.dropFirst(5)) }; return }
                             if line.hasPrefix("page:"), let p = Page(rawValue: String(line.dropFirst(5))) { Input.touched(); AppModel.current?.choose(p); AppModel.current?.navFocused = false; return }
                             #endif
                             if let k = names[line] { PointerMode.shared.pressed("remote"); if !(Input.keyed() && k.picks) { _ = send(k) } }

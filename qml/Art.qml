@@ -44,7 +44,7 @@ Item {
     property int hiddenAt: -1
     onVisibleChanged: hiddenAt = visible ? -1 : Theme.nap
     Component.onCompleted: if (!visible) hiddenAt = Theme.nap
-    readonly property bool asleep: hiddenAt >= 0 && Theme.nap - hiddenAt >= 4
+    readonly property bool asleep: hiddenAt >= 0 && Theme.nap - hiddenAt >= (Theme.lowMemory ? 1 : 4)
     Image {
         id: img
         source: art.asleep ? "" : art.source

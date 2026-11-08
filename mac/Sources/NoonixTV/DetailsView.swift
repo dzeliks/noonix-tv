@@ -362,7 +362,8 @@ struct DetailsView: View {
                     .frame(width: (tight ? 460 : 600) * u, height: logoH - logoPad)
                     // room under the logo: a tall one doesn't sit on the line below
                     .padding(.bottom, logoPad)
-                MetaLine(item: meta, details: d, u: u)
+                // up to the story
+                MetaLine(item: meta, details: d, u: u, maxWidth: W * 0.64 - 2 * margin - 24 * u)
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { metaH = $0 }
             }
             .frame(width: W * 0.44, alignment: .leading)
@@ -510,6 +511,15 @@ struct PlotBox: View {
     @State private var tall: CGFloat = 0
     @State private var seven: CGFloat = 0
     @State private var y: CGFloat = 0
+    /// 1 while it scrolls (soft edges), 0 at rest
+    @State private var soft: Double = 0
+
+    private func edges(_ e: CGFloat, from lo: CGFloat) -> LinearGradient {
+        let out: Color = e > 0 ? .clear : .black
+        return LinearGradient(stops: [.init(color: out, location: 0), .init(color: out, location: lo), .init(color: .black, location: e),
+                                      .init(color: .black, location: 1 - e), .init(color: out, location: 1 - lo), .init(color: out, location: 1)],
+                              startPoint: .top, endPoint: .bottom)
+    }
 
     private func line(_ t: String) -> some View {
         Text(t).font(Theme.text(24 * u)).lineSpacing(24 * u * 0.19).fixedSize(horizontal: false, vertical: true)
@@ -529,10 +539,12 @@ struct PlotBox: View {
             .frame(height: h, alignment: .top)
             .clipped()
             .mask {
+                // at rest a clean cut on the line edge (no sliver of the next line), soft edges while it moves
                 let e = over > 1 ? min(0.5, pad / max(1, h)) : 0
-                LinearGradient(stops: [.init(color: e > 0 ? .clear : .black, location: 0), .init(color: .black, location: e),
-                                       .init(color: .black, location: 1 - e), .init(color: e > 0 ? .clear : .black, location: 1)],
-                               startPoint: .top, endPoint: .bottom)
+                ZStack {
+                    edges(e, from: e * 0.999).opacity(1 - soft)
+                    edges(e, from: 0).opacity(soft)
+                }
             }
             .background(alignment: .topLeading) {
                 line(Array(repeating: "x", count: lines).joined(separator: "\n")).hidden()
@@ -542,14 +554,21 @@ struct PlotBox: View {
             .onChange(of: full - h, initial: true) { _, v in spare = max(0, v) }
             .task(id: "\(text)|\(Int(over))") {
                 y = 0
+                soft = 0
                 guard over > 1 else { return }
                 let down = Double(over / u) * 0.055
+                func roll(to v: CGFloat, _ d: Double) async -> Bool {
+                    withAnimation(.easeOut(duration: 0.22)) { soft = 1 }
+                    withAnimation(.easeInOut(duration: d)) { y = v }
+                    guard (try? await Task.sleep(for: .seconds(d))) != nil else { return false }
+                    withAnimation(.easeOut(duration: 0.22)) { soft = 0 }
+                    return true
+                }
                 while !Task.isCancelled {
                     guard (try? await Task.sleep(for: .seconds(4.5))) != nil else { return }
-                    withAnimation(.easeInOut(duration: down)) { y = -over }
-                    guard (try? await Task.sleep(for: .seconds(down + 3))) != nil else { return }
-                    withAnimation(.easeInOut(duration: 0.8)) { y = 0 }
-                    guard (try? await Task.sleep(for: .seconds(0.8))) != nil else { return }
+                    guard await roll(to: -over, down) else { return }
+                    guard (try? await Task.sleep(for: .seconds(3))) != nil else { return }
+                    guard await roll(to: 0, 0.8) else { return }
                 }
             }
     }

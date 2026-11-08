@@ -39,8 +39,29 @@ pub fn recommend(mbps: Option<f64>, device: Option<u32>) -> &'static str {
 }
 
 pub async fn current() -> &'static Level {
-    let v = store::with(|c| store::get_setting(c, "app", "quality")).await.ok().flatten();
-    level(v.as_ref().and_then(Value::as_str).unwrap_or(DEFAULT))
+    let got = store::with(|c| {
+        let mode = store::get_setting(c, "app", "low_memory")?;
+        let low_ram = store::get_setting(c, "app", "low_ram")?;
+        Ok((store::get_setting(c, "app", "quality")?, low_memory(mode.as_ref().and_then(Value::as_str), low_ram.as_ref().and_then(Value::as_bool))))
+    })
+    .await
+    .ok();
+    let (v, low) = got.unwrap_or((None, false));
+    capped(level(v.as_ref().and_then(Value::as_str).unwrap_or(DEFAULT)), low)
+}
+
+/// low memory mode: "on", "off" or "auto" (the default: on where the client found little ram, low_ram)
+pub fn low_memory(mode: Option<&str>, low_ram: Option<bool>) -> bool {
+    match mode {
+        Some("on") => true,
+        Some("off") => false,
+        _ => low_ram == Some(true),
+    }
+}
+
+/// low memory keeps to 1080p (a 4k picture alone is four times the frames)
+pub fn capped(l: &'static Level, low: bool) -> &'static Level {
+    if low && l.max_res > 1080 { level("hd") } else { l }
 }
 
 /// above the level: too sharp, a remux it leaves out, or more bits per second than it allows
@@ -62,12 +83,15 @@ pub fn over(s: &Stream, l: &Level, runtime_min: Option<f64>) -> bool {
 
 /// what setup and settings show: the choice, the recommendation and why the ones above it may not play well
 pub async fn options() -> Value {
-    let (net, dev, cur) = store::with(|c| {
+    let (net, dev, cur, low) = store::with(|c| {
         // bench_decode: 4k hdr fps. the old bench_device (sha-256 points) is left alone
-        Ok((store::get_setting(c, "app", "bench_net")?, store::get_setting(c, "app", "bench_decode")?, store::get_setting(c, "app", "quality")?))
+        let mode = store::get_setting(c, "app", "low_memory")?;
+        let low_ram = store::get_setting(c, "app", "low_ram")?;
+        let low = low_memory(mode.as_ref().and_then(Value::as_str), low_ram.as_ref().and_then(Value::as_bool));
+        Ok((store::get_setting(c, "app", "bench_net")?, store::get_setting(c, "app", "bench_decode")?, store::get_setting(c, "app", "quality")?, low))
     })
     .await
-    .unwrap_or((None, None, None));
+    .unwrap_or((None, None, None, false));
     let mbps = net.as_ref().and_then(Value::as_f64);
     let device = dev.as_ref().and_then(Value::as_u64).map(|d| d as u32);
     let rec = recommend(mbps, device);
@@ -87,6 +111,8 @@ pub async fn options() -> Value {
         "current": level(cur.as_ref().and_then(Value::as_str).unwrap_or(DEFAULT)).id,
         "chosen": cur.is_some(),
         "recommended": rec,
+        // low memory mode holds playback to this level whatever is chosen
+        "lowMemory": low,
         "mbps": mbps,
         "device": device,
         "levels": levels,
@@ -96,6 +122,18 @@ pub async fn options() -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn low_memory_keeps_to_1080p() {
+        assert!(low_memory(None, Some(true)));
+        assert!(!low_memory(Some("auto"), None));
+        assert!(low_memory(Some("on"), Some(false)));
+        assert!(!low_memory(Some("off"), Some(true)));
+        assert_eq!(capped(level("max"), true).id, "hd");
+        assert_eq!(capped(level("4k"), true).id, "hd");
+        assert_eq!(capped(level("light"), true).id, "light");
+        assert_eq!(capped(level("max"), false).id, "max");
+    }
 
     #[test]
     fn recommendation() {

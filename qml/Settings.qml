@@ -218,6 +218,9 @@ FocusScope {
             var found = screen.hdr === true ? qsTr("HDR") : screen.hdr === false ? qsTr("no HDR") : ""
             out.push({ label: qsTr("HDR on this screen"), detail: qsTr("Picks the sources that suit it best. Set it yourself if the screen is guessed wrong"), checkable: false,
                        value: hs === "on" ? qsTr("On") : hs === "off" ? qsTr("Off") : found ? qsTr("Automatic (%1)").arg(found) : qsTr("Automatic"), act: "hdrscreen" })
+            var lm = app.low_memory || "auto", auto = Desktop.lowRam ? qsTr("On") : qsTr("Off")
+            out.push({ label: qsTr("Low memory mode"), detail: qsTr("For phones and older PCs with little memory: plays up to Full HD and keeps fewer pages and pictures ready"), checkable: false,
+                       value: lm === "on" ? qsTr("On") : lm === "off" ? qsTr("Off") : qsTr("Automatic (%1)").arg(auto), act: "lowmem" })
             if (!Theme.android)
                 out.push({ label: qsTr("Dim the controllers while playing"), detail: qsTr("Lightbar off, player light low"), checkable: true, checked: appOn("pad_leds"), act: "app:pad_leds" })
         } else if (sectionId === "controls") {
@@ -295,6 +298,19 @@ FocusScope {
                            current: app.hdr_screen || "auto",
                            options: [{ id: "auto", label: seen ? qsTr("Automatic (%1)").arg(seen) : qsTr("Automatic") }, { id: "on", label: qsTr("On") }, { id: "off", label: qsTr("Off") }],
                            pick: function (id) { settings.setApp("hdr_screen", id) } })
+        } else if (a === "lowmem") {
+            var la = Desktop.lowRam ? qsTr("On") : qsTr("Off")
+            choices.open({ title: qsTr("Low memory mode"), detail: qsTr("For phones and older PCs with little memory: plays up to Full HD and keeps fewer pages and pictures ready"),
+                           current: app.low_memory || "auto",
+                           options: [{ id: "auto", label: qsTr("Automatic (%1)").arg(la) }, { id: "on", label: qsTr("On") }, { id: "off", label: qsTr("Off") }],
+                           pick: function (id) {
+                               var c = Object.assign({}, settings.app); c.low_memory = id; settings.app = c
+                               Theme.lowMode = id
+                               // the quality lines say what it holds back
+                               Api.call("settings.setApp", { key: "low_memory", value: id }, function () {
+                                   Api.call("quality.options", {}, function (ok, d) { if (ok) settings.quality = d })
+                               })
+                           } })
         } else if (a === "uilang") {
             var nl = Desktop.language === "sr" ? "en" : "sr"
             Desktop.setLanguage(nl)
@@ -575,6 +591,7 @@ FocusScope {
         parent: win.sheetLayer
         anchors.fill: parent
         onMeasured: Api.call("quality.options", {}, function (ok, d) { if (ok) settings.quality = d })
+        onLowMemoryOn: settings.load()
         onClosed: page.forceActiveFocus()
     }
 

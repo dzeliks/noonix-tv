@@ -13,7 +13,8 @@ struct RailsPage: View {
         let shown = rails.shown
         // short (a phone): one whole row of either kind (posters are the taller, their own room under
         // the cards included), clear of the home bar; the next row doesn't peek in
-        let rowsH = max(size.height * 0.47, app.short ? (31 * 1.2 + 18 + 214 * 1.5 + 30) * u + Theme.safeBottom : 0)
+        // (the home bar sits in the room under the cards, not under that room)
+        let rowsH = max(size.height * 0.47, app.short ? (31 * 1.2 + 18 + 214 * 1.5) * u + max(30 * u, Theme.safeBottom + 6 * u) : 0)
         let rowsTop = size.height - rowsH
         let gap = 8 * u
         let heights = shown.map { MediaRowView.height($0.row.style, u: u) + gap }
@@ -89,7 +90,8 @@ struct RailsPage: View {
             var tops: [CGFloat] = [], y: CGFloat = 0
             for h in hs { tops.append(y); y += h }
             rails.scroll.tops = tops
-            rails.scroll.end = max(0, y - (size.height - rowsTop))
+            // a phone: the last row ends well clear of the home indicator
+            rails.scroll.end = max(0, y + (app.short ? 56 * u + Theme.safeBottom : 0) - (size.height - rowsTop))
             rails.scroll.rowsTop = rowsTop
             rails.scroll.clearY = 210 * u
             rails.scroll.height = size.height
@@ -137,8 +139,10 @@ struct Hero: View {
         let infoBottom = (band ?? size.height * 0.475) + (app.short ? 16 : 34) * u
         // grid units between the top bar (with air under it) and the info's bottom: a short screen
         // gets a smaller logo and fewer lines of story instead of text running into the bar
-        let room = (size.height - infoBottom) / u - 165
-        let logoH = max(app.short ? 64 : 96, min(190, room - 95 - (cur?.kind == "episode" ? 45 : 0))) * u
+        // (a phone's top bar is smaller than the tv's)
+        let room = (size.height - infoBottom) / u - (app.short ? 135 : 165)
+        // a very short screen takes a smaller logo rather than one under the bar
+        let logoH = max(app.short ? 40 : 96, min(190, room - 95 - (cur?.kind == "episode" ? 45 : 0))) * u
         ZStack(alignment: .bottomLeading) {
             Backdrop(url: wanted)
                 .frame(width: size.width, height: size.height)
@@ -180,7 +184,7 @@ struct Hero: View {
                 .padding(.bottom, infoBottom)
                 .opacity(textOpacity)
 
-                story(cur, margin: margin, infoBottom: infoBottom, lines: max(2, min(7, Int(((room - 78) / 28).rounded(.down)))))
+                story(cur, margin: margin, infoBottom: infoBottom, lines: max(2, min(7, Int(((room - (app.short ? 108 : 78)) / 28).rounded(.down)))))
             }
         }
         .frame(width: size.width, height: size.height)
@@ -305,8 +309,23 @@ struct MetaLine: View {
     let item: Item?
     let details: Details?
     let u: CGFloat
+    /// the room it has (0: any). short of it the genres go first, then the rating (qml: maxWidth)
+    var maxWidth: CGFloat = 0
 
     var body: some View {
+        if maxWidth > 0 {
+            ViewThatFits(in: .horizontal) {
+                line(genres: true, rating: true)
+                line(genres: false, rating: true)
+                line(genres: false, rating: false)
+            }
+            .frame(width: maxWidth, alignment: .leading)
+        } else {
+            line(genres: true, rating: true)
+        }
+    }
+
+    private func line(genres: Bool, rating: Bool) -> some View {
         let episode = (item?.kind ?? details?.item.kind) == "episode"
         let runtime = episode ? (item?.runtime ?? details?.item.runtime ?? 0) : (details?.item.runtime ?? item?.runtime ?? 0)
         let remaining: Double = {
@@ -316,13 +335,13 @@ struct MetaLine: View {
         }()
         var parts: [String] = []
         if let y = item?.year { parts.append(String(y)) }
-        if let g = item?.genres, !g.isEmpty { parts.append(g.prefix(2).map { Lc($0) }.joined(separator: ", ")) }
+        if genres, let g = item?.genres, !g.isEmpty { parts.append(g.prefix(2).map { Lc($0) }.joined(separator: ", ")) }
         if runtime > 0 { parts.append(Theme.runtime(runtime)) }
         if let c = details?.certification, !c.isEmpty { parts.append(c) }
 
         return HStack(spacing: 14 * u) {
             Text(parts.joined(separator: "  ·  ")).foregroundStyle(Theme.fg2)
-            if let r = item?.rating, r > 0 {
+            if rating, let r = item?.rating, r > 0 {
                 Text("★ " + (r.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(r)) : String(format: "%.1f", r)))
                     .foregroundStyle(Theme.fg2)
             }

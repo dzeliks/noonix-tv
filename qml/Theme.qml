@@ -25,6 +25,11 @@ QtObject {
     property bool mouseMode: false
     // counts up every 30 s (main's timer): artwork off screen for a few of these lets go of its pixels
     property int nap: 0
+    // low memory mode (settings: "auto" | "on" | "off"; auto = a phone with little ram): no pages
+    // built ahead, artwork let go sooner, less looked ahead, a lighter backdrop, playback up to 1080p
+    property string lowMode: "auto"
+    readonly property bool lowMemory: lowMode === "on" || (lowMode !== "off" && Desktop.lowRam)
+    readonly property real backdropScale: lowMemory ? 0.75 : 1
     readonly property bool mouse: mouseMode
     // the focus look of something under a Pointer: a finger only while it's down, the mouse only
     // while it's on it (the focus stays where the mouse left it, unlit), keys always
@@ -125,7 +130,8 @@ QtObject {
         var cur = setup && !q.chosen ? q.recommended : q.current, rec = 0
         for (var i = 0; i < q.levels.length; ++i) if (q.levels[i].id === q.recommended) rec = i
         return q.levels.map(function (l, i) {
-            var warn = i <= rec ? ""
+            var warn = q.lowMemory && l.id !== "light" && l.id !== "hd" ? qsTr("Low memory mode plays up to Full HD")
+                : i <= rec ? ""
                 : !l.netOk ? qsTr("May stutter: wants about %1 Mbit/s, this connection has %2").arg(l.needMbps).arg(q.mbps)
                 : !l.deviceOk ? qsTr("May be too much for this device")
                 : qsTr("Not measured yet: may stutter here")

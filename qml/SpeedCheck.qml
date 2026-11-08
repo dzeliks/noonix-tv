@@ -16,6 +16,8 @@ FocusScope {
     readonly property bool running: (!!net && !!net.running) || (!!dev && (!!dev.running || !!dev.next))
     signal measured()
     signal closed()
+    // low memory mode turned on from here (settings and setup re-read what they show)
+    signal lowMemoryOn()
     visible: opacity > 0
     opacity: 0
     Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
@@ -48,6 +50,15 @@ FocusScope {
         if (running || (!netDone && !devDone)) return ""
         if (bothDone) return (netZones[Math.min(netZone, devZone)] || {}).label || ""
         return ((netDone ? netZones[netZone] : devDone ? devZones[devZone] : null) || {}).label || ""
+    }
+    // a weak device (the lightest zone) or really little memory: low memory mode is offered
+    readonly property bool lowRamPc: Desktop.totalRamMb > 0 && Desktop.totalRamMb < 4096
+    readonly property bool suggestLow: !running && !Theme.lowMemory && ((devDone && devZone <= 0) || (lowRamPc && (devDone || netDone)))
+    onSuggestLowChanged: if (!suggestLow && choice === 2) choice = 1
+    function lowOn() {
+        Theme.lowMode = "on"
+        Api.call("settings.setApp", { key: "low_memory", value: "on" }, function () { sc.lowMemoryOn() })
+        choice = 1
     }
     // only said when it's worth knowing: without internet the device alone decides
     readonly property string why: !running && netFailed && devDone ? qsTr("No internet, so it follows the device") : ""
@@ -197,10 +208,30 @@ FocusScope {
                         width: parent.width
                         horizontalAlignment: Text.AlignHCenter
                         wrapMode: Text.WordWrap
-                        text: sc.why ? qsTr("No internet, so it follows the device. Change it any time in Settings › Sources")
-                                      : qsTr("You can change the picture quality any time in Settings › Sources")
+                        text: sc.suggestLow ? (sc.lowRamPc ? qsTr("This device has little memory: Low Memory Mode helps it run smoothly")
+                                                           : qsTr("This device is on the slow side: Low Memory Mode helps it run smoothly"))
+                            : Theme.lowMemory && sc.headline && sc.headline !== sc.names.light && sc.headline !== sc.names.hd ? qsTr("Low memory mode plays up to Full HD")
+                            : sc.why ? qsTr("No internet, so it follows the device. Change it any time in Settings › Sources")
+                            : qsTr("You can change the picture quality any time in Settings › Sources")
                         color: Theme.fg3
                         font { family: Theme.text; pixelSize: 19 * sc.u }
+                    }
+                    // the offer, under what it's about
+                    Item {
+                        visible: sc.suggestLow
+                        width: parent.width
+                        height: lowBtn.height + 14 * sc.u
+                        GlassButton {
+                            id: lowBtn
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            y: 14 * sc.u
+                            u: sc.u * 0.84
+                            text: qsTr("Turn On Low Memory Mode")
+                            focused: sc.activeFocus && sc.choice === 2
+                            pointerFocus: false
+                            onPointed: sc.choice = 2
+                            onClicked: sc.lowOn()
+                        }
                     }
                 }
             }
@@ -235,14 +266,20 @@ FocusScope {
     }
 
     function skipOrRun() { if (net && net.running) skip(); else run() }
-    function act() { if (choice === 0) skipOrRun(); else close() }
+    function act() { if (choice === 0) skipOrRun(); else if (choice === 2) lowOn(); else close() }
+    // the offer (2) sits above the two buttons; on the side those are stacked, run again on top
     Keys.onReturnPressed: act()
     Keys.onEnterPressed: act()
-    Keys.onLeftPressed: choice = 0
-    Keys.onRightPressed: choice = 1
-    // on the side they're stacked
-    Keys.onUpPressed: if (btns.side) choice = 0
-    Keys.onDownPressed: if (btns.side) choice = 1
+    Keys.onLeftPressed: if (choice !== 2) choice = 0
+    Keys.onRightPressed: if (choice !== 2) choice = 1
+    Keys.onUpPressed: {
+        if (btns.side && choice === 1) choice = 0
+        else if (suggestLow) choice = 2
+    }
+    Keys.onDownPressed: {
+        if (choice === 2) choice = btns.side ? 0 : 1
+        else if (btns.side) choice = 1
+    }
     Keys.onEscapePressed: close()
     Keys.onBackPressed: close()
     Keys.onPressed: function (e) { e.accepted = true }

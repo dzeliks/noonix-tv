@@ -10,6 +10,8 @@
 #include <chrono>
 #ifdef Q_OS_LINUX
 #include <ctime>
+#endif
+#ifndef Q_OS_WIN
 #include <unistd.h>
 #endif
 #ifdef NOONIX_DESKTOP_LINUX
@@ -419,6 +421,44 @@ qint64 Desktop::monoMs()
 QString Desktop::systemLanguage() const
 {
     return QLocale::system().language() == QLocale::Serbian ? QStringLiteral("sr") : QStringLiteral("en");
+}
+
+int Desktop::totalRamMb() const
+{
+    static const int mb = [] {
+        // dev: NOONIX_RAM_MB=2048 plays a small machine
+        if (qEnvironmentVariableIsSet("NOONIX_RAM_MB"))
+            return qEnvironmentVariableIntValue("NOONIX_RAM_MB");
+#if defined(Q_OS_WIN)
+        MEMORYSTATUSEX m{};
+        m.dwLength = sizeof(m);
+        return GlobalMemoryStatusEx(&m) ? int(m.ullTotalPhys >> 20) : 0;
+#else
+        const long pages = sysconf(_SC_PHYS_PAGES), size = sysconf(_SC_PAGE_SIZE);
+        return pages > 0 && size > 0 ? int((qint64(pages) * size) >> 20) : 0;
+#endif
+    }();
+    return mb;
+}
+
+bool Desktop::lowRam() const
+{
+    static const bool on = [this] {
+        if (qEnvironmentVariableIsSet("NOONIX_LOWRAM"))
+            return qEnvironmentVariable("NOONIX_LOWRAM") == QLatin1String("1");
+#ifdef Q_OS_ANDROID
+        const QJniObject am = QJniObject(QNativeInterface::QAndroidApplication::context())
+                                  .callObjectMethod("getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;",
+                                                    QJniObject::fromString(QStringLiteral("activity")).object<jstring>());
+        if (am.isValid() && am.callMethod<jboolean>("isLowRamDevice"))
+            return true;
+        // a "2 gb" phone reports a little under 2048 (the kernel keeps some)
+        return phone() && totalRamMb() > 0 && totalRamMb() < 2600;
+#else
+        return false;
+#endif
+    }();
+    return on;
 }
 
 bool Desktop::phone() const

@@ -1013,9 +1013,17 @@ final class GridModel {
 /// glass keyboard; the focus is in one of three zones
 @MainActor @Observable
 final class SearchModel {
+    /// small screens: the one sideways row shows all, shows or movies (the pill beside the field)
+    var kind = "all" {
+        didSet { if kind != oldValue { grid.index = 0; regrid() } }
+    }
     var query = "" {
         // busy from the first letter: the wait isn't "no results"
-        didSet { if query != oldValue { busy = typing } }
+        didSet {
+            if query != oldValue { busy = typing }
+            // a new search starts on all; back from a title keeps the pick
+            if query.trimmingCharacters(in: .whitespaces).isEmpty { kind = "all" }
+        }
     }
     var typing: Bool { query.trimmingCharacters(in: .whitespaces).count > 1 }
     var busy = false
@@ -1136,6 +1144,10 @@ final class SearchModel {
         if !typing { show(popShows, popMovies) }
     }
 
+    private func regrid() {
+        grid.items = kind == "show" ? shows.items : kind == "movie" ? movies.items : shows.items + movies.items
+    }
+
     private func show(_ s: [Item], _ m: [Item]) {
         let same = shows.items.map(\.id) == s.map(\.id) && movies.items.map(\.id) == m.map(\.id)
         shows.items = s
@@ -1143,7 +1155,7 @@ final class SearchModel {
         shows.loaded = popularKnown || typing
         movies.loaded = shows.loaded
         if !same { shows.index = 0; movies.index = 0; grid.index = 0 }
-        grid.items = s + m
+        regrid()
         // the focus was in a row that went empty
         if zone == "rows", (lastRow == 0 ? s : m).isEmpty, !focusRows() { zone = osk ? "keys" : "field" }
     }

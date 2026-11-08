@@ -227,7 +227,7 @@ FocusScope {
             anchors.fill: parent
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
-            sourceSize.width: width
+            sourceSize.width: Math.round(width * Theme.backdropScale)
             source: page.details && page.details.backdrop ? page.details.backdrop : (page.item ? page.item.backdrop || "" : "")
             opacity: status === Image.Ready ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 400 } }
@@ -360,8 +360,12 @@ FocusScope {
                         clip: true
                         readonly property real over: Math.max(0, tall - height)
                         layer.enabled: over > 1
+                        // at rest only whole lines show (no sliver of the next one), soft edges while it moves
+                        property real open: rollAnim.running ? 1 : 0
+                        Behavior on open { NumberAnimation { duration: 220; easing.type: Easing.OutQuad } }
                         layer.effect: ShaderEffect {
                             readonly property real edge: plot.pad / plot.height
+                            readonly property real open: plot.open
                             fragmentShader: "qrc:/shaders/fade.frag.qsb"
                         }
                         Item {
@@ -567,7 +571,7 @@ FocusScope {
                 spacing: 44 * page.u
                 readonly property var eps: page.season ? page.season.episodes || [] : []
                 model: eps.length
-                cacheBuffer: 1200 * page.u
+                cacheBuffer: (Theme.lowMemory ? 500 : 1200) * page.u
                 keyNavigationEnabled: true
                 // the focus rests on the second card, so the one before stays in view
                 highlightRangeMode: Input.pointing ? ListView.NoHighlightRange : ListView.ApplyRange
