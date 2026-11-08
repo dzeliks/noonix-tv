@@ -2,7 +2,8 @@ import QtQuick
 
 // picking a library folder, or a noonix file (files: true), with the remote (the system's dialog
 // wants a mouse): the places to start from (home, its video or downloads folder, the drives), then
-// folder by folder. ok opens a folder or picks the file, back goes up
+// folder by folder. ok opens a folder or picks the file, back goes up. network shares (smb, webdav,
+// ftp) are places too: added here with their address and login
 FocusScope {
     id: picker
     readonly property real u: Theme.u
@@ -11,13 +12,14 @@ FocusScope {
     property var files: []               // file extensions to list and pick, none = a folder
     property string caption: qsTr("Add a folder")
     property bool media: !files.length    // android lets these be seen only after asking
+    property bool adding: false           // picking the kind of a new network share
     signal picked(string path)
     signal closed()
     visible: opacity > 0
     opacity: 0
     Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
-    function open() { if (media) Desktop.askMedia(); go(""); opacity = 1; forceActiveFocus() }
+    function open() { if (media) Desktop.askMedia(); adding = false; go(""); opacity = 1; forceActiveFocus() }
     function close() { opacity = 0; closed() }
     function go(path) {
         busy = true
@@ -30,7 +32,8 @@ FocusScope {
         })
     }
     function up() {
-        if (view.path) go(view.parent || "")
+        if (adding) { adding = false; list.currentIndex = 0 }
+        else if (view.path) go(view.parent || "")
         else close()
     }
 
@@ -41,8 +44,39 @@ FocusScope {
         if (f.place === "downloads") return qsTr("Downloads folder")
         return f.name
     }
+    readonly property var kinds: [
+        { kind: "smb", label: "SMB", detail: qsTr("Windows and macOS sharing, most NAS boxes") },
+        { kind: "dav", label: "WebDAV", detail: qsTr("Nextcloud, many NAS boxes and file apps") },
+        { kind: "ftp", label: "FTP", detail: qsTr("An FTP server") }
+    ]
+    function hintFor(kind) {
+        if (kind === "smb") return qsTr("The computer or NAS and its share, like 192.168.1.20/Media or nas.local/Videos")
+        if (kind === "dav") return qsTr("Like 192.168.1.20:8080/dav, or the whole address with https:// for a secure one")
+        return qsTr("Like 192.168.1.20 or nas.local:2121")
+    }
+    // address, then the login, then it's tried
+    function addShare(kind) {
+        entry.open({ title: qsTr("Server address"), hint: hintFor(kind), placeholder: kind === "smb" ? "192.168.1.20/Media" : "192.168.1.20" })
+        entry.after = function (address) {
+            entry.open({ title: qsTr("User name"), hint: qsTr("Leave it empty for a guest login"), placeholder: qsTr("User name"), allowEmpty: true })
+            entry.after = function (user) {
+                entry.open({ title: qsTr("Password"), placeholder: qsTr("Password"), secret: true, allowEmpty: true,
+                             check: function (pw, reply) {
+                                 Api.call("shares.add", { kind: kind, address: address, user: user, password: pw }, function (ok, d) {
+                                     if (ok) entry.added = d.path
+                                     reply(ok, ok ? "" : (d && d.error) ? qsTranslate("core", d.error) : "")
+                                 })
+                             } })
+                entry.after = function () { picker.adding = false; picker.forceActiveFocus(); if (entry.added) picker.go(entry.added) }
+            }
+        }
+    }
     readonly property var lines: {
         var v = view, out = []
+        if (adding) {
+            kinds.forEach(function (k) { out.push({ label: k.label, act: "kind", kind: k.kind, value: "›", detail: k.detail }) })
+            return out
+        }
         if (v.path && !picker.files.length)
             out.push({ label: qsTr("Use this folder"), act: "use", value: qsTr("Add"),
                        detail: v.videos ? Theme.counted(qsTr("%n video(s) right here, and what's in the folders inside", "", v.videos), v.videos)
@@ -57,6 +91,10 @@ FocusScope {
             out.push({ label: picker.placeName(f), act: "open", path: f.path, value: "›",
                        detail: f.place === "drive" ? qsTr("Drive") + "  ·  " + f.label : f.place ? f.label : "" })
         })
+        if (!v.path && !picker.files.length)
+            out.push({ label: qsTr("Add a network share"), act: "share", value: "+", detail: qsTr("SMB, WebDAV or FTP: a NAS or another computer") })
+        if (v.shareRoot)
+            out.push({ label: qsTr("Forget this share"), act: "forget", value: "", detail: qsTr("Its folders leave the library too") })
         return out
     }
     function run(l) {
@@ -64,6 +102,14 @@ FocusScope {
         if (l.act === "use") { close(); picked(view.path) }
         else if (l.act === "file") { close(); picked(l.path) }
         else if (l.act === "up") up()
+        else if (l.act === "share") { adding = true; list.currentIndex = 0 }
+        else if (l.act === "kind") addShare(l.kind)
+        else if (l.act === "forget") {
+            Api.call("shares.remove", { path: view.path }, function (ok, d) {
+                if (!ok) toast.show((d && d.error) ? qsTranslate("core", d.error) : qsTr("That didn't work"))
+                else picker.go("")
+            })
+        }
         else go(l.path)
     }
 
@@ -86,15 +132,15 @@ FocusScope {
             spacing: 6 * picker.u
             Text {
                 width: parent.width
-                text: picker.view.path ? picker.view.name : picker.files.length ? qsTr("Where is it?") : qsTr("Where are your videos?")
+                text: picker.adding ? qsTr("Add a network share") : picker.view.path ? picker.view.name : picker.files.length ? qsTr("Where is it?") : qsTr("Where are your videos?")
                 elide: Text.ElideRight
                 color: Theme.fg
                 font { family: Theme.display; pixelSize: 60 * picker.u; weight: Font.Bold }
             }
             Text {
                 width: parent.width
-                visible: !!picker.view.path
-                text: picker.view.label || ""
+                visible: !!picker.view.path || picker.adding
+                text: picker.adding ? qsTr("What kind of server is it?") : picker.view.label || ""
                 elide: Text.ElideMiddle
                 color: Theme.fg2
                 font { family: Theme.text; pixelSize: 28 * picker.u }
@@ -142,10 +188,26 @@ FocusScope {
             }
         }
         Text {
+            visible: !picker.adding
             text: picker.files.length ? Theme.say(qsTr("OK opens a folder or the file, Back goes up"), qsTr("Tap a folder or the file to open it, Back goes up"), qsTr("Click a folder or the file to open it, Back goes up"))
                                       : Theme.say(qsTr("OK opens a folder, Back goes up"), qsTr("Tap a folder to open it, Back goes up"), qsTr("Click a folder to open it, Back goes up"))
             color: Theme.fg3
             font { family: Theme.text; pixelSize: 24 * picker.u }
+        }
+    }
+
+    KeyEntry {
+        id: entry
+        anchors.fill: parent
+        z: 10
+        property var after: null
+        property string added: ""
+        onCancel: { close(); after = null; added = ""; picker.forceActiveFocus() }
+        onDone: function (v) {
+            close()
+            var f = after; after = null
+            if (f) f(v)
+            added = ""
         }
     }
 

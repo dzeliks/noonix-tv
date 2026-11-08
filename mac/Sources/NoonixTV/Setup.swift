@@ -69,7 +69,7 @@ final class SetupModel {
         var g: [String] = []
         let tm = account("tmdb")
         if !tm.isEmpty, tm["set"] as? Bool != true { g.append(L("Home stays empty without a TMDB key (Your videos step)")) }
-        if !flow.hasSources { g.append(L("Nothing to play yet: pick a video folder or add a source (Your videos step)")) }
+        if !flow.hasSources { g.append(Platform.tv ? L("Nothing to play yet: add a network share or a source (Your videos step)") : L("Nothing to play yet: pick a video folder or add a source (Your videos step)")) }
         let ds = flow.acc["debrids"] as? [[String: Any]] ?? []
         if let m = ds.first(where: { $0["wanted"] as? Bool == true && $0["set"] as? Bool != true }) {
             g.append(L("An extension still needs your %1 key (Your videos step)", m["name"] as? String ?? ""))
@@ -90,7 +90,9 @@ final class SetupModel {
         case "welcome": L("Your own movies and shows, and the sources you add, on this Mac. A few steps and you're watching.")
         case "terms": L("Please read this, then agree to go on.")
         case "profiles": L("Everyone gets their own Up Next, progress and language choices.")
-        case "videos": Platform.ios
+        case "videos": Platform.tv
+            ? L("Noonix TV plays the videos on your network and the sources you add yourself. Add a share from a NAS or computer (SMB, WebDAV or FTP); an addon or extension is optional.")
+            : Platform.ios
             ? L("Noonix TV plays the videos on this Mac and the sources you add yourself. Copy your movies and shows into Files › Noonix TV; an addon or extension is optional.")
             : L("Noonix TV plays the videos on this Mac and the sources you add yourself. Pick the folders your movies and shows are in; an addon or extension is optional.")
         case "trakt": Theme.say(L("Optional: Trakt keeps what you watched in sync. OK on a profile signs it in or out, or skip it for now."),

@@ -25,6 +25,7 @@ pub mod quality;
 pub mod ranking;
 pub mod rpc;
 pub mod setup;
+pub mod shares;
 pub mod skip;
 pub mod store;
 pub mod subtitles;

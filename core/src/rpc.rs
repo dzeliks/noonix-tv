@@ -427,8 +427,24 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
         "library.browse" => {
             let path = args.get("path").and_then(Value::as_str).unwrap_or("").to_owned();
             let files: Vec<String> = serde_json::from_value(args.get("files").cloned().unwrap_or(json!([]))).unwrap_or_default();
-            tokio::task::spawn_blocking(move || crate::library::browse(&path, &files)).await?
+            if crate::shares::is_share(&path) {
+                return crate::shares::browse(&path).await;
+            }
+            let start = path.is_empty();
+            let mut v = tokio::task::spawn_blocking(move || crate::library::browse(&path, &files)).await??;
+            // the saved network shares are places too
+            if start {
+                if let Some(list) = v.get_mut("folders").and_then(Value::as_array_mut) {
+                    list.extend(crate::shares::places().await);
+                }
+            }
+            Ok(v)
         }
+        "shares.add" => {
+            let s = |k: &str| args.get(k).and_then(Value::as_str).unwrap_or("").to_owned();
+            crate::shares::add(&s("kind"), &s("address"), &s("user"), &s("password")).await
+        }
+        "shares.remove" => crate::shares::remove(arg_str(&args, "path")?).await,
         "library.addFolder" => crate::library::add_folder(arg_str(&args, "path")?).await,
         "library.removeFolder" => crate::library::remove_folder(arg_str(&args, "path")?).await,
         "library.scan" => crate::library::scan().await,

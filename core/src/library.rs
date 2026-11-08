@@ -55,7 +55,11 @@ fn clean(path: &str) -> String {
 
 pub async fn add_folder(path: &str) -> Result<Value> {
     let p = clean(path);
-    anyhow::ensure!(Path::new(&p).is_dir(), "That folder isn't there");
+    if crate::shares::is_share(&p) {
+        crate::shares::browse(&p).await?;
+    } else {
+        anyhow::ensure!(Path::new(&p).is_dir(), "That folder isn't there");
+    }
     let mut list = folders().await;
     if !list.contains(&p) {
         list.push(p);
@@ -121,6 +125,9 @@ pub async fn status() -> Value {
 
 /// a folder as people read it: the home folder as ~
 fn label(path: &str) -> String {
+    if crate::shares::is_share(path) {
+        return crate::shares::label(path);
+    }
     #[cfg(target_os = "android")]
     if let Some(rest) = path.strip_prefix("/storage/emulated/0") {
         return format!("Internal storage{rest}");
@@ -265,6 +272,16 @@ struct Found {
     mtime: i64,
 }
 
+/// a folder a scan doesn't go into
+pub fn skipped_dir(lower: &str) -> bool {
+    SKIP_DIRS.contains(&lower)
+}
+
+/// a video big enough to be the film or the episode (lower: its name in lower case)
+pub fn wanted(lower: &str, size: u64) -> bool {
+    size >= MIN_BYTES && !(lower.contains("sample") && size < 300 * 1024 * 1024)
+}
+
 fn walk(dir: &Path, depth: usize, out: &mut Vec<Found>) {
     if depth > 8 {
         return;
@@ -289,7 +306,7 @@ fn walk(dir: &Path, depth: usize, out: &mut Vec<Found>) {
             continue;
         }
         let Ok(meta) = e.metadata() else { continue };
-        if meta.len() < MIN_BYTES || (name.contains("sample") && meta.len() < 300 * 1024 * 1024) {
+        if !wanted(&name, meta.len()) {
             continue;
         }
         let mtime = meta.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs() as i64);
@@ -311,10 +328,11 @@ pub async fn scan() -> Result<Value> {
 }
 
 async fn scan_inner() -> Result<()> {
-    let roots: Vec<PathBuf> = folders().await.into_iter().map(PathBuf::from).collect();
+    let (remote, roots): (Vec<String>, Vec<String>) = folders().await.into_iter().partition(|f| crate::shares::is_share(f));
+    let roots: Vec<PathBuf> = roots.into_iter().map(PathBuf::from).collect();
     // a folder on a drive that isn't there right now keeps its files and their matches
-    let missing: Vec<PathBuf> = roots.iter().filter(|r| !r.is_dir()).cloned().collect();
-    let found = tokio::task::spawn_blocking(move || {
+    let mut missing: Vec<PathBuf> = roots.iter().filter(|r| !r.is_dir()).cloned().collect();
+    let mut found = tokio::task::spawn_blocking(move || {
         let mut out = Vec::new();
         for r in &roots {
             walk(r, 0, &mut out);
@@ -322,6 +340,16 @@ async fn scan_inner() -> Result<()> {
         out
     })
     .await?;
+    // network shares: one that doesn't answer right now is like a drive that isn't there
+    for r in remote {
+        match crate::shares::walk(&r).await {
+            Ok(files) => found.extend(files.into_iter().map(|(path, size, mtime)| Found { path, size, mtime })),
+            Err(e) => {
+                tracing::warn!("library: {r}: {e:#}");
+                missing.push(PathBuf::from(r));
+            }
+        }
+    }
     let now = store::now();
     // what's new or changed since the last scan
     let known: std::collections::HashMap<String, (i64, i64)> = store::with(|c| {
@@ -505,14 +533,14 @@ pub fn streams(c: &Connection, kind: &str, tmdb: i64, season: Option<i64>, episo
     };
     Ok(rows
         .into_iter()
-        .filter(|(p, _)| Path::new(p).is_file())
+        .filter(|(p, _)| crate::shares::is_share(p) || Path::new(p).is_file())
         .map(|(path, size)| {
             let name = Path::new(&path).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             let mut s = stremio::parse_release(&stremio::fold(&name));
-            if s.resolution == 0 {
+            if s.resolution == 0 && !crate::shares::is_share(&path) {
                 s.resolution = crate::probe::size(Path::new(&path)).map_or(0, |(w, h)| crate::probe::resolution(w, h));
             }
-            s.addon = "This PC".into();
+            s.addon = if crate::shares::is_share(&path) { "Network share" } else { "This PC" }.into();
             s.title = name.clone();
             s.filename = Some(name);
             s.size = Some(size as u64);

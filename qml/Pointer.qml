@@ -62,11 +62,13 @@ MouseArea {
         onPressedChanged: {
             if (pressed) {
                 pt.longDone = false
-                // a finger lights what it's on while it's down (a mouse already did by pointing)
-                if (Theme.android && pt.shown()) pt.go()
-                sinkHold.stop(); sinkBack.stop(); sinkIn.restart()
+                // a finger lights what it's on while it's down (a mouse already did by pointing), a
+                // moment later: a swipe starting on it never lights it
+                sinkHold.stop(); sinkBack.stop()
+                if (Theme.android) lightLater.restart(); else sinkIn.restart()
                 if (hold.enabled && Theme.android) sinkHold.restart()
             } else if (!pt.longDone) {
+                lightLater.stop()
                 sinkIn.stop(); sinkHold.stop(); sinkBack.restart()
             }
         }
@@ -74,6 +76,15 @@ MouseArea {
             if (pt.longDone) { pt.longDone = false; return }
             pt.go()
             if (pt.okKey) Remote.pointerKey("OK"); else pt.tapped()
+        }
+    }
+    Timer {
+        id: lightLater
+        interval: 90
+        onTriggered: {
+            if (!tap.pressed) return
+            sinkIn.restart()
+            if (pt.shown()) pt.go()
         }
     }
     TapHandler {

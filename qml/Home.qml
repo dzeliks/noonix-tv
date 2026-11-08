@@ -328,6 +328,8 @@ FocusScope {
             property real speed: 0
             target: null
             acceptedDevices: PointerDevice.TouchScreen
+            // a sheet or the setup over the page: a swipe there is theirs
+            enabled: Theme.shields === 0
             xAxis.enabled: false
             onActiveChanged: {
                 if (active) {

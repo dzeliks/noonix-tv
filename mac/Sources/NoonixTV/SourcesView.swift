@@ -343,7 +343,7 @@ struct SourcesView: View {
     private func footer(u: CGFloat) -> some View {
         let text: String = {
             if !model.done { return L("Looking for more sources") }
-            if model.streams.isEmpty && model.addons.isEmpty { return L("Nothing here yet: add a video folder or a source in Settings › Sources") }
+            if model.streams.isEmpty && model.addons.isEmpty { return Platform.tv ? L("Nothing here yet: add a network share or a source in Settings › Sources") : L("Nothing here yet: add a video folder or a source in Settings › Sources") }
             if model.streams.isEmpty && model.torrents == 0 { return L("No sources found") }
             var t = L("%1 shown", model.shown.count)
             func add(_ s: String) { t += "  ·  " + s }

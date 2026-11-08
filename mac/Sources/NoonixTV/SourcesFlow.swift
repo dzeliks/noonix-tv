@@ -66,13 +66,12 @@ final class SourcesFlow {
         let on = lib["on"] as? Bool != false, folders = lib["folders"] as? [[String: Any]] ?? []
         let files = (lib["files"] as? NSNumber)?.intValue ?? 0, unmatched = (lib["unmatched"] as? NSNumber)?.intValue ?? 0
         let scanning = lib["scanning"] as? Bool == true
-        // apple tv: no folders of its own (network shares, below)
-        if !Platform.tv {
-        out.append(Line(label: L("On this Mac"), header: true))
+        // apple tv: no folders of its own, only network shares
+        out.append(Line(label: Platform.tv ? L("On your network") : L("On this Mac"), header: true))
         out.append(Line(label: L("Use the library"),
                         detail: !on ? L("Off: only the sources below play")
                             : scanning ? L("Looking through your folders…")
-                            : folders.isEmpty ? (Platform.ios ? L("Copy them into the Files app › Noonix TV") : L("Pick the folders your movies and shows are in"))
+                            : folders.isEmpty ? (Platform.tv ? L("Add a share from a NAS or computer: SMB, WebDAV or FTP") : Platform.ios ? L("Copy them into the Files app › Noonix TV") : L("Pick the folders your movies and shows are in"))
                             : Ln("%n video(s) found", files) + (unmatched > 0 ? "  ·  " + Ln("%n not recognized", unmatched) : ""),
                         checkable: true, checked: on, act: "lib:on"))
         if on {
@@ -84,14 +83,13 @@ final class SourcesFlow {
                                        : Ln("%n video(s)  ·  OK takes it out of the library, the files stay", (f["files"] as? NSNumber)?.intValue ?? 0)),
                                 value: asked ? L("Press Again to Remove") : L("Remove"), act: "lib:remove:" + path))
             }
-            out.append(Line(label: L("Add a folder"), detail: L("Movies and shows, named the usual way: Show/Season 1/Show S01E02.mkv, Movie (2010).mkv"), value: "+", act: "lib:add"))
+            out.append(Line(label: Platform.tv ? L("Add a network folder") : L("Add a folder"), detail: L("Movies and shows, named the usual way: Show/Season 1/Show S01E02.mkv, Movie (2010).mkv"), value: "+", act: "lib:add"))
             if !folders.isEmpty {
                 let names = lib["unmatchedNames"] as? [String] ?? []
                 out.append(Line(label: L("Look for new videos"),
                                 detail: names.isEmpty ? L("Runs by itself every time Noonix TV opens") : L("Not recognized: %1", names.joined(separator: ", ")),
                                 value: scanning ? "…" : L("Scan"), act: "lib:scan"))
             }
-        }
         }
         out.append(Line(label: L("Addons and extensions"), header: true))
         for e in exts {

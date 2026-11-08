@@ -10,6 +10,16 @@ MouseArea {
     anchors.fill: parent
     hoverEnabled: true
     acceptedButtons: Qt.AllButtons
+    // counted while it shows: a page's own touch handlers still see a finger through a mouse area
+    property bool counted: false
+    function count() {
+        if (visible === counted) return
+        counted = visible
+        Theme.shields += visible ? 1 : -1
+    }
+    onVisibleChanged: count()
+    Component.onCompleted: count()
+    Component.onDestruction: if (counted) Theme.shields--
     function onSheet(item, x, y) {
         var kids = item.children
         for (var i = 0; i < kids.length; ++i) {

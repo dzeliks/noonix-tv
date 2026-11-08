@@ -398,8 +398,8 @@ FocusScope {
         // darker by scaling, not subtracting: the empty app's grey placeholders still show
         Rectangle { anchors.fill: parent; color: "black"; opacity: 0.62 * (1 - frame.reveal) }
     }
-    // the app behind takes no hover or clicks
-    MouseArea { anchors.fill: parent; hoverEnabled: true; acceptedButtons: Qt.AllButtons }
+    // the app behind takes no hover, clicks or drags
+    Shield {}
 
     Item {
         id: pane

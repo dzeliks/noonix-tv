@@ -21,7 +21,7 @@ pub static CLIENT: Lazy<Client> = Lazy::new(|| {
 /// android: the system's certificate store. rustls' platform verifier needs a java side the qt
 /// app doesn't ship
 #[cfg(target_os = "android")]
-fn builder() -> reqwest::ClientBuilder {
+pub(crate) fn builder() -> reqwest::ClientBuilder {
     static ROOTS: Lazy<Vec<reqwest::Certificate>> = Lazy::new(|| {
         // the updatable store (android 14+) first, then the image's own
         let dir = ["/apex/com.android.conscrypt/cacerts", "/system/etc/security/cacerts"]
@@ -43,7 +43,7 @@ fn builder() -> reqwest::ClientBuilder {
 }
 
 #[cfg(not(target_os = "android"))]
-fn builder() -> reqwest::ClientBuilder {
+pub(crate) fn builder() -> reqwest::ClientBuilder {
     Client::builder()
 }
 

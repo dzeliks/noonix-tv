@@ -65,6 +65,8 @@ public slots:
     Q_SCRIPTABLE void Press(int key, const QString &text);
     Q_SCRIPTABLE void Grab(const QString &path);
     Q_SCRIPTABLE void Hold(double x, double y, int ms);
+    // a finger: down at x1, y1, along to x2, y2 over ms, up there (rest: ms still before it lifts)
+    Q_SCRIPTABLE void Swipe(double x1, double y1, double x2, double y2, int ms, int rest);
     // the overlay: its launch card has dissolved over our splash, the splash can play
     Q_SCRIPTABLE void Revealed() { emit revealed(); }
 

@@ -349,7 +349,7 @@ FocusScope {
                         color: rowItem.foc ? Qt.rgba(0.1, 0.1, 0.12, 0.7) : Theme.fg3
                         font { family: Theme.text; pixelSize: 20 * sheet.u }
                         text: [rowItem.s.codec, (rowItem.s.audio || []).slice(0, 2).join(" "), rowItem.s.channels, sheet.gb(rowItem.s.size),
-                               rowItem.s.group, rowItem.s.local ? (Theme.android ? qsTr("This device") : qsTranslate("core", "This PC")) : rowItem.s.addon].filter(function (x) { return x }).join("  ·  ")
+                               rowItem.s.group, rowItem.s.local ? (rowItem.s.addon === "Network share" ? qsTranslate("core", "Network share") : Theme.android ? qsTr("This device") : qsTranslate("core", "This PC")) : rowItem.s.addon].filter(function (x) { return x }).join("  ·  ")
                     }
                 }
                 Row {

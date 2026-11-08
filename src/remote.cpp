@@ -39,6 +39,7 @@
 #include <QKeyEvent>
 #include <QLocale>
 #include <QMouseEvent>
+#include <QPointingDevice>
 #include <QQmlEngine>
 #include <QStandardPaths>
 #include <QTimer>
@@ -247,6 +248,42 @@ void Remote::Hold(double x, double y, int ms)
     QTimer::singleShot(ms, this, [this, at, global] {
         QWindowSystemInterface::handleMouseEvent(m_window, at, global, Qt::NoButton, Qt::LeftButton, QEvent::MouseButtonRelease);
     });
+#endif
+}
+
+void Remote::Swipe(double x1, double y1, double x2, double y2, int ms, int rest)
+{
+    if (!m_window || qgetenv("NOONIX_TEST") != "1")
+        return;
+#ifdef NOONIX_DESKTOP_LINUX
+    // a touch screen of our own, so qt treats it like a phone's
+    static QPointingDevice *dev = [] {
+        auto *d = new QPointingDevice(QStringLiteral("noonix-test-touch"), 0x7e57, QInputDevice::DeviceType::TouchScreen,
+                                      QPointingDevice::PointerType::Finger, QInputDevice::Capability::Position | QInputDevice::Capability::Area,
+                                      1, 0);
+        QWindowSystemInterface::registerInputDevice(d);
+        return d;
+    }();
+    const int steps = qMax(1, ms / 16);
+    auto send = [this](QPointF at, QEventPoint::State st) {
+        QWindowSystemInterface::TouchPoint p;
+        p.id = 1;
+        p.state = st;
+        const QPointF g = m_window->mapToGlobal(at);
+        p.area = QRectF(g.x() - 4, g.y() - 4, 8, 8);
+        p.normalPosition = QPointF(at.x() / m_window->width(), at.y() / m_window->height());
+        p.pressure = st == QEventPoint::State::Released ? 0 : 1;
+        QWindowSystemInterface::handleTouchEvent(m_window, dev, { p });
+    };
+    send(QPointF(x1, y1), QEventPoint::State::Pressed);
+    for (int i = 1; i <= steps; ++i) {
+        const double f = double(i) / steps;
+        const QPointF at(x1 + (x2 - x1) * f, y1 + (y2 - y1) * f);
+        QTimer::singleShot(i * 16, this, [send, at] { send(at, QEventPoint::State::Updated); });
+    }
+    QTimer::singleShot(steps * 16 + qMax(0, rest), this, [send, x2, y2] { send(QPointF(x2, y2), QEventPoint::State::Released); });
+#else
+    Q_UNUSED(x1) Q_UNUSED(y1) Q_UNUSED(x2) Q_UNUSED(y2) Q_UNUSED(ms) Q_UNUSED(rest)
 #endif
 }
 

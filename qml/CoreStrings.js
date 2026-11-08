@@ -28,6 +28,21 @@ var strings = [
     // the library and the user's own sources (core/src/library.rs, extensions.rs)
     QT_TRANSLATE_NOOP("core", "This PC"),
     QT_TRANSLATE_NOOP("core", "That folder isn't there"),
+    // network shares (core/src/shares.rs)
+    QT_TRANSLATE_NOOP("core", "That isn't a network share"),
+    QT_TRANSLATE_NOOP("core", "That network share isn't saved anymore"),
+    QT_TRANSLATE_NOOP("core", "Pick SMB, WebDAV or FTP"),
+    QT_TRANSLATE_NOOP("core", "That port isn't a number"),
+    QT_TRANSLATE_NOOP("core", "Type the server's name or address"),
+    QT_TRANSLATE_NOOP("core", "The server didn't answer"),
+    QT_TRANSLATE_NOOP("core", "Couldn't open that folder"),
+    QT_TRANSLATE_NOOP("core", "The name or password isn't right"),
+    QT_TRANSLATE_NOOP("core", "That share isn't on the server"),
+    QT_TRANSLATE_NOOP("core", "Couldn't reach the server"),
+    QT_TRANSLATE_NOOP("core", "Add the share's name to the address, like nas.local/Media"),
+    QT_TRANSLATE_NOOP("core", "That doesn't look like a WebDAV address"),
+    QT_TRANSLATE_NOOP("core", "Network share"),
+
     QT_TRANSLATE_NOOP("core", "That address didn't answer"),
     QT_TRANSLATE_NOOP("core", "That's too big for an extension or an addon"),
     QT_TRANSLATE_NOOP("core", "Couldn't open that file"),

@@ -143,15 +143,16 @@ struct RootView: View {
             if let s = app.speed {
                 SpeedCheckView(model: s).transition(.opacity).zIndex(9.2)
             }
-            // the key card slides up into place and drops away, the page dims behind it
+            // the key card slides up into place and drops away, the page dims behind it. over every
+            // sheet: the folder picker and the extension sheet ask for text too
             if app.entry.isOpen {
-                Color.black.opacity(0.35).ignoresSafeArea().transition(.opacity).zIndex(7.5)
+                Color.black.opacity(0.35).ignoresSafeArea().transition(.opacity).zIndex(9.5)
                     .onTapGesture { app.entry.cancel() }
                 KeyEntryView(model: app.entry)
                     .transition(.asymmetric(
                         insertion: .offset(y: 280 * app.u).combined(with: .opacity).animation(.timingCurve(0.33, 1, 0.68, 1, duration: 0.44)),
                         removal: .offset(y: 280 * app.u).combined(with: .opacity).animation(.easeIn(duration: 0.23))))
-                    .zIndex(7.6)
+                    .zIndex(9.6)
             }
         }
         .animation(.easeInOut(duration: 0.26), value: app.detailStack.count)

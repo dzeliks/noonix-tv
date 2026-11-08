@@ -35,6 +35,10 @@ qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 getrandom = "0.4"
 # torrent sources play through it (rustls, like reqwest here). download only: never uploads
 librqbit = { version = "9.0.1", default-features = false, features = ["rust-tls", "disable-upload"] }
+# network shares (smb, webdav, ftp): pure rust clients, so every platform has them
+smb = { version = "0.12", default-features = false, features = ["async", "sign", "encrypt"] }
+suppaftp = { version = "12", features = ["tokio"] }
+quick-xml = "0.42"
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_System_JobObjects", "Win32_System_Threading", "Win32_Security"] }

@@ -70,6 +70,8 @@ QtObject {
     readonly property real springK: 4.2
     readonly property real springDamp: 0.62
     // the mouse: the lists under it and when the wheel last moved one
+    // shields up (setup, sheets): the pages under them take no finger drags
+    property int shields: 0
     property var wheelList: null
     property var wheelRow: null
     property double wheelAt: 0

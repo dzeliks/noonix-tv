@@ -165,7 +165,7 @@ async fn serve(mut sock: TcpStream) -> Result<()> {
 }
 
 /// "bytes=a-b" / "bytes=a-" / "bytes=-n" -> inclusive (start, end) inside len
-fn parse_range(range: Option<&str>, len: u64) -> (u64, u64) {
+pub(crate) fn parse_range(range: Option<&str>, len: u64) -> (u64, u64) {
     let last = len.saturating_sub(1);
     let Some(spec) = range.and_then(|r| r.strip_prefix("bytes=")).and_then(|r| r.split(',').next()) else { return (0, last) };
     let (a, b) = spec.split_once('-').unwrap_or((spec, ""));

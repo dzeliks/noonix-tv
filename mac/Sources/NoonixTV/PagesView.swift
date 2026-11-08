@@ -80,10 +80,10 @@ struct LibraryPage: View {
             } else if m.items.isEmpty {
                 VStack(spacing: 28 * u) {
                     Text(history ? L("Your watched movies and episodes will appear here")
-                         : files ? L("No videos from this Mac yet") : L("Save something for later"))
+                         : files ? (Platform.tv ? L("No videos from your network yet") : L("No videos from this Mac yet")) : L("Save something for later"))
                         .font(Theme.display(32 * u, .medium)).foregroundStyle(Theme.fg2)
                     if !history {
-                        Text(files ? (Platform.ios ? L("Copy them into the Files app › Noonix TV") : L("Add the folders your movies and shows are in: Settings › Sources")) : L("Open a title's options and choose Add to Library"))
+                        Text(files ? (Platform.tv ? L("Add a network share from a NAS or computer: Settings › Sources") : Platform.ios ? L("Copy them into the Files app › Noonix TV") : L("Add the folders your movies and shows are in: Settings › Sources")) : L("Open a title's options and choose Add to Library"))
                             .font(Theme.text(24 * u)).foregroundStyle(Theme.fg3)
                     }
                 }

@@ -152,6 +152,7 @@ pub async fn open(profile: i64, args: &Value) -> Result<Value> {
     let stream: Stream = serde_json::from_value(args.get("stream").cloned().context("missing stream")?)?;
     stop(&json!({ "reason": "replaced" })).await.ok();
     let url = match (&stream.url, &stream.info_hash) {
+        (Some(u), _) if crate::shares::is_share(u) => crate::shares::url_for(u).await?,
         (Some(u), _) => u.clone(),
         (None, Some(h)) if store::with(|c| Ok(addons::torrents(c))).await? == Some(true) => crate::torrent::url_for(h, stream.file_idx, &stream.sources).await?,
         _ => anyhow::bail!("this source has no playable address"),
