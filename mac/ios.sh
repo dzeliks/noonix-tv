@@ -4,12 +4,13 @@
 # built-in app keys come from the NOONIX_TMDB_* / NOONIX_TRAKT_* environment, like the other builds
 #   mac/ios.sh            the simulator (apple silicon)
 #   mac/ios.sh device     an iphone / ipad (needs CODESIGN_ID and PROFILE, a .mobileprovision)
+#   mac/ios.sh ipa        an unsigned .ipa for sideloading (altstore, sideloadly sign it with your apple id)
 #   CORE=0 mac/ios.sh     the app only (the core as last built)
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(dirname "$here")
 kind=${1:-sim}
-if [[ $kind == device ]]; then
+if [[ $kind == device || $kind == ipa ]]; then
     t=aarch64-apple-ios; dest="generic/platform=iOS"; sdk=iphoneos; plat=iPhoneOS
 else
     t=aarch64-apple-ios-sim; dest="generic/platform=iOS Simulator"; sdk=iphonesimulator; plat=iPhoneSimulator
@@ -27,7 +28,7 @@ cp "${CARGO_TARGET_DIR:-$here/.build/cargo}/$t/release/libnoonix_core.a" "$here/
 
 cd "$here"
 xcodebuild -scheme NoonixTV -destination "$dest" -configuration "$conf" -derivedDataPath "$here/.build/xc-$kind" \
-    -skipMacroValidation -skipPackagePluginValidation ARCHS=arm64 ONLY_ACTIVE_ARCH=YES -quiet build
+    -skipMacroValidation -skipPackagePluginValidation ARCHS=arm64 ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO -quiet build
 bin="$here/.build/xc-$kind/Build/Products/$conf-$sdk/NoonixTV"
 
 version=$(sed -n 's/^version = "\(.*\)"/\1/p' "$repo/core/Cargo.toml" | head -1)
@@ -97,7 +98,18 @@ cat > "$app/Info.plist" <<PLIST
 PLIST
 /usr/libexec/PlistBuddy -c "Merge $icon_plist" "$app/Info.plist" >/dev/null 2>&1 || true
 
-if [[ $kind == device ]]; then
+if [[ $kind == ipa ]]; then
+    codesign --force --sign - "$app" >/dev/null 2>&1
+    pay=$(mktemp -d)
+    mkdir "$pay/Payload"
+    cp -R "$app" "$pay/Payload/"
+    ipa="$here/dist-ios/Noonix-TV-$version-ios.ipa"
+    rm -f "$ipa"
+    (cd "$pay" && zip -qry "$ipa" Payload)
+    rm -rf "$pay"
+    echo "$ipa"
+    exit 0
+elif [[ $kind == device ]]; then
     cp "${PROFILE:?a .mobileprovision}" "$app/embedded.mobileprovision"
     codesign --force --sign "${CODESIGN_ID:?a signing identity}" --entitlements "${ENTITLEMENTS:-/dev/null}" "$app"
 else

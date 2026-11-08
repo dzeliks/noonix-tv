@@ -6,7 +6,7 @@
 
 <p align="center">
   A cross-platform media player for the living room: browse and play your own movies and shows, and the
-  sources you connect, with a remote, a controller or a mouse.
+  sources you connect, with a remote, a controller, a mouse or a touch screen.
 </p>
 
 <p align="center">
@@ -58,7 +58,9 @@
 - **Subtitles that just work**: embedded tracks first, then OpenSubtitles, with an option to
   treat Serbian, Croatian and Bosnian as one language.
 - **Any input**: remotes, PlayStation, Xbox and Nintendo controllers with matching button
-  glyphs, mouse and keyboard. Every button can be remapped.
+  glyphs, mouse and keyboard, and touch on phones and tablets. Every button can be remapped.
+- **Search the way you type**: a real text field for a keyboard (select, copy, paste), the
+  on-screen keyboard for a remote or a controller, and results split into shows and movies.
 - **For the whole household**: multiple profiles, each with its own Trakt account and
   history, in English and Serbian.
 
@@ -91,14 +93,19 @@ Both update themselves from Settings › About.
 Apple could not verify it: click Done, then System Settings › Privacy & Security › Open Anyway.
 Or once in Terminal: `xattr -dr com.apple.quarantine "/Applications/Noonix TV.app"`.
 
-**Android** (preview build, HDR videos play in SDR for now): `Noonix-TV-<version>-android-arm64-preview.apk`
+**Android** (preview build): `Noonix-TV-<version>-android-arm64-preview.apk`
 for Android TV, Google TV, tablets and phones (in landscape), Android 9 or newer on a 64-bit ARM device.
 `-android-armv7-preview.apk` is for 32-bit TV boxes (playback only keeps working there, no HDR planned), and
 `-android-x86_64-preview.apk` for Chromebooks and PC boxes.
 Install it from the file
 (allow your file manager or browser to install apps), or on a TV with `adb install`. It plays your
 library from the device's storage or a USB drive and the sources you add; a remote, a game
-controller and touch all work.
+controller and touch all work. HDR10 plays in HDR where the screen supports it.
+
+**iPhone and iPad** (preview): `Noonix-TV-<version>-ios.ipa`, on iOS and iPadOS 26 or newer. It
+isn't on the App Store and isn't signed: install it with a sideloading tool such as AltStore or
+Sideloadly, which signs it with your own Apple ID (with a free one, again every 7 days). Copy your
+videos into Files › Noonix TV, or add your sources.
 
 ## Build from source
 
@@ -117,7 +124,8 @@ docker run --rm -v "$PWD:/src:ro" -v "$PWD/build-win:/build" noonix-wincross \
     bash -c '/src/tools/windows/deps.sh /build/prefix && /src/tools/windows/build.sh /build/prefix /build/cmake /build/out'
 ```
 
-macOS: `mac/build.sh` on a Mac with the command line tools and Rust.
+macOS: `mac/build.sh` on a Mac with the command line tools and Rust. iPhone and iPad: `mac/ios.sh`
+on a Mac with Xcode (`mac/ios.sh ipa` for an unsigned `.ipa`, the header lists the rest).
 
 Android: the SDK and NDK, JDK 17, Rust's `aarch64-linux-android` target and Qt for Android with its
 host Qt (`tools/android/qt-fetch.py` fetches both), then `tools/android/build.sh` (its header lists
