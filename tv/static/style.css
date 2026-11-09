@@ -526,3 +526,12 @@ html, body {
 .menu .mlist { position: relative; overflow: hidden; }
 .menu .mbox.long .mlist { height: 756px; }
 .menu .mtrack { transition: -webkit-transform 0.18s ease-out, transform 0.18s ease-out; }
+/* skip intro: bottom right, ok presses it while it shows */
+.player .skipbtn {
+    position: absolute; right: 96px; bottom: 96px; height: 84px; padding: 0 44px; border-radius: 42px;
+    background: #fff; color: #1c1c1e; font-size: 30px; font-weight: 700; line-height: 84px; white-space: nowrap;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    opacity: 0; -webkit-transform: translateY(20px); transform: translateY(20px);
+    transition: opacity 0.25s ease, -webkit-transform 0.25s ease, transform 0.25s ease;
+}
+.player .skipbtn.on { opacity: 1; -webkit-transform: none; transform: none; }

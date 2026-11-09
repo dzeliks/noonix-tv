@@ -13,6 +13,7 @@ import * as sources from "../data/sources"
 import * as progress from "../data/progress"
 import * as trakt from "../data/trakt"
 import * as subtitles from "../data/subs"
+import * as skip from "../data/skip"
 
 const osdMs = 4500
 const saveEvery = 10000
@@ -53,6 +54,10 @@ export function playerScreen(app: App, first: PlayReq): Screen {
     let delay = 0
     let extTimer = 0
     let found: subtitles.Found[] | null = null
+    // intro / recap / credits of this episode, and the one the play head is in
+    let segs: skip.Segment[] = []
+    let inSeg: skip.Segment | null = null
+    const skipBtn = h("div.skipbtn")
     const subs = h("div.subs")
     const poster = h("img.pbackdrop", { alt: "" }) as HTMLImageElement
     const status = h("div.pstatus")
@@ -75,7 +80,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
     const nextCount = h("div.ncount")
     const nextCard = h("div.nextcard", null, h("div.nlabel", { text: tr("Up Next") }), nextTitle, nextCount,
         h("div.nhint", { text: tr("OK to play now, Back to stay") }))
-    const el = h("div.player", null, poster, spinner, stateIco, status, osd, nextCard)
+    const el = h("div.player", null, poster, spinner, stateIco, status, osd, skipBtn, nextCard)
 
     // ---- what plays
 
@@ -158,6 +163,8 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         subs.textContent = ""
         dropExt()
         found = null
+        segs = []
+        showSkip(null)
         video.open(s.url)
         clearTimeout(startTimer)
         startTimer = window.setTimeout(function () { if (!started) fail("no start") }, startWait)
@@ -194,6 +201,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
                 trakt.scrobble("start", target(), share())
                 showOsd()
                 autoSubs()
+                findSegments()
             }
         },
         waiting(): void { if (started) spinner.style.display = "" },
@@ -203,6 +211,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         },
         time(): void {
             if (seekTo < 0) drawBar()
+            checkSkip()
             const left = video.duration() - video.time()
             if (req.item.kind === "show" && started && !nextOff && left > 0 && left <= nextSecs + 0.5 && nextLeft < 0) upNext()
         },
@@ -344,6 +353,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             if (a === "ok" || a === "next") { playNext(); return true }
             if (a === "back") { hideNext(); nextReq = null; nextOff = true; return true }
         }
+        if (a === "ok" && inSeg && !video.paused()) { doSkip(); return true }
         if (a === "ok" || a === "playpause") toggle()
         else if (a === "play") { if (video.paused()) toggle() }
         else if (a === "pause") { if (!video.paused()) toggle() }
@@ -478,6 +488,46 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         }
         app.menu(tr("Subtitle timing") + ": " + (delay > 0 ? "+" : "") + delay.toFixed(1) + " s",
             [step(-0.5), step(0.5), step(-0.1), step(0.1), { label: tr("Reset"), icon: "restart", run: function () { delay = 0; drawExt() } }])
+    }
+
+    // ---- skip intro (introdb)
+
+    function findSegments(): void {
+        const r = req
+        if (r.item.kind !== "show" || !r.imdb || r.season === undefined || r.episode === undefined) return
+        skip.segments(r.imdb, r.season, r.episode).then(function (s) {
+            if (alive && req === r) { segs = s; checkSkip() }
+        })
+    }
+
+    function checkSkip(): void {
+        if (!started || !segs.length) return
+        const t = video.time()
+        let hit: skip.Segment | null = null
+        for (let i = 0; i < segs.length; i++) if (t >= segs[i].start && t < segs[i].end - 1) hit = segs[i]
+        // the credits hand over to up next when there's a next episode
+        if (hit && hit.kind === "outro" && nextOff) hit = null
+        if (hit !== inSeg) showSkip(hit)
+    }
+
+    function showSkip(s: skip.Segment | null): void {
+        inSeg = s
+        if (s) skipBtn.textContent = s.kind === "intro" ? tr("Skip Intro") : s.kind === "recap" ? tr("Skip Recap") : tr("Skip Credits")
+        skipBtn.className = "skipbtn" + (s ? " on" : "")
+    }
+
+    function doSkip(): void {
+        const s = inSeg
+        if (!s) return
+        showSkip(null)
+        if (s.kind === "outro" && req.item.kind === "show") {
+            findNext().then(function (n) {
+                if (!alive) return
+                if (n) { nextReq = n; playNext() } else { nextOff = true; video.seek(Math.max(0, video.duration() - 2)) }
+            })
+            return
+        }
+        video.seek(s.end)
     }
 
     function upNextNow(): void {
