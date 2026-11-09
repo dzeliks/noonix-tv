@@ -6,7 +6,8 @@ import { Action } from "../keys"
 import { icon } from "./icons"
 import { hhmm } from "./meta"
 import * as look from "./look"
-import { App, PlayReq, Screen } from "./app"
+import { backend } from "./backend"
+import { App, PlayReq, Screen, MenuEntry } from "./app"
 import * as tmdb from "../data/tmdb"
 import * as sources from "../data/sources"
 import * as progress from "../data/progress"
@@ -43,8 +44,8 @@ export function playerScreen(app: App, first: PlayReq): Screen {
     let nextTimer = 0
     let nextOff = false
 
-    const video = h("video.video") as HTMLVideoElement
-    video.setAttribute("preload", "auto")
+    let ended = false
+    const subs = h("div.subs")
     const poster = h("img.pbackdrop", { alt: "" }) as HTMLImageElement
     const status = h("div.pstatus")
     const spinner = h("div.spinner")
@@ -66,7 +67,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
     const nextCount = h("div.ncount")
     const nextCard = h("div.nextcard", null, h("div.nlabel", { text: tr("Up Next") }), nextTitle, nextCount,
         h("div.nhint", { text: tr("OK to play now, Back to stay") }))
-    const el = h("div.player", null, poster, video, spinner, stateIco, status, osd, nextCard)
+    const el = h("div.player", null, poster, spinner, stateIco, status, osd, nextCard)
 
     // ---- what plays
 
@@ -145,15 +146,9 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         srcEl.textContent = [s.resolution ? (s.resolution >= 2160 ? "4K" : s.resolution + "p") : "", s.hdr.join(" "), s.codec || "",
             s.audio.slice(0, 2).join(" "), s.addon, sources.sizeText(s.size)].filter(function (x) { return !!x }).join("  ·  ")
         spinner.style.display = ""
-        video.onloadedmetadata = function () {
-            const d = video.duration
-            const resume = req.start !== undefined ? req.start : progress.resumeAt(req.item.kind, req.item.id, req.season, req.episode, d)
-            if (resume > 0 && resume < d - 30) video.currentTime = resume
-        }
-        video.src = s.url
-        video.load()
-        const p = video.play() as Promise<void> | undefined
-        if (p && p.catch) p.catch(function (e) { console.warn("play: " + e) })
+        ended = false
+        subs.textContent = ""
+        video.open(s.url)
         clearTimeout(startTimer)
         startTimer = window.setTimeout(function () { if (!started) fail("no start") }, startWait)
     }
@@ -172,64 +167,72 @@ export function playerScreen(app: App, first: PlayReq): Screen {
 
     // ---- the video's events
 
-    video.addEventListener("playing", function () {
-        spinner.style.display = "none"
-        stateIco.style.display = "none"
-        if (!started) {
-            started = true
-            clearTimeout(startTimer)
-            poster.style.display = "none"
-            say("")
-            trakt.scrobble("start", target(), share())
-            showOsd()
-        }
+    const video = backend({
+        meta(): void {
+            const d = video.duration()
+            const resume = req.start !== undefined ? req.start : progress.resumeAt(req.item.kind, req.item.id, req.season, req.episode, d)
+            if (resume > 0 && resume < d - 30) video.seek(resume)
+        },
+        playing(): void {
+            spinner.style.display = "none"
+            stateIco.style.display = "none"
+            if (!started) {
+                started = true
+                clearTimeout(startTimer)
+                poster.style.display = "none"
+                say("")
+                trakt.scrobble("start", target(), share())
+                showOsd()
+            }
+        },
+        waiting(): void { if (started) spinner.style.display = "" },
+        error(why: string): void {
+            if (!started) fail(why)
+            else { spinner.style.display = "none"; say(tr("Playback stopped: the source broke off")) }
+        },
+        time(): void {
+            if (seekTo < 0) drawBar()
+            const left = video.duration() - video.time()
+            if (req.item.kind === "show" && started && !nextOff && left > 0 && left <= nextSecs + 0.5 && nextLeft < 0) upNext()
+        },
+        ended(): void {
+            ended = true
+            save(true)
+            trakt.scrobble("stop", target(), 1)
+            if (nextReq) { playNext(); return }
+            app.pop()
+        },
+        paused(): void {
+            if (!started || ended) return
+            save(false)
+            trakt.scrobble("pause", target(), share())
+        },
+        subtitle(text: string): void { subs.textContent = text },
     })
-    video.addEventListener("waiting", function () { if (started) spinner.style.display = "" })
-    video.addEventListener("error", function () {
-        const err = video.error
-        if (!started) fail("error " + (err ? err.code : "?"))
-        else { spinner.style.display = "none"; say(tr("Playback stopped: the source broke off")) }
-    })
-    video.addEventListener("timeupdate", function () {
-        if (seekTo < 0) drawBar()
-        const left = video.duration - video.currentTime
-        if (req.item.kind === "show" && started && !nextOff && left > 0 && left <= nextSecs + 0.5 && nextLeft < 0) upNext()
-    })
-    video.addEventListener("progress", drawBar)
-    video.addEventListener("ended", function () {
-        save(true)
-        trakt.scrobble("stop", target(), 1)
-        if (nextReq) { playNext(); return }
-        app.pop()
-    })
-    video.addEventListener("pause", function () {
-        if (!started || video.ended) return
-        save(false)
-        trakt.scrobble("pause", target(), share())
-    })
+    el.insertBefore(video.el, poster.nextSibling)
+    el.insertBefore(subs, osd)
 
-    function share(): number { return video.duration ? video.currentTime / video.duration : 0 }
+    function share(): number { return video.duration() ? video.time() / video.duration() : 0 }
 
     function save(done: boolean): void {
-        if (!started || !video.duration || !isFinite(video.duration)) return
+        if (!started || !video.duration()) return
         progress.save({
             item: req.item, season: req.season, episode: req.episode, episodeTitle: req.episodeTitle,
-            position: done ? video.duration : video.currentTime, duration: video.duration, updated: 0, finished: done,
+            position: done ? video.duration() : video.time(), duration: video.duration(), updated: 0, finished: done,
         })
     }
-    saveTimer = window.setInterval(function () { if (!video.paused) save(false) }, saveEvery)
+    saveTimer = window.setInterval(function () { if (!video.paused()) save(false) }, saveEvery)
 
     // ---- the osd
 
     function drawBar(): void {
-        const d = video.duration
-        if (!d || !isFinite(d)) { posEl.textContent = leftEl.textContent = endsEl.textContent = ""; return }
-        const t = seekTo >= 0 ? seekTo : video.currentTime
+        const d = video.duration()
+        if (!d) { posEl.textContent = leftEl.textContent = endsEl.textContent = ""; return }
+        const t = seekTo >= 0 ? seekTo : video.time()
         const k = Math.max(0, Math.min(1, t / d))
         fill.style.width = k * 100 + "%"
         knob.style.left = k * 100 + "%"
-        let b = 0
-        for (let i = 0; i < video.buffered.length; i++) if (video.buffered.start(i) <= t + 1) b = Math.max(b, video.buffered.end(i))
+        const b = video.buffered()
         buffered.style.width = Math.min(1, b / d) * 100 + "%"
         posEl.textContent = clock(t)
         leftEl.textContent = "-" + clock(d - t)
@@ -241,7 +244,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         osd.className = "osd on"
         drawBar()
         clearTimeout(osdTimer)
-        osdTimer = window.setTimeout(function () { if (!video.paused) osd.className = "osd" }, osdMs)
+        osdTimer = window.setTimeout(function () { if (!video.paused()) osd.className = "osd" }, osdMs)
     }
 
     function flash(name: string): void {
@@ -252,24 +255,24 @@ export function playerScreen(app: App, first: PlayReq): Screen {
 
     function toggle(): void {
         if (!started) return
-        if (video.paused) { video.play(); stateIco.style.display = "none" }
+        if (video.paused()) { video.play(); stateIco.style.display = "none" }
         else { video.pause(); flash("pause") }
         showOsd()
     }
 
     /** presses close together go further each time; the jump lands once they stop */
     function seek(dir: number, base: number): void {
-        if (!started || !video.duration) return
+        if (!started || !video.duration()) return
         const now = Date.now()
         seekRun = now - lastSeek < 700 ? seekRun + 1 : 0
         lastSeek = now
         const step = base * (seekRun < 3 ? 1 : seekRun < 8 ? 3 : 6)
-        const from = seekTo >= 0 ? seekTo : video.currentTime
-        seekTo = Math.max(0, Math.min(video.duration - 2, from + dir * step))
+        const from = seekTo >= 0 ? seekTo : video.time()
+        seekTo = Math.max(0, Math.min(video.duration() - 2, from + dir * step))
         showOsd()
         clearTimeout(seekTimer)
         seekTimer = window.setTimeout(function () {
-            video.currentTime = seekTo
+            video.seek(seekTo)
             seekTo = -1
         }, 550)
     }
@@ -288,7 +291,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
     }
 
     function tickNext(): void {
-        nextCount.textContent = tr("Starts in %1", Math.max(0, Math.round(video.duration - video.currentTime)))
+        nextCount.textContent = tr("Starts in %1", Math.max(0, Math.round(video.duration() - video.time())))
         nextTimer = window.setTimeout(tickNext, 500)
     }
 
@@ -331,12 +334,13 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             if (a === "back") { hideNext(); nextReq = null; nextOff = true; return true }
         }
         if (a === "ok" || a === "playpause") toggle()
-        else if (a === "play") { if (video.paused) toggle() }
-        else if (a === "pause") { if (!video.paused) toggle() }
+        else if (a === "play") { if (video.paused()) toggle() }
+        else if (a === "pause") { if (!video.paused()) toggle() }
         else if (a === "left") seek(-1, 10)
         else if (a === "right") seek(1, 10)
         else if (a === "rewind") seek(-1, 30)
         else if (a === "forward") seek(1, 30)
+        else if (a === "down" && osd.className === "osd on") tracks()
         else if (a === "up" || a === "down" || a === "info") showOsd()
         else if (a === "next") { upNextNow() }
         else if (a === "menu") { video.pause(); openSources() }
@@ -347,7 +351,26 @@ export function playerScreen(app: App, first: PlayReq): Screen {
 
     function openSources(): void {
         app.sources({ item: req.item, imdb: req.imdb, season: req.season, episode: req.episode, episodeTitle: req.episodeTitle,
-            start: started ? video.currentTime : undefined })
+            start: started ? video.time() : undefined })
+    }
+
+    /** audio and subtitle tracks, the ones the file has */
+    function tracks(): void {
+        const audio = video.audioTracks()
+        const text = video.textTracks()
+        const entries: MenuEntry[] = []
+        audio.forEach(function (t) {
+            entries.push({ label: tr("Audio") + ": " + t.label, icon: t.on ? "check" : undefined, run: function () { video.setAudio(t.id) } })
+        })
+        if (text.length) {
+            const any = text.some(function (t) { return t.on })
+            entries.push({ label: tr("Subtitles") + ": " + tr("Off"), icon: any ? undefined : "check", run: function () { video.setText(-1); subs.textContent = "" } })
+            text.forEach(function (t) {
+                entries.push({ label: tr("Subtitles") + ": " + t.label, icon: t.on ? "check" : undefined, run: function () { video.setText(t.id) } })
+            })
+        }
+        if (!entries.length) { app.toast(tr("This file has one audio track and no subtitles")); return }
+        app.menu(tr("Audio and subtitles"), entries)
     }
 
     function upNextNow(): void {
@@ -361,15 +384,13 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         shown(): void { showOsd() },
         closed(): void {
             alive = false
-            if (started && !video.ended) {
+            if (started && !ended) {
                 save(false)
                 trakt.scrobble(share() >= 0.92 ? "stop" : "pause", target(), share())
             }
             clearTimeout(osdTimer); clearInterval(saveTimer); clearTimeout(startTimer); clearTimeout(seekTimer); clearTimeout(nextTimer)
             // the decoder is let go now, not when the element is collected
-            video.pause()
-            video.removeAttribute("src")
-            video.load()
+            video.close()
         },
     }
 }

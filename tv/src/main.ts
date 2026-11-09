@@ -13,6 +13,7 @@ import { playerScreen } from "./ui/player"
 import { sourcesScreen } from "./ui/sources"
 import { settingsScreen } from "./ui/settings"
 import { menuScreen, toast } from "./ui/menu"
+import { prepare as preparePlayback } from "./ui/backend"
 import { detailsScreen } from "./ui/details"
 import { exitPrompt } from "./ui/exitprompt"
 import { searchScreen } from "./ui/search"
@@ -35,6 +36,7 @@ function boot(): void {
     fitStage(stage)
     window.addEventListener("resize", function () { fitStage(stage) })
     registerKeys()
+    preparePlayback()
     look.apply()
     setLanguage(settings.all().language)
     console.log("noonix tv " + __VERSION__ + " on " + platform.label + ", chromium " + platform.chrome

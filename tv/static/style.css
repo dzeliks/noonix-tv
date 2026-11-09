@@ -481,3 +481,11 @@ html, body {
 .trakt .turl { margin: 14px 0 40px; font-size: 44px; font-weight: 700; color: #ef6f9b; }
 .trakt .tcode { margin-top: 20px; font-size: 120px; font-weight: 800; letter-spacing: 18px; }
 .trakt .tnote { margin-top: 50px; font-size: 27px; color: rgba(255, 255, 255, 0.55); }
+.player .subs {
+    position: absolute; left: 160px; right: 160px; bottom: 90px; text-align: center; white-space: pre-line;
+    font-size: 46px; font-weight: 600; line-height: 1.3; text-shadow: 0 0 6px #000, 0 2px 4px #000, 0 0 2px #000;
+}
+.player .subs:empty { display: none; }
+/* samsung avplay draws under the page */
+.av, .av body, .av .player { background: transparent; }
+.menu .mrow .ico.blank { width: 30px; height: 30px; }

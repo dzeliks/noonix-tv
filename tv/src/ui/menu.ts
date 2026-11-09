@@ -7,7 +7,7 @@ import { MenuEntry, Screen } from "./app"
 export function menuScreen(title: string, entries: MenuEntry[], close: () => void): Screen {
     let at = 0
     const rows = entries.map(function (e) {
-        return h("div.mrow", null, e.icon ? icon(e.icon, 30) : null, h("span", { text: e.label }))
+        return h("div.mrow", null, e.icon ? icon(e.icon, 30) : h("span.ico.blank"), h("span", { text: e.label }))
     })
     const box = h("div.mbox", null, h("div.mtitle", { text: title }), ...rows)
     const el = h("div.menu", null, box)
