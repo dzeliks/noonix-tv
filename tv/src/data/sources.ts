@@ -5,6 +5,7 @@ import { json } from "./http"
 import * as store from "./store"
 import * as settings from "./settings"
 import * as engine from "./engine"
+import * as speed from "./speed"
 import * as memory from "./memory"
 import { platform } from "../platform"
 import * as look from "../ui/look"
@@ -255,11 +256,14 @@ function fullHdPanel(): boolean {
     try { return typeof webapis !== "undefined" && webapis.productinfo && webapis.productinfo.isUdPanelSupported() === false } catch (e) { return false }
 }
 
-/** the tallest picture worth asking for here: the user's pick, else low memory and full hd tvs stay at 1080p */
+/** the tallest picture worth asking for here: the user's pick, else low memory and full hd tvs stay at
+ *  1080p, and a speed check run here caps it to what the line carries */
 export function maxResolution(): number {
     const q = settings.all().quality
     if (q !== "auto") return parseInt(q, 10)
-    return look.lowMemory || fullHdPanel() ? 1080 : 2160
+    const tv = look.lowMemory || fullHdPanel() ? 1080 : 2160
+    const line = speed.last()
+    return line ? Math.min(tv, speed.fits(line.mbps)) : tv
 }
 
 /** what this tv's player is known to trip on */

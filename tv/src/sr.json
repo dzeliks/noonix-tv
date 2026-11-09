@@ -115,5 +115,11 @@
         "%n torent izvoru treba server za strimovanje (Podešavanja)",
         "%n torent izvorima treba server za strimovanje (Podešavanja)",
         "%n torent izvorima treba server za strimovanje (Podešavanja)"
-    ]
+    ],
+    "%1 Mbit/s…": "%1 Mbit/s…",
+    "%1 Mbit/s": "%1 Mbit/s",
+    "Not run": "Nije pokrenuto",
+    "Measures this TV's internet for a few seconds: Auto picture quality follows it": "Meri internet ovog TV-a par sekundi: automatski kvalitet slike ga prati",
+    "%1 Mbit/s: up to %2": "%1 Mbit/s: najviše %2",
+    "Couldn't reach the speed test": "Test brzine nije dostupan"
 }

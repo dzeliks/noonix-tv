@@ -16,12 +16,13 @@ What it does:
   Watching, Up Next, Skip Intro (IntroDB), audio and subtitle tracks, subtitles found online
   (OpenSubtitles and subtitle addons), a source that won't start hands over to the next one.
 - Trakt: sign-in by code, scrobbles, paused playbacks from other devices, the watchlist.
-- Settings: language, subtitle language, picture quality, preferred and hidden release patterns
+- Settings: language, subtitle language, picture quality (Auto follows the TV, its memory and a speed
+  check of its internet), preferred and hidden release patterns
   (as on the desktop: whole words or `/regex/`), low memory mode, addons, profiles, your own TMDB
   key. A newer release on GitHub is announced once (a TV can't install it itself).
 
-Not yet: picture quality from a speed check, webOS 4K/HDR playback hints, debrid services without
-an addon.
+Not yet: debrid services without an addon. On LG, 4K and HDR10 come from the file itself (the TV's
+player reads them; webOS has no hint for a plain file), not yet seen on a real LG TV.
 
 ## Torrents
 

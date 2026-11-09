@@ -11,6 +11,7 @@ import { profileName } from "./profiles"
 import * as settings from "../data/settings"
 import * as sources from "../data/sources"
 import * as engine from "../data/engine"
+import * as speed from "../data/speed"
 import * as profiles from "../data/profiles"
 import * as store from "../data/store"
 import * as trakt from "../data/trakt"
@@ -79,6 +80,8 @@ function qualityName(r: number): string { return r >= 2160 ? "4K" : r + "p" }
 let latestSeen: string | null | undefined
 
 export function settingsScreen(app: App): Screen {
+    // the speed check running: mbit/s so far (-1: not yet)
+    let checking: number | null = null
     const lowNames: { [k: string]: string } = { auto: tr("Auto"), on: tr("On"), off: tr("Off") }
     const screen = listScreen(tr("Settings"), function (): Row[] {
         const s = settings.all()
@@ -127,6 +130,25 @@ export function settingsScreen(app: App): Screen {
                             run: function () { settings.put("quality", q) } }
                     }
                     app.menu(tr("Picture quality"), [pick("auto"), pick("2160"), pick("1080"), pick("720")])
+                } },
+            { label: tr("Speed check"), value: function () {
+                    if (checking !== null) return checking < 0 ? tr("Checking…") : tr("%1 Mbit/s…", String(checking))
+                    const l = speed.last()
+                    return l ? tr("%1 Mbit/s", String(l.mbps)) : tr("Not run")
+                },
+                hint: tr("Measures this TV's internet for a few seconds: Auto picture quality follows it"),
+                ok: function () {
+                    if (checking !== null) return
+                    checking = -1
+                    speed.run(function (m) { checking = m; screen.redraw() }).then(function (r) {
+                        checking = null
+                        screen.redraw()
+                        app.toast(tr("%1 Mbit/s: up to %2", String(r.mbps), qualityName(speed.fits(r.mbps))))
+                    }, function () {
+                        checking = null
+                        screen.redraw()
+                        app.toast(tr("Couldn't reach the speed test"))
+                    })
                 } },
             patternRow(app, "preferred", tr("Preferred release patterns"), tr("None. Words in a release name you like, best first, like REMUX or a language tag")),
             patternRow(app, "hidden", tr("Hidden release patterns"), tr("None. Releases with these words never show")),
