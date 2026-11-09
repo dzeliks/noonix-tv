@@ -206,9 +206,34 @@ export function settingsScreen(app: App): Screen {
                 ok: function () { /* nothing to run on a tv */ } },
             { label: tr("About"), value: function () { return "Noonix TV " + __VERSION__ + "  ·  " + platform.label + "  ·  Chromium " + platform.chrome },
                 ok: function () { /* nothing */ } },
+            { label: tr("License"), value: function () { return "GPL 3.0" },
+                hint: tr("Free software under the GNU GPL 3.0 or later. Source: github.com/dzeliks/noonix-tv"), ok: function () { /* nothing */ } },
+            { label: tr("Terms"), value: function () { return "" },
+                hint: tr("A player for your own videos and the sources you add; you answer for what you watch. github.com/dzeliks/noonix-tv › TERMS.md"),
+                ok: function () { /* nothing */ } },
+            { label: tr("Credits"), value: function () { return "TMDB · Trakt · OpenSubtitles" },
+                ok: function () { app.push(creditsScreen(), false) } },
         ]
     })
     updates.latest().then(function (v) { latestSeen = v; screen.redraw() })
+    return screen
+}
+
+// the qml credits; tmdb's terms: their logo and this exact notice
+function creditsScreen(): Screen {
+    const line = function (label: string, hint: string): Row { return { label: label, value: function () { return "" }, hint: hint, ok: function () { /* nothing */ } } }
+    const screen = listScreen(tr("Credits"), function (): Row[] {
+        return [
+            line("TMDB", tr("This product uses TMDB and the TMDB APIs but is not endorsed, certified, or otherwise approved by TMDB.")),
+            line("Trakt", tr("Up Next, watch history and scrobbling through the Trakt API. Not affiliated with Trakt.")),
+            line("OpenSubtitles.com", tr("Extra subtitles")),
+            line("IntroDB", tr("Intro, recap and credits times")),
+            line(tr("Stremio addons"), tr("Noonix TV ships no sources: videos come from your library and the addons and extensions you add")),
+            line("torrent-stream", tr("Torrents on this TV (MIT and ISC licenses: engine/NOTICES.txt in the app)")),
+            line("Inter", tr("Font by Rasmus Andersson (SIL Open Font License)")),
+        ]
+    })
+    screen.el.appendChild(h("img.tmdblogo", { src: "icons/tmdb.svg" }))
     return screen
 }
 

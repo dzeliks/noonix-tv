@@ -82,6 +82,7 @@ copyDir(path.join(tv, "static"), app, (rel) => !rel.startsWith("webos") && !rel.
 fs.copyFileSync(path.join(repo, "fonts/InterVariable.ttf"), path.join(app, "fonts/InterVariable.ttf"))
 fs.copyFileSync(path.join(repo, "fonts/Inter-OFL.txt"), path.join(app, "fonts/Inter-OFL.txt"))
 fs.copyFileSync(path.join(repo, "LICENSE"), path.join(app, "LICENSE"))
+fs.copyFileSync(path.join(repo, "qml/assets/credits/tmdb.svg"), path.join(app, "icons/tmdb.svg"))
 const fill = (s) => s.replaceAll("@VERSION@", version).replaceAll("@WEBOS_ID@", webosId).replaceAll("@TIZEN_PACKAGE@", tizenPackage)
 fs.writeFileSync(path.join(app, "appinfo.json"), fill(fs.readFileSync(path.join(tv, "static/webos/appinfo.json"), "utf8")))
 fs.writeFileSync(path.join(app, "config.xml"), fill(fs.readFileSync(path.join(tv, "static/tizen/config.xml"), "utf8")))

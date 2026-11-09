@@ -496,6 +496,7 @@ html, body {
 }
 .list .lrow .lvalue { position: absolute; right: 32px; max-width: 700px; overflow: hidden; text-overflow: ellipsis; font-weight: 500; opacity: 0.66; }
 .list .lrow.lit { background: #fff; color: #1c1c1e; }
+.list .tmdblogo { position: absolute; left: 1440px; top: 960px; height: 36px; }
 .list .lhint { position: absolute; left: 1440px; top: 216px; width: 400px; font-size: 25px; line-height: 1.45; color: rgba(255, 255, 255, 0.6); }
 
 /* ---- trakt sign-in */
