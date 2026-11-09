@@ -31,9 +31,10 @@
 
 ## Features
 
-- **Your own library first**: point Noonix TV at the folders your movies and shows are in. It
+- **Your own library first**: point Noonix TV at the folders your movies and shows are in, on
+  this device or on a network share (SMB, WebDAV or FTP, from a NAS or another computer). It
   recognizes them by name, adds posters, seasons and episodes from TMDB, and plays them straight
-  from your computer.
+  from where they are.
 - **A home screen built for the couch**: your library, Up Next and Continue Watching (synced with
   Trakt if you like), popular and trending titles, and a full-screen preview of whatever is in
   focus.
@@ -100,13 +101,20 @@ for Android TV, Google TV, tablets and phones (in landscape), Android 9 or newer
 `-android-x86_64-preview.apk` for Chromebooks and PC boxes.
 Install it from the file
 (allow your file manager or browser to install apps), or on a TV with `adb install`. It plays your
-library from the device's storage or a USB drive and the sources you add; a remote, a game
-controller and touch all work. HDR10 plays in HDR where the screen supports it.
+library from the device's storage, a USB drive or a network share, and the sources you add; a remote, a game
+controller and touch all work. HDR10 plays in HDR where the screen supports it, and Android TV can match the
+TV's refresh rate to each video.
 
 **iPhone and iPad** (preview): `Noonix-TV-<version>-ios.ipa`, on iOS and iPadOS 26 or newer. It
 isn't on the App Store and isn't signed: install it with a sideloading tool such as AltStore or
 Sideloadly, which signs it with your own Apple ID (with a free one, again every 7 days). Copy your
-videos into Files › Noonix TV, or add your sources.
+videos into Files › Noonix TV, add a network share, or add your sources.
+
+**Apple TV** (preview): `Noonix-TV-<version>-tvos.ipa`, on tvOS 26 or newer. Unsigned like the
+iPhone one: sideload it with Sideloadly or Xcode onto an Apple TV paired with your Mac. The Siri
+Remote works like a TV remote (click the ring for the arrows or swipe, hold the middle for options),
+and so do game controllers. Your library comes from network shares, since an Apple TV has no folders
+of its own; it matches the TV's frame rate and HDR to each video.
 
 ## Build from source
 
@@ -126,7 +134,8 @@ docker run --rm -v "$PWD:/src:ro" -v "$PWD/build-win:/build" noonix-wincross \
 ```
 
 macOS: `mac/build.sh` on a Mac with the command line tools and Rust. iPhone and iPad: `mac/ios.sh`
-on a Mac with Xcode (`mac/ios.sh ipa` for an unsigned `.ipa`, the header lists the rest).
+on a Mac with Xcode (`mac/ios.sh ipa` for an unsigned `.ipa`, `mac/ios.sh tv-ipa` for Apple TV, the
+header lists the rest).
 
 Android: the SDK and NDK, JDK 17, Rust's `aarch64-linux-android` target and Qt for Android with its
 host Qt (`tools/android/qt-fetch.py` fetches both), then `tools/android/build.sh` (its header lists

@@ -211,8 +211,9 @@ FocusScope {
                                       : { label: qsTr("Add to the app menu"), detail: qsTr("Find Noonix TV with your other apps"), checkable: true, checked: !!dk.menu, act: "desk:menu" })
                 out.push({ label: qsTr("Open at login"), detail: qsTr("Starts Noonix TV when you sign in to this PC"), checkable: true, checked: !!dk.login, act: "desk:login" })
                 out.push({ label: qsTr("Show the title bar"), detail: qsTr("A normal window with the title bar and its buttons"), checkable: true, checked: app.title_bar === true, act: "titlebar" })
-                out.push({ label: qsTr("Match the TV's refresh rate"), detail: qsTr("Switches the TV to 24 / 25 / 50 / 60 Hz for each video (never the resolution or HDR)"), checkable: true, checked: app.refresh_match === true, act: "app:refresh_match" })
             }
+            if (!Theme.android || Desktop.tv)
+                out.push({ label: qsTr("Match the TV's refresh rate"), detail: qsTr("Switches the TV to 24 / 25 / 50 / 60 Hz for each video (never the resolution or HDR)"), checkable: true, checked: app.refresh_match === true, act: "app:refresh_match" })
             out.push({ label: qsTr("Find extra subtitles"), detail: qsTr("From OpenSubtitles, for your subtitle languages the file doesn't have"), checkable: true, checked: appOn("extra_subs"), act: "app:extra_subs" })
             var hs = app.hdr_screen || "auto"
             var found = screen.hdr === true ? qsTr("HDR") : screen.hdr === false ? qsTr("no HDR") : ""

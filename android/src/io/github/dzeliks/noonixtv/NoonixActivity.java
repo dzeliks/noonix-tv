@@ -14,6 +14,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.system.Os;
 import android.view.Display;
+import android.view.WindowManager;
 import android.view.Gravity;
 import android.view.Surface;
 import android.view.InputDevice;
@@ -112,6 +113,32 @@ public class NoonixActivity extends QtActivity {
         } catch (Exception ignored) {
         }
         return 0;
+    }
+
+    // refresh rate matching (android tv): "current,id:hz,id:hz" for the modes at the current size
+    public String displayModes() {
+        try {
+            Display d = getWindowManager().getDefaultDisplay();
+            Display.Mode cur = d.getMode();
+            StringBuilder b = new StringBuilder().append(cur.getModeId());
+            for (Display.Mode m : d.getSupportedModes())
+                if (m.getPhysicalWidth() == cur.getPhysicalWidth() && m.getPhysicalHeight() == cur.getPhysicalHeight())
+                    b.append(',').append(m.getModeId()).append(':').append(m.getRefreshRate());
+            return b.toString();
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    // the window asks for that mode (0: the system's own again); the tv switches by itself
+    public void displayMode(final int id) {
+        runOnUiThread(() -> {
+            WindowManager.LayoutParams p = getWindow().getAttributes();
+            if (p.preferredDisplayModeId == id)
+                return;
+            p.preferredDisplayModeId = id;
+            getWindow().setAttributes(p);
+        });
     }
 
     // the library's folders: videos on shared storage (android 13 asks per media type)

@@ -105,6 +105,8 @@ class Desktop : public QObject
     Q_PROPERTY(QString systemLanguage READ systemLanguage CONSTANT)
     // a phone (android, smallest width under 600dp): the ui is drawn larger. NOONIX_PHONE=1|0 forces it
     Q_PROPERTY(bool phone READ phone CONSTANT)
+    // android tv (leanback): the tv's own modes can be switched
+    Q_PROPERTY(bool tv READ tv CONSTANT)
     // how much larger than the 1920x1080 grid (phones; dev: NOONIX_SCALE)
     Q_PROPERTY(double boost READ boost CONSTANT)
     // dev: NOONIX_GRIDW=1000, the narrowest grid before the ui shrinks (0 = the layouts' own)
@@ -119,6 +121,7 @@ public:
     QString language() const { return m_language; }
     QString systemLanguage() const;
     bool phone() const;
+    bool tv() const;
     int totalRamMb() const;
     bool lowRam() const;
     double gridW() const { return qEnvironmentVariable("NOONIX_GRIDW").toDouble(); }

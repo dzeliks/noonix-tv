@@ -426,7 +426,12 @@ void Player::onFileLoaded()
         chapters.append(QJsonObject{{QStringLiteral("title"), m.value(QStringLiteral("title")).toString()},
                                     {QStringLiteral("time"), m.value(QStringLiteral("time")).toDouble()}});
     }
+#ifdef Q_OS_ANDROID
+    // the app's own screen (the core asks the activity for its modes)
+    const QString output = QStringLiteral("android");
+#else
     const QString output = m_window && m_window->screen() ? m_window->screen()->name() : QString();
+#endif
     const bool windowed = m_window && m_window->visibility() != QWindow::FullScreen;
     // the file's own subtitles: extra ones are only fetched for languages missing here, and the
     // core may pick another track (liked before, or this one was reported)

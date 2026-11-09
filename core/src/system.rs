@@ -43,10 +43,19 @@ pub async fn match_refresh(output: &str, fps: f64) -> Result<(Option<ModeSwitch>
     }
     tracing::info!("refresh {output}: {fps:.3} fps -> {hz:.3} Hz (mode {mode})");
     display::set_mode(output, &mode).await?;
-    // the tv takes a moment to resync; check it really switched
-    tokio::time::sleep(Duration::from_millis(1800)).await;
-    if display::modes(output).await?.0 != mode {
+    // the tv takes a moment to resync (android switches when it gets to it): check it really did
+    tokio::time::sleep(Duration::from_millis(1200)).await;
+    let mut switched = false;
+    for _ in 0..8 {
+        if display::modes(output).await?.0 == mode {
+            switched = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(500)).await;
+    }
+    if !switched {
         tracing::warn!("refresh switch didn't stick");
+        let _ = display::restore(output, &cur_id).await;
         return Ok((None, false));
     }
     Ok((Some(ModeSwitch { output: output.to_owned(), original: cur_id }), exact))
@@ -58,8 +67,51 @@ pub async fn restore_refresh(sw: &ModeSwitch) {
     }
 }
 
+// android (tv): the window's preferred display mode, through the app (src/videosurface_android.cpp).
+// the output name doesn't matter there, the app's own screen is the one
+#[cfg(target_os = "android")]
+mod display {
+    use anyhow::{Context, Result};
+
+    extern "C" {
+        fn noonix_android_display_modes(buf: *mut std::os::raw::c_char, len: usize) -> usize;
+        fn noonix_android_display_set(id: i32);
+    }
+
+    /// the current mode id and every mode at the current size as (id, hz)
+    pub async fn modes(_output: &str) -> Result<(String, Vec<(String, f64)>)> {
+        let text = tokio::task::spawn_blocking(|| {
+            let mut buf = vec![0u8; 4096];
+            let n = unsafe { noonix_android_display_modes(buf.as_mut_ptr().cast(), buf.len()) };
+            String::from_utf8_lossy(&buf[..n]).into_owned()
+        })
+        .await?;
+        let mut parts = text.split(',');
+        let cur = parts.next().filter(|c| !c.is_empty()).context("no display modes")?.to_owned();
+        let list = parts
+            .filter_map(|m| {
+                let (id, hz) = m.split_once(':')?;
+                Some((id.to_owned(), hz.parse().ok()?))
+            })
+            .collect();
+        Ok((cur, list))
+    }
+
+    pub async fn set_mode(_output: &str, mode: &str) -> Result<()> {
+        let id: i32 = mode.parse().context("mode id")?;
+        tokio::task::spawn_blocking(move || unsafe { noonix_android_display_set(id) }).await?;
+        Ok(())
+    }
+
+    /// back to whatever the system picks (the mode the tv had)
+    pub async fn restore(_output: &str, _mode: &str) -> Result<()> {
+        tokio::task::spawn_blocking(|| unsafe { noonix_android_display_set(0) }).await?;
+        Ok(())
+    }
+}
+
 // kscreen-doctor on plasma
-#[cfg(all(unix, not(target_os = "macos")))]
+#[cfg(all(unix, not(target_os = "macos"), not(target_os = "android")))]
 mod display {
     use anyhow::{Context, Result};
     use serde_json::Value;

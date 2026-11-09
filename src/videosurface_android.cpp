@@ -51,6 +51,22 @@ float androidHdrPeak()
     return activity().callMethod<jfloat>("hdrPeak", "()F");
 }
 
+// the core's refresh rate matching (core/src/system.rs, android): the modes as text, a switch
+extern "C" size_t noonix_android_display_modes(char *buf, size_t len)
+{
+    const QByteArray t = activity().callObjectMethod("displayModes", "()Ljava/lang/String;").toString().toUtf8();
+    const size_t n = qMin(size_t(t.size()), len > 0 ? len - 1 : 0);
+    memcpy(buf, t.constData(), n);
+    if (len > 0)
+        buf[n] = 0;
+    return n;
+}
+
+extern "C" void noonix_android_display_set(int id)
+{
+    activity().callMethod<void>("displayMode", "(I)V", jint(id));
+}
+
 void androidVideoShown(bool on)
 {
     activity().callMethod<void>("videoShown", "(Z)V", jboolean(on));

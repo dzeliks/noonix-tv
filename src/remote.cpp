@@ -516,6 +516,21 @@ bool Desktop::phone() const
     return on;
 }
 
+bool Desktop::tv() const
+{
+    static const bool on = [] {
+#ifdef Q_OS_ANDROID
+        return bool(QJniObject(QNativeInterface::QAndroidApplication::context())
+                        .callObjectMethod("getPackageManager", "()Landroid/content/pm/PackageManager;")
+                        .callMethod<jboolean>("hasSystemFeature", "(Ljava/lang/String;)Z",
+                                              QJniObject::fromString(QStringLiteral("android.software.leanback")).object<jstring>()));
+#else
+        return false;
+#endif
+    }();
+    return on;
+}
+
 void Desktop::setLanguage(const QString &code)
 {
     const QString lang = code == QLatin1String("sr") ? code : QStringLiteral("en");
