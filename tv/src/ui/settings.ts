@@ -87,6 +87,15 @@ export function settingsScreen(app: App): Screen {
                 ok: function () { app.push(profilesScreen(app), false) } },
             { label: tr("Language"), value: function () { return language() === "sr" ? "Srpski" : "English" },
                 ok: function () { settings.put("language", s.language === "sr" ? "en" : "sr"); location.reload() } },
+            { label: tr("Audio"), value: function () { const c = subtitles.audio(); return c ? subtitles.languageName(c) : tr("Automatic") },
+                hint: tr("When a video has more than one language"),
+                ok: function () {
+                    const cur = subtitles.audio()
+                    app.menu(tr("Audio"), [{ label: tr("Automatic"), icon: cur ? undefined : "check", run: function () { subtitles.setAudio("") } }]
+                        .concat(subtitles.languages.map(function (l) {
+                            return { label: l.name, icon: cur === l.code ? "check" : undefined, run: function () { subtitles.setAudio(l.code) } }
+                        })))
+                } },
             { label: tr("Subtitles"), value: function () { const c = subtitles.preferred(); return c ? subtitles.languageName(c) : tr("Off") },
                 hint: tr("Turned on when a video has them, found online when it doesn't (OpenSubtitles)"),
                 ok: function () {

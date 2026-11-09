@@ -200,6 +200,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
                 say("")
                 trakt.scrobble("start", target(), share())
                 showOsd()
+                autoAudio()
                 autoSubs()
                 findSegments()
             }
@@ -416,15 +417,21 @@ export function playerScreen(app: App, first: PlayReq): Screen {
     }
 
     /** the preferred language when the file has none of it */
+    /** the audio language from settings, when the file has it and doesn't start in it */
+    function autoAudio(): void {
+        const choice = subtitles.audio()
+        if (!choice) return
+        const list = video.audioTracks()
+        if (list.some(function (t) { return t.on && subtitles.trackIn(choice, t) })) return
+        for (let i = 0; i < list.length; i++) if (subtitles.trackIn(choice, list[i])) { video.setAudio(list[i].id); return }
+    }
+
     function autoSubs(): void {
         const order = subtitles.choices()
         if (!order.length || ext) return
         const own = video.textTracks()
         const ownFor = function (choice: string): number {
-            for (let i = 0; i < own.length; i++) {
-                const l = own[i].label.toLowerCase()
-                if (subtitles.matches(choice, l.split(/[^a-z]/)[0]) || l.indexOf(subtitles.languageName(choice).toLowerCase()) >= 0) return i
-            }
+            for (let i = 0; i < own.length; i++) if (subtitles.trackIn(choice, own[i])) return i
             return -1
         }
         // the first choice the file has wins outright; past that the online ones count too

@@ -3,7 +3,7 @@
 import { h } from "./dom"
 import { platform } from "../platform"
 
-export interface Track { id: number; label: string; on: boolean }
+export interface Track { id: number; label: string; on: boolean; /** the language code as the file says it, "" when it doesn't */ lang: string }
 
 export interface Events {
     playing(): void
@@ -72,7 +72,7 @@ function video(ev: Events): Backend {
         if (!l) return out
         for (let i = 0; i < l.length; i++) {
             const t = l[i]
-            out.push({ id: i, label: t.label || t.language || kind + " " + (i + 1), on: kind === "audio" ? !!t.enabled : t.mode === "showing" })
+            out.push({ id: i, label: t.label || t.language || kind + " " + (i + 1), on: kind === "audio" ? !!t.enabled : t.mode === "showing", lang: String(t.language || "").toLowerCase() })
         }
         return out
     }
@@ -133,7 +133,7 @@ function avplay(ev: Events): Backend {
                 try { info = JSON.parse(t.extra_info) } catch (e) { /* no extra */ }
                 const lang = info.language || info.track_lang || ""
                 const label = [lang.toUpperCase(), info.channels ? info.channels + "ch" : "", info.fourCC || ""].filter(function (x) { return !!x }).join(" ")
-                return { id: t.index, label: label || kind.toLowerCase() + " " + (t.index + 1), on: cur.indexOf(t.index) >= 0 }
+                return { id: t.index, label: label || kind.toLowerCase() + " " + (t.index + 1), on: cur.indexOf(t.index) >= 0, lang: String(lang).toLowerCase() }
             })
         } catch (e) {
             return []

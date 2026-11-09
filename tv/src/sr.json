@@ -42,7 +42,11 @@
     "Sources above it still show, last and marked": "Izvori iznad toga se i dalje vide, na kraju i označeni",
     "Lighter artwork and fewer cards kept, for older TVs": "Lakše slike i manje kartica u memoriji, za starije TV-e",
     "Addons": "Dodaci",
-    "%n installed": ["%n instaliran", "%n instalirana", "%n instaliranih"],
+    "%n installed": [
+        "%n instaliran",
+        "%n instalirana",
+        "%n instaliranih"
+    ],
     "Sources come from Stremio addons: a debrid one plays best on a TV": "Izvori dolaze iz Stremio dodataka: na TV-u najbolje radi debrid dodatak",
     "Not set up": "Nije podešeno",
     "Scrobbles what you watch and brings back where you left off": "Beleži šta gledaš i vraća te tamo gde si stao",
@@ -87,5 +91,6 @@
     "Above your picture quality": "Iznad tvog kvaliteta slike",
     "This TV may not decode it": "Ovaj TV možda ne može da ga dekodira",
     "Dolby Vision only: colours may be off": "Samo Dolby Vision: boje mogu biti pogrešne",
-    "No sound on this TV (DTS)": "Bez zvuka na ovom TV-u (DTS)"
+    "No sound on this TV (DTS)": "Bez zvuka na ovom TV-u (DTS)",
+    "When a video has more than one language": "Kad video ima više od jednog jezika"
 }

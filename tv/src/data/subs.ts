@@ -20,9 +20,12 @@ export const languages: { code: string; name: string }[] = [
 ]
 
 // one choice, the neighbours count too (balkan mode is always on here)
+// (files often carry the two letter codes)
 const same: { [code: string]: string[] } = {
-    srp: ["srp", "scc", "hrv", "scr", "bos", "cnr"], ger: ["ger", "deu"], fre: ["fre", "fra"], dut: ["dut", "nld"],
-    gre: ["gre", "ell"], rum: ["rum", "ron"], mac: ["mac", "mkd"], por: ["por", "pob"], eng: ["eng", "en"],
+    srp: ["srp", "scc", "hrv", "scr", "bos", "cnr", "sr", "hr", "bs"], ger: ["ger", "deu", "de"], fre: ["fre", "fra", "fr"],
+    dut: ["dut", "nld", "nl"], gre: ["gre", "ell", "el"], rum: ["rum", "ron", "ro"], mac: ["mac", "mkd", "mk"],
+    por: ["por", "pob", "pt"], eng: ["eng", "en"], spa: ["spa", "es"], ita: ["ita", "it"], pol: ["pol", "pl"],
+    rus: ["rus", "ru"], tur: ["tur", "tr"], hun: ["hun", "hu"], slv: ["slv", "sl"], bul: ["bul", "bg"], ara: ["ara", "ar"],
 }
 
 export function matches(choice: string, lang: string): boolean {
@@ -33,6 +36,16 @@ export function languageName(lang: string): string {
     for (let i = 0; i < languages.length; i++) if (matches(languages[i].code, lang)) return languages[i].name.split(" / ")[0]
     return lang.toUpperCase()
 }
+
+/** a file's own track in that language: by its code, else by the name in its label */
+export function trackIn(choice: string, t: { label: string; lang: string }): boolean {
+    const l = t.label.toLowerCase()
+    return matches(choice, t.lang.split(/[^a-z]/)[0]) || matches(choice, l.split(/[^a-z]/)[0]) || l.indexOf(languageName(choice).toLowerCase()) >= 0
+}
+
+/** the audio language to start in, "" as the file plays it */
+export function audio(): string { return store.get<string>("audioLang", "") }
+export function setAudio(code: string): void { store.set("audioLang", code) }
 
 /** "" is off */
 export function preferred(): string { return store.get<string>("subLang", "") }
