@@ -1,5 +1,6 @@
 // sources: stremio addons (core stremio.rs, addons.rs, ranking.rs, cut down for a tv). a tv plays what an
-// addon hands over as a link (debrid, http): torrents need an engine it doesn't have
+// addon hands over as a link (debrid, http). it has no torrent client: torrents play through a streaming
+// server on the network (stremio's model: /<infohash>/<file index>), when one is set in settings
 import { json } from "./http"
 import * as store from "./store"
 import * as settings from "./settings"
@@ -30,6 +31,9 @@ export interface Stream {
     source: string | null
     cached: boolean | null
     service: string | null
+    /** played through the streaming server */
+    torrent: boolean
+    seeders: number | null
     bingeGroup: string | null
     languages: string[]
     /** why it may not play well on this tv */
@@ -99,25 +103,69 @@ export function streams(t: Target): Promise<Stream[]> {
     const kind = t.kind === "movie" ? "movie" : "series"
     const id = t.kind === "movie" ? t.imdb : t.imdb + ":" + t.season + ":" + t.episode
     const asked = addons().filter(function (a) { return provides(a, kind, id) })
+    let skipped = 0
     return Promise.all(asked.map(function (a) {
         const key = "streams:" + a.url + ":" + id
         return store.cached(key, 600, function () {
             return json({ url: base(a) + "/stream/" + kind + "/" + encodeURIComponent(id) + ".json", timeout: 14, retries: 0 })
                 .then(function (v: any) { return (v && v.streams) || [] })
         }).then(function (list: any[]) {
-            return list.map(function (s) { return normalize(a.name, s) }).filter(function (s): s is Stream { return !!s })
+            return list.map(function (s) {
+                const st = normalize(a.name, s)
+                if (st === "torrent") { skipped++; return null }
+                return st
+            }).filter(function (s): s is Stream { return !!s })
         }, function (e) {
             console.warn("streams " + a.name + ": " + e)
             return [] as Stream[]
         })
     })).then(function (lists) {
+        torrentsSkipped = skipped
         const ranked = rank(([] as Stream[]).concat.apply([], lists))
         return t.tmdb ? memory.order(t.kind, t.tmdb, ranked) : ranked
     })
 }
 
-function normalize(addon: string, s: any): Stream | null {
-    if (!s || typeof s.url !== "string" || !/^https?:/.test(s.url)) return null
+let torrentsSkipped = 0
+/** torrent sources the last ask left out: no streaming server set */
+export function skippedTorrents(): number { return torrentsSkipped }
+
+/** a torrent source's info hash (infoHash, or a magnet link's btih), else null */
+function hashOf(s: any): string | null {
+    let hash = typeof s.infoHash === "string" ? s.infoHash : null
+    if (!hash && typeof s.url === "string") {
+        const m = /^magnet:\?.*xt=urn:btih:([0-9a-f]{40})/i.exec(s.url)
+        if (m) hash = m[1]
+    }
+    return hash && /^[0-9a-f]{40}$/i.test(hash) ? hash.toLowerCase() : null
+}
+
+/** the streaming server's link for a torrent, the way stremio builds it: the file index (-1 = the server
+ *  picks the biggest video), trackers as tr=, file name hints as f= */
+export function torrentUrl(server: string, s: any, hash: string): string {
+    const q: string[] = []
+    const trackers: string[] = (s.sources || []).filter(function (t: any) { return typeof t === "string" })
+    if (typeof s.url === "string" && s.url.indexOf("magnet:") === 0) {
+        (s.url.match(/[?&]tr=[^&]+/g) || []).forEach(function (p: string) {
+            try { trackers.push("tracker:" + decodeURIComponent(p.slice(4))) } catch (e) { /* a broken one */ }
+        })
+    }
+    trackers.forEach(function (t) { q.push("tr=" + encodeURIComponent(t)) })
+    ;(s.fileMustInclude || []).forEach(function (f: any) { if (typeof f === "string") q.push("f=" + encodeURIComponent(f)) })
+    const idx = typeof s.fileIdx === "number" && s.fileIdx >= 0 ? s.fileIdx : -1
+    return server + "/" + hash + "/" + idx + (q.length ? "?" + q.join("&") : "")
+}
+
+function normalize(addon: string, s: any): Stream | "torrent" | null {
+    if (!s) return null
+    const hash = typeof s.url === "string" && /^https?:/.test(s.url) ? null : hashOf(s)
+    let url: string
+    if (hash) {
+        const server = settings.all().server
+        if (!server) return "torrent"
+        url = torrentUrl(server, s, hash)
+    } else if (typeof s.url === "string" && /^https?:/.test(s.url)) url = s.url
+    else return null
     const hints = s.behaviorHints || {}
     // a <video> can't send the headers a proxied stream needs
     if (hints.proxyHeaders && hints.proxyHeaders.request) return null
@@ -127,17 +175,27 @@ function normalize(addon: string, s: any): Stream | null {
     const text = name + "\n" + desc + "\n" + (filename || "")
     const st = parseRelease(text)
     st.addon = addon
-    st.url = s.url
+    st.url = url
+    st.torrent = !!hash
+    const seed = /(?:👤|seeds?|seeders?)\s*:?\s*(\d+)/i.exec(text)
+    st.seeders = seed ? parseInt(seed[1], 10) : null
     st.filename = filename
     st.title = filename || (desc.split("\n")[0] || name).trim()
     st.size = hints.videoSize || parseSize(text)
     st.bingeGroup = hints.bingeGroup || null
     const lower = text.toLowerCase()
-    st.cached = text.indexOf("⚡") >= 0 || text.indexOf("+]") >= 0 || lower.indexOf("instant") >= 0 ? true
+    st.cached = hash ? null : text.indexOf("⚡") >= 0 || text.indexOf("+]") >= 0 || lower.indexOf("instant") >= 0 ? true
         : text.indexOf("⏳") >= 0 || lower.indexOf("download]") >= 0 || lower.indexOf("not ready") >= 0 ? false : null
     const svc = /\[(TB|RD|AD|PM|DL|ED|OC|PKP)\+?\]/.exec(text)
     st.service = svc ? svc[1].toUpperCase() : null
     return st
+}
+
+/** a streaming server answers there (stremio's server has /settings, as stremio web asks it) */
+export function checkServer(url: string): Promise<void> {
+    return json({ url: url + "/settings", timeout: 8, retries: 0 }).then(function (v: any) {
+        if (!v || typeof v !== "object") throw new Error("not a streaming server")
+    })
 }
 
 function has(text: string, pat: string): boolean {
@@ -173,7 +231,7 @@ export function parseRelease(text: string): Stream {
         ["multi", "multi"]].forEach(function (l) { if (has(text, "(" + l[1] + ")")) langs.push(l[0]) })
     return {
         addon: "", title: "", url: "", filename: null, size: null, resolution: resolution, hdr: hdr, codec: codec, audio: audio,
-        source: source, cached: null, service: null, bingeGroup: null, languages: langs, warn: null,
+        source: source, cached: null, service: null, torrent: false, seeders: null, bingeGroup: null, languages: langs, warn: null,
     }
 }
 
@@ -250,6 +308,8 @@ export function rank(list: Stream[]): Stream[] {
         let n = 0
         if (!s.warn) n += 1e7
         if (s.cached === true) n += 4e6
+        // a torrent comes after the links that are ready: it has to find people first; nearly nobody sharing, last
+        else if (s.torrent) n += s.seeders !== null && s.seeders < 3 ? 0 : 1e6 + Math.min(s.seeders || 0, 500) * 100
         else if (s.cached === null) n += 2e6
         n += Math.min(s.resolution, maxResolution()) * 1000
         // over the limit: the closest one first

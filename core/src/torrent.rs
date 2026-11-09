@@ -22,7 +22,7 @@ fn dir() -> std::path::PathBuf {
     PATHS.cache.join("torrents")
 }
 
-async fn session() -> Result<Arc<Session>> {
+pub(crate) async fn session() -> Result<Arc<Session>> {
     SESSION
         .get_or_try_init(|| async {
             let d = dir();
@@ -36,7 +36,7 @@ async fn session() -> Result<Arc<Session>> {
         .cloned()
 }
 
-const VIDEO: &[&str] = &["mkv", "mp4", "m4v", "avi", "ts", "m2ts", "webm", "mov", "wmv"];
+pub(crate) const VIDEO: &[&str] = &["mkv", "mp4", "m4v", "avi", "ts", "m2ts", "webm", "mov", "wmv"];
 
 /// a loopback address the player can open for this torrent's file (the addon's file index, else
 /// the biggest video). waits for the torrent's metadata
@@ -81,9 +81,17 @@ pub async fn url_for(info_hash: &str, file_idx: Option<i64>, sources: &[String])
     Ok(format!("http://127.0.0.1:{port}/{hash}/{file}"))
 }
 
-/// the torrent stops and its files go
+/// the info hash playing in the app now
+pub(crate) async fn playing() -> Option<String> {
+    CURRENT.lock().await.as_ref().map(|(h, _, _)| h.clone())
+}
+
+/// the torrent stops and its files go (unless a tv streams it through this computer too)
 pub async fn stop() {
     let Some((hash, handle, _)) = CURRENT.lock().await.take() else { return };
+    if crate::tvserver::holds(&hash) {
+        return;
+    }
     if let Some(s) = SESSION.get() {
         if let Err(e) = s.delete(handle.id().into(), true).await {
             tracing::warn!("torrent {hash}: {e:#}");

@@ -134,6 +134,9 @@ export function settingsScreen(app: App): Screen {
             { label: tr("Addons"), value: function () { return n ? trn("%n installed", n) : tr("None") },
                 hint: tr("Sources come from Stremio addons: a debrid one plays best on a TV"),
                 ok: function () { app.push(addonsScreen(app), false) } },
+            { label: tr("Streaming server"), value: function () { return s.server ? s.server.replace(/^https?:\/\//, "") : tr("None") },
+                hint: tr("Plays torrent sources: Stremio Service or Noonix TV running on a computer on your network"),
+                ok: function () { app.push(serverScreen(app), false) } },
             { label: "Trakt", value: function () { const u = trakt.user(); return u ? tr("Signed in as %1", u) : trakt.available() ? tr("Sign in") : tr("Not set up") },
                 hint: tr("Scrobbles what you watch and brings back where you left off"),
                 ok: function () {
@@ -169,6 +172,22 @@ export function settingsScreen(app: App): Screen {
     })
     updates.latest().then(function (v) { latestSeen = v; screen.redraw() })
     return screen
+}
+
+/** the streaming server's address, checked before it's kept */
+function serverScreen(app: App): Screen {
+    return inputScreen(tr("Streaming server"), tr("Its address, e.g. 192.168.1.20 (port 11470 unless you type one). Empty: none"),
+        settings.all().server.replace(/^http:\/\//, "").replace(/:11470$/, ""), function (v) {
+            const url = settings.serverUrl(v)
+            if (!url) { settings.put("server", ""); app.toast(tr("Torrent sources are off")); return }
+            app.toast(tr("Checking %1…", url.replace(/^https?:\/\//, "")))
+            sources.checkServer(url).then(function () {
+                settings.put("server", url)
+                app.toast(tr("Streaming server saved: torrent sources play through it"))
+            }, function () {
+                app.toast(tr("No streaming server answered at %1", url.replace(/^https?:\/\//, "")))
+            })
+        }, app.pop)
 }
 
 function profilesScreen(app: App): Screen {

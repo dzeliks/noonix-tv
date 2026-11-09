@@ -101,6 +101,9 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
         }
 
         "setup.accounts" => Ok(setup::accounts()),
+        // this computer as the tvs' streaming server (torrents for lg / samsung)
+        "tvServer.state" => Ok(crate::tvserver::state().await),
+        "tvServer.set" => crate::tvserver::set(args.get("on").and_then(Value::as_bool).unwrap_or(false)).await,
         "setup.torrents" => {
             setup::set_torrents(args.get("on").and_then(Value::as_bool).unwrap_or(false)).await?;
             Ok(setup::accounts())

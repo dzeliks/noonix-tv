@@ -171,7 +171,8 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         showSkip(null)
         video.open(s.url)
         clearTimeout(startTimer)
-        startTimer = window.setTimeout(function () { if (!started) fail("no start") }, startWait)
+        // a torrent first finds people and its file list on the server
+        startTimer = window.setTimeout(function () { if (!started) fail("no start") }, s.torrent ? startWait * 3 : startWait)
     }
 
     // ---- how's this one? (qml Match): what works is remembered for the next episodes, what doesn't gets fixed here

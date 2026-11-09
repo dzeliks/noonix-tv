@@ -9,6 +9,7 @@ Item {
     property var addons: []
     property var exts: []
     property var acc: ({})
+    property var tvs: ({})            // this computer as the tvs' streaming server
     property var entry: null          // the page's KeyEntry
     property var enterKey: null       // function (key): the page's key sheet
     property var pending: null        // a preview waiting for the entry sheet to close
@@ -23,6 +24,7 @@ Item {
         Api.call("addons.list", {}, function (ok, d) { if (ok) flow.addons = d })
         Api.call("extensions.list", {}, function (ok, d) { if (ok) flow.exts = d })
         Api.call("setup.accounts", {}, function (ok, d) { if (ok) flow.acc = d })
+        Api.call("tvServer.state", {}, function (ok, d) { if (ok) flow.tvs = d })
     }
     Connections {
         target: Api
@@ -93,6 +95,12 @@ Item {
         out.push({ label: qsTr("Allow torrents"), checkable: true, checked: t.allowed === true, act: "torrents",
                    detail: qsTr("Download only, at your own risk. While it's off, torrent sources stay hidden") })
         out.push({ label: qsTr("What's this?"), detail: qsTr("Torrents in a few lines"), value: "?", act: "help:torrent" })
+        // lg and samsung tvs have no torrent client: this computer can be theirs
+        if (t.allowed === true)
+            out.push({ label: qsTr("Stream torrents to TVs"), checkable: true, checked: tvs.on === true, act: "tvserver",
+                       detail: !tvs.on ? qsTr("Noonix TV on an LG or Samsung TV plays torrent sources through this device")
+                             : tvs.error ? qsTranslate("core", tvs.error)
+                             : qsTr("On the TV: Settings › Streaming server › %1, while Noonix TV is open here").arg(tvs.address || "") })
         return out
     }
 
@@ -133,6 +141,8 @@ Item {
             help.open("debrid")
         } else if (a === "help:torrent") {
             help.open("torrent")
+        } else if (a === "tvserver") {
+            Api.call("tvServer.set", { on: tvs.on !== true }, function (ok, d) { if (ok) flow.tvs = d; flow.changed() })
         } else if (a === "torrents") {
             // yes goes through the sheet that says what it means; no right away
             if ((acc.torrents || {}).allowed === true) setTorrents(false)
@@ -141,7 +151,10 @@ Item {
         return true
     }
     function setTorrents(on) {
-        Api.call("setup.torrents", { on: on }, function (ok, d) { if (ok) flow.acc = d; flow.changed() })
+        Api.call("setup.torrents", { on: on }, function (ok, d) {
+            if (ok) flow.acc = d
+            Api.call("tvServer.state", {}, function (ok2, s) { if (ok2) flow.tvs = s; flow.changed() })
+        })
     }
 
     // what to ask after an install: torrents first, then a missing key

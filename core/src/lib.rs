@@ -33,6 +33,7 @@ pub mod stremio;
 pub mod system;
 pub mod tmdb;
 pub mod torrent;
+pub mod tvserver;
 pub mod trakt;
 pub mod update;
 #[cfg(windows)]

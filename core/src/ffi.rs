@@ -45,6 +45,7 @@ pub extern "C" fn noonix_start(ctx: *mut c_void, on_result: ResultFn, on_push: P
         });
     }
     app::RUNTIME.spawn(crate::keepalive::in_app());
+    app::RUNTIME.spawn(crate::tvserver::apply());
     tracing::info!("core up (c interface)");
     true
 }

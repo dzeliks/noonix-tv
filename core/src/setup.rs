@@ -89,6 +89,7 @@ pub async fn set_torrents(on: bool) -> Result<()> {
     if !on {
         crate::torrent::stop().await;
     }
+    crate::tvserver::apply().await;
     crate::local::changed("torrents");
     Ok(())
 }

@@ -15,6 +15,8 @@ final class SourcesFlow {
     var addons: [[String: Any]] = []
     var exts: [[String: Any]] = []
     var acc: [String: Any] = [:]
+    /// this device as the tvs' streaming server
+    var tvs: [String: Any] = [:]
     /// the row of what was just added: the page focuses it
     var focusAct = ""
     /// the folder whose remove waits for the second press
@@ -47,10 +49,12 @@ final class SourcesFlow {
         async let a = json("addons.list")
         async let e = json("extensions.list")
         async let s = json("setup.accounts")
+        async let t = json("tvServer.state")
         lib = await l as? [String: Any] ?? lib
         addons = await a as? [[String: Any]] ?? addons
         exts = await e as? [[String: Any]] ?? exts
         acc = await s as? [String: Any] ?? acc
+        tvs = await t as? [String: Any] ?? tvs
     }
 
     /// the library's own push (a scan finished)
@@ -137,12 +141,21 @@ final class SourcesFlow {
         let t = acc["torrents"] as? [String: Any] ?? [:]
         let allowed = t["allowed"] as? Bool
         guard t["wanted"] as? Bool == true || allowed != nil else { return [] }
-        return [
+        var out = [
             Line(label: L("Torrents"), header: true),
             Line(label: L("Allow torrents"), detail: L("Download only, at your own risk. While it's off, torrent sources stay hidden"),
                  checkable: true, checked: allowed == true, act: "torrents"),
             Line(label: L("What's this?"), detail: L("Torrents in a few lines"), value: "?", act: "help:torrent"),
         ]
+        // lg and samsung tvs have no torrent client: this device can be theirs (not an apple tv)
+        if allowed == true && !Platform.tv {
+            let on = tvs["on"] as? Bool == true
+            let detail = !on ? L("Noonix TV on an LG or Samsung TV plays torrent sources through this device")
+                : (tvs["error"] as? String).map { Lc($0) }
+                ?? L("On the TV: Settings › Streaming server › %1, while Noonix TV is open here", tvs["address"] as? String ?? "")
+            out.append(Line(label: L("Stream torrents to TVs"), detail: detail, checkable: true, checked: on, act: "tvserver"))
+        }
+        return out
     }
 
     private func reload() {
@@ -190,6 +203,8 @@ final class SourcesFlow {
             app.help = SourcesHelpModel(topic: "debrid")
         } else if a == "help:torrent" {
             app.help = SourcesHelpModel(topic: "torrent")
+        } else if a == "tvserver" {
+            Task { if let d = await json("tvServer.set", ["on": tvs["on"] as? Bool != true]) as? [String: Any] { tvs = d }; changed() }
         } else if a == "torrents" {
             // yes goes through the sheet that says what it means; no right away
             if (acc["torrents"] as? [String: Any])?["allowed"] as? Bool == true { setTorrents(false) } else { ask(app: app) }
@@ -200,7 +215,11 @@ final class SourcesFlow {
     }
 
     func setTorrents(_ on: Bool) {
-        Task { if let d = await json("setup.torrents", ["on": on]) as? [String: Any] { acc = d }; changed() }
+        Task {
+            if let d = await json("setup.torrents", ["on": on]) as? [String: Any] { acc = d }
+            if let t = await json("tvServer.state") as? [String: Any] { tvs = t }
+            changed()
+        }
     }
 
     private func ask(app: AppModel) {

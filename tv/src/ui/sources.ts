@@ -1,6 +1,6 @@
 // the sources of a title (qml Sources): every addon's links, best first, with what they are
 import { h, clear } from "./dom"
-import { tr } from "../i18n"
+import { tr, trn } from "../i18n"
 import { Action } from "../keys"
 import * as look from "./look"
 import { App, PlayReq, Screen } from "./app"
@@ -48,7 +48,10 @@ export function sourcesScreen(app: App, req: PlayReq): Screen {
     }).then(function (got) {
         if (!alive) return
         list = got
-        status.textContent = got.length ? "" : sources.addons().length ? tr("No sources found") : tr("No addons yet: add one in Settings")
+        const skipped = sources.skippedTorrents()
+        status.textContent = !sources.addons().length ? tr("No addons yet: add one in Settings")
+            : skipped ? (got.length ? "" : tr("No sources found") + ". ") + trn("%n torrent source needs a streaming server (Settings)", skipped)
+            : got.length ? "" : tr("No sources found")
         build()
     }).catch(function (e) {
         if (alive) status.textContent = String(e.message || e)
@@ -63,6 +66,7 @@ export function sourcesScreen(app: App, req: PlayReq): Screen {
             badges.appendChild(badge(s.resolution >= 2160 ? "4K" : s.resolution ? s.resolution + "p" : "?", "res"))
             s.hdr.forEach(function (x) { badges.appendChild(badge(x, "hdr")) })
             if (s.cached === true) badges.appendChild(badge("⚡", "fast"))
+            if (s.torrent) badges.appendChild(badge(s.seeders !== null ? "P2P · " + s.seeders : "P2P", ""))
             const line = [s.addon, sources.sizeText(s.size), s.codec || "", s.audio.slice(0, 2).join(" "), s.source || "",
                 s.languages.filter(function (l) { return l !== "en" }).join(" ").toUpperCase()].filter(function (x) { return !!x }).join("  ·  ")
             // what the viewers said (how's this one?) before the tv's own warning

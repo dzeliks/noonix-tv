@@ -63,6 +63,7 @@ impl cxx_qt::Initialize for qobject::Core {
         app::RUNTIME.spawn_blocking(crate::desktop::refresh);
         // logins stay alive while the app is open, timer or not
         app::RUNTIME.spawn(crate::keepalive::in_app());
+        app::RUNTIME.spawn(crate::tvserver::apply());
         tracing::info!("core up");
     }
 }
