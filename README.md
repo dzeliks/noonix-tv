@@ -111,10 +111,11 @@ Sideloadly, which signs it with your own Apple ID (with a free one, again every 
 videos into Files › Noonix TV, add a network share, or add your sources.
 
 **Apple TV** (preview): `Noonix-TV-<version>-tvos.ipa`, on tvOS 26 or newer. Unsigned like the
-iPhone one: sideload it with Sideloadly or Xcode onto an Apple TV paired with your Mac. The Siri
-Remote works like a TV remote (click the ring for the arrows or swipe, hold the middle for options),
-and so do game controllers. Your library comes from network shares, since an Apple TV has no folders
-of its own; it matches the TV's frame rate and HDR to each video.
+iPhone one: install it with a sideloading tool that supports Apple TV, such as Sideloadly, which
+signs it with your Apple ID. The Siri Remote works like a TV remote (click the ring or swipe for the
+arrows, hold the middle for options), and so do game controllers. Your library comes from network
+shares, since an Apple TV has no folders of its own; it matches the TV's frame rate and HDR to each
+video.
 
 ## Build from source
 
