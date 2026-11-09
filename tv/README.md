@@ -21,8 +21,9 @@ What it does:
   (as on the desktop: whole words or `/regex/`), low memory mode, addons, profiles, your own TMDB
   key. A newer release on GitHub is announced once (a TV can't install it itself).
 
-Not yet: debrid services without an addon. On LG, 4K and HDR10 come from the file itself (the TV's
-player reads them; webOS has no hint for a plain file), not yet seen on a real LG TV.
+Debrid services come in through addons, as on the other builds (a debrid addon set up with your
+key). On LG, 4K and HDR10 come from the file itself (the TV's player reads them; webOS has no hint
+for a plain file), not yet seen on a real LG TV.
 
 ## Torrents
 
