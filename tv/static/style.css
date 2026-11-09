@@ -490,6 +490,8 @@ html, body {
     font-size: 46px; font-weight: 600; line-height: 1.3; text-shadow: 0 0 6px #000, 0 2px 4px #000, 0 0 2px #000;
 }
 .player .subs:empty { display: none; }
+.player .osd ~ .subs { transition: -webkit-transform 0.3s ease, transform 0.3s ease; }
+.player .osd.on ~ .subs { -webkit-transform: translate3d(0, -300px, 0); transform: translate3d(0, -300px, 0); }
 /* samsung avplay draws under the page */
 .av, .av body, .av .player { background: transparent; }
 .menu .mrow .ico.blank { width: 30px; height: 30px; }

@@ -230,7 +230,8 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         subtitle(text: string): void { if (!ext) subs.textContent = text },
     })
     el.insertBefore(video.el, poster.nextSibling)
-    el.insertBefore(subs, osd)
+    // after the osd: it moves up over the title while the osd shows
+    el.insertBefore(subs, skipBtn)
 
     function share(): number { return video.duration() ? video.time() / video.duration() : 0 }
 
@@ -391,7 +392,11 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         if (ext) entries.push({ label: tr("Subtitles") + ": " + extName, icon: "check", run: function () { /* on */ } })
         if (req.imdb) entries.push({ label: tr("Find subtitles"), icon: "search", run: findMenu })
         if (ext) entries.push({ label: tr("Subtitle timing") + (delay ? " (" + (delay > 0 ? "+" : "") + delay.toFixed(1) + " s)" : ""), icon: "clock", run: timingMenu })
-        app.menu(tr("Audio and subtitles"), entries)
+        // the osd's other buttons (qml Osd): for remotes without media keys
+        if (req.item.kind === "show") entries.push({ label: tr("Next Episode"), icon: "next", run: upNextNow })
+        entries.push({ label: tr("Start Over"), icon: "restart", run: function () { video.seek(0); showOsd() } })
+        entries.push({ label: tr("Sources"), icon: "list", run: function () { video.pause(); openSources() } })
+        app.menu(tr("Options"), entries)
     }
 
     function subTarget(): sources.Target | null {
