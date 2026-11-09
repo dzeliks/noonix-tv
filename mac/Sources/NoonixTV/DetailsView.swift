@@ -290,7 +290,7 @@ struct DetailsView: View {
 
             VStack(alignment: .leading, spacing: sp) {
                 Color.clear.frame(width: 1, height: top)
-                info(u: u, W: W, margin: margin)
+                info(u: u, W: W, margin: margin, top: top)
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { infoH = $0 }
                 actions(u: u, margin: margin)
                 if shows {
@@ -337,7 +337,7 @@ struct DetailsView: View {
     }
 
     // identity on the left, the story on the right (room for the whole plot)
-    private func info(u: CGFloat, W: CGFloat, margin: CGFloat) -> some View {
+    private func info(u: CGFloat, W: CGFloat, margin: CGFloat, top: CGFloat) -> some View {
         let d = model.details
         let ep = model.episodeShown
         let meta: Item? = d.map { dd in
@@ -351,6 +351,9 @@ struct DetailsView: View {
         let logoH = !tight ? 226 * u : !model.hasSeasons ? 170 * u
             : max(90 * u, min(200 * u, H - edge - headroom - underInfo - idSpacing - metaH))
         let logoPad = (tight ? 8 : 16) * u
+        // the back button top left would sit on the logo: it steps right of the button
+        let logoTop = top + infoH - (logoH + idSpacing + metaH)
+        let backOver = (Theme.mouse || Theme.touch) && logoTop < (40 + 72) * u
         // tight with episodes: as many plot lines as fit above them (two at least)
         let fixedH = (34 + 14 + 26 + 14 + 26 + 14) * u
         let room = H - edge - headroom - underInfo + lend - fixedH
@@ -362,6 +365,7 @@ struct DetailsView: View {
                     .frame(width: (tight ? 460 : 600) * u, height: logoH - logoPad)
                     // room under the logo: a tall one doesn't sit on the line below
                     .padding(.bottom, logoPad)
+                    .padding(.leading, backOver ? (72 + 20) * u : 0)
                 // up to the story
                 MetaLine(item: meta, details: d, u: u, maxWidth: W * 0.64 - 2 * margin - 24 * u)
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { metaH = $0 }

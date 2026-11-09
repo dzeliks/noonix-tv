@@ -269,6 +269,7 @@ FocusScope {
             readonly property real underInfo: actions.height + seasonsRow.height + page.cardW * 9 / 16 + 92 * page.u + 4 * body.spacing
             readonly property real headroom: (page.tight ? 36 : 60) * page.u
             Item {
+                id: topRoom
                 width: 1
                 height: !seasonsRow.visible ? page.height * 0.2
                         : Math.max(body.headroom, page.height - page.edge - (info.height + body.underInfo))
@@ -291,6 +292,9 @@ FocusScope {
                     // room under the logo: a tall one doesn't sit on the line below.
                     // tight: as tall as what's left over the episode row (never under 90)
                     Logo {
+                        // the back button top left would sit on it: it steps right of the button
+                        x: backButton.visible && topRoom.height + info.height - identity.height < backButton.y + backButton.height
+                           ? backButton.width + 20 * page.u : 0
                         width: (page.tight ? 460 : 600) * page.u
                         height: !page.tight ? 226 * page.u : !seasonsRow.visible ? 170 * page.u
                                 : Math.max(90 * page.u, Math.min(200 * page.u, page.height - page.edge - body.headroom - body.underInfo
@@ -649,13 +653,13 @@ FocusScope {
             artH: page.cardW * 9 / 16
         }
     }
-    // the mouse's way back: top left, wherever the page is scrolled (a remote has its key, a phone its
-    // gesture). scrolled, the page slides under a shade like under a toolbar
+    // the pointer's way back (the mouse, a finger): top left, wherever the page is scrolled (a remote has
+    // its key). scrolled, the page slides under a shade like under a toolbar
     Rectangle {
         width: page.width
         height: 190 * page.u
         visible: opacity > 0
-        opacity: Theme.mouse && scroller.contentY > 20 * page.u ? 1 : 0
+        opacity: backButton.visible && scroller.contentY > 20 * page.u ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 180 } }
         gradient: Gradient {
             GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.92) }
@@ -664,7 +668,8 @@ FocusScope {
         }
     }
     RoundButton {
-        visible: Theme.mouse
+        id: backButton
+        visible: Theme.mouse || Theme.touch
         // in line with play under it
         x: Theme.margin
         y: 40 * page.u
