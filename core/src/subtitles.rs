@@ -111,7 +111,30 @@ fn decode(bytes: &[u8]) -> Option<String> {
         },
     };
     // a binary .sub, not text
-    (!text.contains('\0')).then_some(text)
+    (!text.contains('\0')).then_some(unmangle(text))
+}
+
+/// utf-8 that was read as windows-1252 and saved again ("â™ª" for "♪", "Ä‡" for "ć"): put back.
+/// anything that doesn't go back cleanly stays as it was
+fn unmangle(text: String) -> String {
+    const CP1252: &str = "€\u{81}‚ƒ„…†‡ˆ‰Š‹Œ\u{8d}Ž\u{8f}\u{90}‘’“”•–—˜™š›œ\u{9d}žŸ";
+    let looks = text.chars().zip(text.chars().skip(1)).any(|(a, b)| ('\u{c2}'..='\u{f4}').contains(&a) && (('\u{80}'..='\u{bf}').contains(&b) || CP1252.contains(b)));
+    if !looks {
+        return text;
+    }
+    let mut bytes = Vec::with_capacity(text.len());
+    for c in text.chars() {
+        let b = if (c as u32) < 0x80 || ((c as u32) >= 0xa0 && (c as u32) < 0x100) {
+            c as u32 as u8
+        } else if let Some(i) = CP1252.chars().position(|x| x == c) {
+            0x80 + i as u8
+        } else {
+            // a real character past latin-1: not mangled after all
+            return text;
+        };
+        bytes.push(b);
+    }
+    String::from_utf8(bytes).unwrap_or(text)
 }
 
 /// italics / bold / underline tags typed with spaces (< / i >, < i>), or closing what never
@@ -730,6 +753,12 @@ mod tests {
         assert_eq!(decode(b"\xef\xbb\xbfbom").unwrap(), "bom");
         assert_eq!(decode(b"\xff\xfea\0b\0").unwrap(), "ab");
         assert!(decode(b"\0\x01binary").is_none());
+        // double encoded utf-8 goes back; real latin-1 text and real utf-8 stay
+        assert_eq!(decode("â™ª Is finding a good way â™ª".as_bytes()).unwrap(), "♪ Is finding a good way ♪");
+        assert_eq!(decode("reÄ‡enica Å¡ta".as_bytes()).unwrap(), "rećenica šta");
+        assert_eq!(decode("Ã‰tÃ© dÃ©jÃ\u{a0}".as_bytes()).unwrap(), "Été déjà");
+        assert_eq!(decode("crème brûlée".as_bytes()).unwrap(), "crème brûlée");
+        assert_eq!(decode("Ã and ♪ together".as_bytes()).unwrap(), "Ã and ♪ together");
     }
 
     #[test]
