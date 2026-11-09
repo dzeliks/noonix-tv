@@ -117,6 +117,16 @@ arrows, hold the middle for options), and so do game controllers. Your library c
 shares, since an Apple TV has no folders of its own; it matches the TV's frame rate and HDR to each
 video.
 
+**LG and Samsung TVs** (preview): `Noonix-TV-<version>-webos-preview.ipk` for LG TVs with webOS 4.0
+or newer (2018 on), `Noonix-TV-<version>-tizen-unsigned-preview.wgt` for Samsung TVs with Tizen 4.0
+or newer. Both install through the TV's Developer Mode; [tv/README.md](tv/README.md#install) has the
+steps. This is a web app of its own: home, details, search, sources from your addons, Trakt and
+profiles, played by the TV's own player. Torrent sources, once you allow them in Settings, play
+through a small engine that runs on the TV itself, as Stremio's TV apps do: download only, kept in
+memory, nothing saved. A computer running Noonix TV (Settings › Sources › Stream torrents to TVs)
+or Stremio Service can do that for the TV instead. Tested in LG's and Samsung's TV simulators, not
+yet on many real TVs: reports are welcome.
+
 ## Build from source
 
 Linux: Qt 6.8+, libmpv, SDL3, wayland-protocols, CMake, Ninja and Rust:
