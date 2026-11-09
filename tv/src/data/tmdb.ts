@@ -177,6 +177,55 @@ export function search(text: string): Promise<Item[]> {
     })
 }
 
+/** what someone typing this likely means (tmdb.rs suggest). tmdb matches whole words ("bre" finds no
+ * breaking bad); cinemeta, stremio's public catalog, is made for typing. tmdb, ranked, only if it can't answer */
+export function suggest(text: string): Promise<string[]> {
+    const q = text.trim()
+    return Promise.all([cinemetaTitles("series", q), cinemetaTitles("movie", q)]).then(function (lists) {
+        const out = interleave(lists[0], lists[1])
+        if (out.length) return out
+        return get("/search/multi", [["query", q], ["include_adult", "false"]], 3600).then(function (v) {
+            const list: { t: string; pop: number; votes: number }[] = []
+            ;((v && v.results) || []).forEach(function (r: any) {
+                if ((r.media_type !== "movie" && r.media_type !== "tv") || !listed(r)) return
+                const t = r.title || r.name
+                if (t) list.push({ t: t, pop: r.popularity || 0, votes: r.vote_count || 0 })
+            })
+            return rankSuggestions(q, list)
+        })
+    })
+}
+
+function cinemetaTitles(kind: string, q: string): Promise<string[]> {
+    const url = "https://v3-cinemeta.strem.io/catalog/" + kind + "/top/search=" + encodeURIComponent(q) + ".json"
+    return json({ url: url, timeout: 3, retries: 0 }).then(function (v: any) {
+        return ((v && v.metas) || []).map(function (m: any) { return m.name }).filter(function (n: any) { return typeof n === "string" })
+    }, function () { return [] as string[] })
+}
+
+/** each list is already best first: side by side, nothing twice */
+function interleave(a: string[], b: string[]): string[] {
+    const out: string[] = []
+    for (let i = 0; i < Math.max(a.length, b.length); i++) {
+        ;[a[i], b[i]].forEach(function (t) { if (t && out.indexOf(t) < 0) out.push(t) })
+    }
+    return out
+}
+
+function rankSuggestions(q: string, list: { t: string; pop: number; votes: number }[]): string[] {
+    const ql = q.toLowerCase()
+    const starts = function (t: string): number {
+        const l = t.toLowerCase()
+        return l.indexOf(ql) === 0 || l.split(/\s+/).some(function (w) { return w.indexOf(ql) === 0 }) ? 1 : 0
+    }
+    // nobody's ever rated it: the kind of entry that made the list look random
+    const kept = list.filter(function (x) { return x.votes >= 5 })
+    kept.sort(function (a, b) { return starts(b.t) - starts(a.t) || b.pop - a.pop })
+    const out: string[] = []
+    kept.forEach(function (x) { if (out.indexOf(x.t) < 0) out.push(x.t) })
+    return out
+}
+
 function pickLogo(images: any): string | null {
     const logos: any[] = (images && images.logos) || []
     let best: any = null

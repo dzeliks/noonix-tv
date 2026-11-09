@@ -31,7 +31,13 @@ export interface Screen {
     closed?(): void
 }
 
-export function homeScreen(open: (it: tmdb.Item) => void): Screen {
+/** what home asks of the app: a title's page, or a page of its own (search, library, settings) */
+export interface Nav {
+    open(it: tmdb.Item): void
+    page(id: string): void
+}
+
+export function homeScreen(app: Nav): Screen {
     const tabs = [
         { id: "search", label: "", icon: "search" },
         { id: "home", label: tr("Home") },
@@ -114,7 +120,6 @@ export function homeScreen(open: (it: tmdb.Item) => void): Screen {
     }
 
     function choose(id: string): void {
-        // TODO(F3d): search, library and settings pages
         if (!pages[id] || id === page) return
         page = id
         build(pages[id]())
@@ -206,6 +211,7 @@ export function homeScreen(open: (it: tmdb.Item) => void): Screen {
         if (inNav) {
             if (a === "left" && tab > 0) { tab--; choose(tabs[tab].id) }
             else if (a === "right" && tab < tabs.length - 1) { tab++; choose(tabs[tab].id) }
+            else if ((a === "down" || a === "ok") && !pages[tabs[tab].id]) app.page(tabs[tab].id)
             else if (a === "down" || a === "ok") { if (rows.some(function (r) { return r.strip.items.length > 0 })) inNav = false }
             else return a !== "back"
             place()
@@ -216,7 +222,7 @@ export function homeScreen(open: (it: tmdb.Item) => void): Screen {
         if (a === "left" || a === "right") step(r.strip, a === "left" ? -1 : 1)
         else if (a === "down") { let n = current + 1; while (n < rows.length && !rows[n].strip.items.length) n++; if (n < rows.length) current = n }
         else if (a === "up") { let n = current - 1; while (n >= 0 && !rows[n].strip.items.length) n--; if (n >= 0) current = n; else inNav = true }
-        else if (a === "ok") { const it = r.strip.current(); if (it) open(it); return true }
+        else if (a === "ok") { const it = r.strip.current(); if (it) app.open(it); return true }
         else if (a === "back" && (current > 0 || r.strip.at > 0)) { current = 0; rows.forEach(function (x) { x.strip.at = 0 }) }
         else return false
         place()

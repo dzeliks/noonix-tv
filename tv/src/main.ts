@@ -10,6 +10,7 @@ import { showSplash } from "./ui/splash"
 import { homeScreen, Screen } from "./ui/home"
 import { detailsScreen } from "./ui/details"
 import { exitPrompt } from "./ui/exitprompt"
+import { searchScreen } from "./ui/search"
 
 declare const __VERSION__: string
 
@@ -75,7 +76,13 @@ function boot(): void {
     }
 
     // the home builds under the splash, so its first rows are there when it lifts
-    const homeEl = homeScreen(openDetails)
+    const homeEl = homeScreen({
+        open: openDetails,
+        page(id: string): void {
+            if (id === "search") push(searchScreen(openDetails), false)
+            // TODO(F3d): library and settings
+        },
+    })
     screens.push(homeEl)
     stage.appendChild(homeEl.el)
     let ready = false

@@ -284,3 +284,45 @@ html, body {
 .scrim.s70 { background: radial-gradient(closest-side, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.5) 25%, rgba(0, 0, 0, 0.175) 50%, rgba(0, 0, 0, 0.017) 75%, rgba(0, 0, 0, 0)); }
 .scrim.s55 { background: radial-gradient(closest-side, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.39) 25%, rgba(0, 0, 0, 0.14) 50%, rgba(0, 0, 0, 0.013) 75%, rgba(0, 0, 0, 0)); }
 .details .spacer { height: 216px; }
+
+/* ---- search (qml Search, the tv terminal) */
+.search { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0b0b0d; }
+.search .area { position: absolute; left: 0; top: 140px; width: 1193px; height: 900px; overflow: hidden; }
+.search .srow { position: absolute; left: 0; width: 1193px; height: 400px; }
+.search .srow .track { top: 66px; }
+.search .empty { position: absolute; left: 96px; top: 20px; font-size: 30px; color: rgba(255, 255, 255, 0.62); }
+.card.small { width: 180px; height: 270px; margin-right: 26px; }
+.card.small .art { border-radius: 14px; }
+.search .column { position: absolute; left: 1249px; top: 150px; width: 575px; }
+.search .field {
+    height: 76px; padding: 0 28px; border-radius: 38px; margin-bottom: 28px;
+    background: rgba(255, 255, 255, 0.12); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.14);
+    font-size: 32px; font-weight: 600; line-height: 76px; white-space: nowrap; overflow: hidden;
+}
+.search .field.placeholder .text { color: rgba(255, 255, 255, 0.45); font-weight: 500; }
+.search .field.placeholder .caret { display: none; }
+.search .caret {
+    display: inline-block; width: 3px; height: 38px; margin-left: 3px; vertical-align: -6px;
+    background: #ef6f9b; -webkit-animation: blink 1s steps(1) infinite; animation: blink 1s steps(1) infinite;
+}
+@-webkit-keyframes blink { 50% { opacity: 0; } }
+@keyframes blink { 50% { opacity: 0; } }
+.kb .kbrow { height: 62px; margin-bottom: 10px; white-space: nowrap; }
+.kb .key {
+    display: inline-block; vertical-align: top; margin-right: 10px; border-radius: 12px;
+    background: rgba(255, 255, 255, 0.16); text-align: center;
+    font-size: 30px; font-weight: 500;
+    transition: background-color 0.12s ease, color 0.12s ease, -webkit-transform 0.12s ease, transform 0.12s ease;
+}
+.kb .key:last-child { margin-right: 0; }
+.kb .key.fn { background: rgba(255, 255, 255, 0.08); font-size: 23px; font-weight: 600; color: rgba(255, 255, 255, 0.85); }
+.kb .key.on { background: rgba(255, 255, 255, 0.4); }
+.kb .key.gap { background: transparent; }
+.kb .key.lit { background: #fff; color: #1c1c1e; -webkit-transform: scale(1.08); transform: scale(1.08); }
+.search .suggestions { margin-top: 24px; }
+.search .suggestion {
+    height: 52px; padding: 0 22px; border-radius: 26px;
+    font-size: 26px; font-weight: 500; line-height: 52px; color: rgba(255, 255, 255, 0.8);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.search .suggestion.lit { background: #fff; color: #1c1c1e; }

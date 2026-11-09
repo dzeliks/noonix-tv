@@ -11,6 +11,8 @@ export interface StripKind<T> {
     lines?(it: T): HTMLElement[]
     /** the class on the card: "card" plus this */
     cls?: string
+    /** the strip's visible width (default: the page between its margins) */
+    room?: number
 }
 
 export interface Strip<T> {
@@ -25,7 +27,6 @@ export interface Strip<T> {
 }
 
 const restSlot = 2
-const room = 1920 - 2 * 96
 
 export function strip<T>(kind: StripKind<T>): Strip<T> {
     const track = h("div.track")
@@ -46,6 +47,7 @@ export function strip<T>(kind: StripKind<T>): Strip<T> {
         },
         place(lit: boolean, near: boolean): void {
             const step = kind.width + kind.gap
+            const room = kind.room || 1920 - 2 * 96
             const first = Math.max(0, Math.min(s.at - restSlot, s.cards.length - Math.floor((room + kind.gap) / step)))
             track.style.transform = track.style.webkitTransform = "translate3d(" + (-first * step) + "px,0,0)"
             const keep = look.lowMemory ? 10 : 16
