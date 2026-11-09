@@ -12,6 +12,7 @@ import * as sources from "../data/sources"
 import * as profiles from "../data/profiles"
 import * as store from "../data/store"
 import * as trakt from "../data/trakt"
+import * as subtitles from "../data/subs"
 
 declare const __VERSION__: string
 
@@ -63,6 +64,15 @@ export function settingsScreen(app: App): Screen {
                 ok: function () { app.push(profilesScreen(app), false) } },
             { label: tr("Language"), value: function () { return language() === "sr" ? "Srpski" : "English" },
                 ok: function () { settings.put("language", s.language === "sr" ? "en" : "sr"); location.reload() } },
+            { label: tr("Subtitles"), value: function () { const c = subtitles.preferred(); return c ? subtitles.languageName(c) : tr("Off") },
+                hint: tr("Turned on when a video has them, found online when it doesn't (OpenSubtitles)"),
+                ok: function () {
+                    const cur = subtitles.preferred()
+                    app.menu(tr("Subtitles"), [{ label: tr("Off"), icon: cur ? undefined : "check", run: function () { subtitles.setPreferred("") } }]
+                        .concat(subtitles.languages.map(function (l) {
+                            return { label: l.name, icon: cur === l.code ? "check" : undefined, run: function () { subtitles.setPreferred(l.code) } }
+                        })))
+                } },
             { label: tr("Low memory mode"), value: function () { return lowNames[s.lowMode] + (s.lowMode === "auto" ? " (" + (look.lowMemory ? tr("On") : tr("Off")) + ")" : "") },
                 hint: tr("Lighter artwork and fewer cards kept, for older TVs"),
                 ok: function () { settings.put("lowMode", s.lowMode === "auto" ? "on" : s.lowMode === "on" ? "off" : "auto"); location.reload() } },

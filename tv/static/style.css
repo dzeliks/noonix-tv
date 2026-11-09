@@ -428,7 +428,7 @@ html, body {
 }
 .blur .menu .mbox { background: rgba(40, 40, 46, 0.72); -webkit-backdrop-filter: blur(40px); backdrop-filter: blur(40px); }
 .menu .mtitle { padding: 0 20px 18px; font-size: 25px; font-weight: 600; color: rgba(255, 255, 255, 0.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.menu .mrow { height: 76px; padding: 0 20px; margin-bottom: 8px; border-radius: 22px; font-size: 28px; font-weight: 600; line-height: 76px; white-space: nowrap; }
+.menu .mrow { height: 76px; padding: 0 20px; margin-bottom: 8px; border-radius: 22px; font-size: 28px; font-weight: 600; line-height: 76px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .menu .mrow .ico { display: inline-block; vertical-align: top; margin: 23px 18px 0 0; }
 .menu .mrow .ico svg { display: block; }
 .menu .mrow.lit { background: #fff; color: #1c1c1e; }
@@ -523,3 +523,6 @@ html, body {
 .card { position: relative; }
 .card .pbar { position: absolute; left: 14px; right: 14px; bottom: 14px; height: 6px; border-radius: 3px; background: rgba(0, 0, 0, 0.55); overflow: hidden; }
 .card .pfill { height: 100%; border-radius: 3px; background: #ef6f9b; }
+.menu .mlist { position: relative; overflow: hidden; }
+.menu .mbox.long .mlist { height: 756px; }
+.menu .mtrack { transition: -webkit-transform 0.18s ease-out, transform 0.18s ease-out; }

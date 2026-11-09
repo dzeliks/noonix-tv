@@ -9,9 +9,17 @@ export function menuScreen(title: string, entries: MenuEntry[], close: () => voi
     const rows = entries.map(function (e) {
         return h("div.mrow", null, e.icon ? icon(e.icon, 30) : h("span.ico.blank"), h("span", { text: e.label }))
     })
-    const box = h("div.mbox", null, h("div.mtitle", { text: title }), ...rows)
+    const track = h("div.mtrack", null, ...rows)
+    const box = h("div.mbox", null, h("div.mtitle", { text: title }), h("div.mlist", null, track))
     const el = h("div.menu", null, box)
-    function light(): void { for (let i = 0; i < rows.length; i++) rows[i].className = "mrow" + (i === at ? " lit" : "") }
+    // a long one scrolls: the lit row stays a couple in from the edges
+    const shown = 9
+    if (rows.length > shown) box.className += " long"
+    function light(): void {
+        for (let i = 0; i < rows.length; i++) rows[i].className = "mrow" + (i === at ? " lit" : "")
+        const first = Math.max(0, Math.min(at - 4, rows.length - shown))
+        track.style.transform = track.style.webkitTransform = "translate3d(0," + (-first * 84) + "px,0)"
+    }
     light()
     return {
         el,

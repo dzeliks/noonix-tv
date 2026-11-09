@@ -12,6 +12,7 @@ import * as tmdb from "../data/tmdb"
 import * as sources from "../data/sources"
 import * as progress from "../data/progress"
 import * as trakt from "../data/trakt"
+import * as subtitles from "../data/subs"
 
 const osdMs = 4500
 const saveEvery = 10000
@@ -45,6 +46,13 @@ export function playerScreen(app: App, first: PlayReq): Screen {
     let nextOff = false
 
     let ended = false
+    // subtitles found online: drawn here from their cues, moved by delay (seconds)
+    let ext: subtitles.Cue[] | null = null
+    let extName = ""
+    let extId = ""
+    let delay = 0
+    let extTimer = 0
+    let found: subtitles.Found[] | null = null
     const subs = h("div.subs")
     const poster = h("img.pbackdrop", { alt: "" }) as HTMLImageElement
     const status = h("div.pstatus")
@@ -148,6 +156,8 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         spinner.style.display = ""
         ended = false
         subs.textContent = ""
+        dropExt()
+        found = null
         video.open(s.url)
         clearTimeout(startTimer)
         startTimer = window.setTimeout(function () { if (!started) fail("no start") }, startWait)
@@ -183,6 +193,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
                 say("")
                 trakt.scrobble("start", target(), share())
                 showOsd()
+                autoSubs()
             }
         },
         waiting(): void { if (started) spinner.style.display = "" },
@@ -207,7 +218,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             save(false)
             trakt.scrobble("pause", target(), share())
         },
-        subtitle(text: string): void { subs.textContent = text },
+        subtitle(text: string): void { if (!ext) subs.textContent = text },
     })
     el.insertBefore(video.el, poster.nextSibling)
     el.insertBefore(subs, osd)
@@ -354,7 +365,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             start: started ? video.time() : undefined })
     }
 
-    /** audio and subtitle tracks, the ones the file has */
+    /** audio and subtitle tracks: the file's own, then the ones found online */
     function tracks(): void {
         const audio = video.audioTracks()
         const text = video.textTracks()
@@ -362,15 +373,111 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         audio.forEach(function (t) {
             entries.push({ label: tr("Audio") + ": " + t.label, icon: t.on ? "check" : undefined, run: function () { video.setAudio(t.id) } })
         })
-        if (text.length) {
-            const any = text.some(function (t) { return t.on })
-            entries.push({ label: tr("Subtitles") + ": " + tr("Off"), icon: any ? undefined : "check", run: function () { video.setText(-1); subs.textContent = "" } })
-            text.forEach(function (t) {
-                entries.push({ label: tr("Subtitles") + ": " + t.label, icon: t.on ? "check" : undefined, run: function () { video.setText(t.id) } })
-            })
-        }
-        if (!entries.length) { app.toast(tr("This file has one audio track and no subtitles")); return }
+        const any = !!ext || text.some(function (t) { return t.on })
+        entries.push({ label: tr("Subtitles") + ": " + tr("Off"), icon: any ? undefined : "check", run: function () { dropExt(); video.setText(-1); subs.textContent = "" } })
+        text.forEach(function (t) {
+            entries.push({ label: tr("Subtitles") + ": " + t.label, icon: t.on && !ext ? "check" : undefined, run: function () { dropExt(); video.setText(t.id) } })
+        })
+        if (ext) entries.push({ label: tr("Subtitles") + ": " + extName, icon: "check", run: function () { /* on */ } })
+        if (req.imdb) entries.push({ label: tr("Find subtitles"), icon: "search", run: findMenu })
+        if (ext) entries.push({ label: tr("Subtitle timing") + (delay ? " (" + (delay > 0 ? "+" : "") + delay.toFixed(1) + " s)" : ""), icon: "clock", run: timingMenu })
         app.menu(tr("Audio and subtitles"), entries)
+    }
+
+    function subTarget(): sources.Target | null {
+        return req.imdb ? { kind: req.item.kind, imdb: req.imdb, season: req.season, episode: req.episode } : null
+    }
+
+    function release(): string {
+        const s = list[at]
+        return s ? (s.filename || s.title) : ""
+    }
+
+    function foundList(): Promise<subtitles.Found[]> {
+        if (found) return Promise.resolve(found)
+        const t = subTarget()
+        if (!t) return Promise.resolve([])
+        return subtitles.find(t).then(function (f) { found = f; return f })
+    }
+
+    /** the preferred language when the file has none of it */
+    function autoSubs(): void {
+        const choice = subtitles.preferred()
+        if (!choice || ext) return
+        const own = video.textTracks()
+        for (let i = 0; i < own.length; i++) {
+            const l = own[i].label.toLowerCase()
+            if (subtitles.matches(choice, l.split(/[^a-z]/)[0]) || l.indexOf(subtitles.languageName(choice).toLowerCase()) >= 0) {
+                if (!own[i].on) video.setText(own[i].id)
+                return
+            }
+        }
+        const r = req
+        foundList().then(function (f) {
+            const pick = subtitles.best(f, choice, release())[0]
+            if (pick && alive && req === r && !ext) useExt(pick, false)
+        })
+    }
+
+    function useExt(f: subtitles.Found, say: boolean): void {
+        const r = req
+        subtitles.load(f.url).then(function (cues) {
+            if (!alive || req !== r) return
+            video.setText(-1)
+            ext = cues
+            extId = f.id
+            extName = subtitles.languageName(f.lang)
+            delay = 0
+            clearInterval(extTimer)
+            extTimer = window.setInterval(drawExt, 200)
+            drawExt()
+            if (say) app.toast(tr("Subtitles: %1", extName))
+        }, function () { if (say) app.toast(tr("Those subtitles didn't load")) })
+    }
+
+    function drawExt(): void { if (ext) subs.textContent = subtitles.at(ext, video.time() - delay) }
+
+    function dropExt(): void {
+        clearInterval(extTimer)
+        if (ext) subs.textContent = ""
+        ext = null
+        extId = ""
+        delay = 0
+    }
+
+    function findMenu(): void {
+        app.toast(tr("Looking for subtitles…"))
+        foundList().then(function (f) {
+            if (!alive) return
+            if (!f.length) { app.toast(tr("No subtitles found")); return }
+            // the preferred language first (closest releases), then the best of each other one
+            const choice = subtitles.preferred()
+            const picks = choice ? subtitles.best(f, choice, release()).slice(0, 6) : []
+            const langs: { [l: string]: boolean } = {}
+            f.forEach(function (x) { if (!choice || !subtitles.matches(choice, x.lang)) langs[x.lang] = true })
+            Object.keys(langs).forEach(function (l) { const b = subtitles.best(f, l, release())[0]; if (b) picks.push(b) })
+            app.menu(tr("Find subtitles"), picks.slice(0, 14).map(function (x): MenuEntry {
+                const name = x.name.replace(/\.(srt|vtt|sub|ass)$/i, "")
+                return {
+                    label: subtitles.languageName(x.lang) + (name ? "  ·  " + (name.length > 42 ? name.slice(0, 41) + "…" : name) : ""),
+                    icon: x.id === extId ? "check" : undefined,
+                    run: function () { useExt(x, true) },
+                }
+            }))
+        })
+    }
+
+    /** earlier or later in half seconds; the menu comes back after each step */
+    function timingMenu(): void {
+        const step = function (d: number): MenuEntry {
+            return { label: (d < 0 ? tr("Earlier") : tr("Later")) + " " + Math.abs(d).toFixed(1) + " s", run: function () {
+                delay = Math.round((delay + d) * 10) / 10
+                drawExt()
+                timingMenu()
+            } }
+        }
+        app.menu(tr("Subtitle timing") + ": " + (delay > 0 ? "+" : "") + delay.toFixed(1) + " s",
+            [step(-0.5), step(0.5), step(-0.1), step(0.1), { label: tr("Reset"), icon: "restart", run: function () { delay = 0; drawExt() } }])
     }
 
     function upNextNow(): void {
@@ -388,7 +495,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
                 save(false)
                 trakt.scrobble(share() >= 0.92 ? "stop" : "pause", target(), share())
             }
-            clearTimeout(osdTimer); clearInterval(saveTimer); clearTimeout(startTimer); clearTimeout(seekTimer); clearTimeout(nextTimer)
+            clearTimeout(osdTimer); clearInterval(saveTimer); clearTimeout(startTimer); clearTimeout(seekTimer); clearTimeout(nextTimer); clearInterval(extTimer)
             // the decoder is let go now, not when the element is collected
             video.close()
         },
