@@ -535,3 +535,6 @@ html, body {
     transition: opacity 0.25s ease, -webkit-transform 0.25s ease, transform 0.25s ease;
 }
 .player .skipbtn.on { opacity: 1; -webkit-transform: none; transform: none; }
+.card .pdone { position: absolute; right: 12px; top: 12px; width: 42px; height: 42px; border-radius: 21px; background: rgba(0, 0, 0, 0.6); color: #8fe3a5; }
+.card .pdone .ico { display: block; margin: 8px; }
+.card .pdone svg { display: block; }

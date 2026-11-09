@@ -147,3 +147,19 @@ export function paused(): Promise<Paused[]> {
         })
     })
 }
+
+/** the trakt watchlist, latest added first */
+export function watchlist(): Promise<{ kind: tmdb.Kind; tmdb: number }[]> {
+    return fresh().then(function (tok) {
+        if (!tok) return []
+        return store.cached("trakt:watchlist:" + tok.user, 300, function () {
+            return json({ url: api + "/sync/watchlist/movies,shows/added?limit=40", headers: headers(tok) })
+        }).then(function (list: any[]) {
+            return (list || []).map(function (w: any) {
+                const show = w.type === "show"
+                const ids = show ? w.show && w.show.ids : w.movie && w.movie.ids
+                return ids && ids.tmdb ? { kind: (show ? "show" : "movie") as tmdb.Kind, tmdb: ids.tmdb as number } : null
+            }).filter(function (x): x is { kind: tmdb.Kind; tmdb: number } { return !!x })
+        })
+    })
+}

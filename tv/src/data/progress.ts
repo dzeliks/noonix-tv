@@ -133,3 +133,12 @@ export function toggleLibrary(it: tmdb.Item): boolean {
     store.set(profiles.key("library"), list)
     return true
 }
+
+/** finished ones, latest first: recently watched */
+export function history(): tmdb.Item[] {
+    const list = all()
+    return Object.keys(list).map(function (k) { return list[k] })
+        .filter(function (p) { return p.finished })
+        .sort(function (a, b) { return b.updated - a.updated })
+        .map(function (p) { return p.item })
+}

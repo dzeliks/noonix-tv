@@ -10,6 +10,7 @@ import * as tmdb from "../data/tmdb"
 import * as progress from "../data/progress"
 import * as trakt from "../data/trakt"
 import { App, Screen } from "./app"
+import { icon } from "./icons"
 
 // where the focused row's title rests on the 1080 page, and a row's height (title, poster, room)
 const rowTitleY = 590
@@ -21,6 +22,7 @@ export const posterKind = {
     // part watched: a bar along the bottom of the poster
     lines: function (it: tmdb.Item): HTMLElement[] {
         const p = progress.get(it.kind, it.id)
+        if (p && p.finished && it.kind === "movie") return [h("div.pdone", null, icon("check", 26))]
         const share = !p || p.finished ? 0 : p.duration ? p.position / p.duration : p.share || 0
         if (share < 0.02) return []
         const fill = h("div.pfill")
@@ -151,7 +153,7 @@ export function homeScreen(app: App): Screen {
             app.toast(progress.toggleLibrary(it) ? tr("Added to My List") : tr("Removed from My List"))
             refreshLocal()
         } })
-        if (r.def.id === "continue" || r.def.id === "upnext") {
+        if (r.def.id === "continue" || r.def.id === "upnext" || r.def.id === "history") {
             entries.push({ label: tr("Remove from %1", tr(r.def.title)), icon: "minus", run: function () { progress.forget(it.kind, it.id); refreshLocal() } })
         }
         if (it.kind === "movie") {

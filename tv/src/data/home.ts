@@ -11,7 +11,7 @@ export interface RowDef {
 }
 
 /** rows filled from what's kept on the tv (and trakt): asked again whenever home comes back */
-export function isLocal(id: string): boolean { return /^(continue|upnext|library)/.test(id) }
+export function isLocal(id: string): boolean { return /^(continue|upnext|library|watchlist|history)/.test(id) }
 
 export function rows(): RowDef[] {
     return [
@@ -58,11 +58,14 @@ export function showRows(): RowDef[] {
 }
 
 export function libraryRows(): RowDef[] {
-    return [
+    const out: RowDef[] = [
         { id: "continue", title: "Continue Watching", style: "poster" },
         { id: "library-show", title: "Shows", style: "poster" },
         { id: "library-movie", title: "Movies", style: "poster" },
     ]
+    if (trakt.user()) out.push({ id: "watchlist", title: "Watchlist", style: "poster" })
+    out.push({ id: "history", title: "Recently watched", style: "poster" })
+    return out
 }
 
 /** local progress first, then what trakt has paused elsewhere */
@@ -96,6 +99,18 @@ export function row(id: string): Promise<tmdb.Item[]> {
         return Promise.resolve(progress.upNext().map(function (p) { return p.item }).filter(function (it) { return !going[it.kind + ":" + it.id] }))
     }
     if (id === "library") return Promise.resolve(progress.library())
+    if (id === "history") return Promise.resolve(progress.history())
+    if (id === "watchlist") {
+        return trakt.watchlist().then(function (list) {
+            return Promise.all(list.slice(0, 30).map(function (w) {
+                return tmdb.details(w.kind, w.tmdb).then(function (d) { return d as tmdb.Item }, function () { return null })
+            }))
+        }).then(function (got: (tmdb.Item | null)[]) {
+            const out: tmdb.Item[] = []
+            got.forEach(function (x) { if (x) out.push(x) })
+            return out
+        })
+    }
     if (id === "library-show" || id === "library-movie") {
         const k = id === "library-show" ? "show" : "movie"
         return Promise.resolve(progress.library().filter(function (it) { return it.kind === k }))
