@@ -9,10 +9,19 @@
     <author href="https://github.com/dzeliks/noonix-tv">dzeliks</author>
     <license href="https://www.gnu.org/licenses/gpl-3.0.html">GPL-3.0-or-later</license>
     <feature name="http://tizen.org/feature/screen.size.all"/>
+    <feature name="http://tizen.org/feature/web.service"/>
     <access origin="*" subdomains="true"/>
     <tizen:privilege name="http://tizen.org/privilege/internet"/>
     <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
     <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
     <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable"
                    encryption="disable" install-location="auto" hwkey-event="enable"/>
+    <!-- the torrent engine: started by the app when a torrent source plays, ends itself when idle -->
+    <tizen:service id="@TIZEN_PACKAGE@.Engine" auto-restart="false" on-boot="false">
+        <tizen:content src="engine/service.js"/>
+        <tizen:name>Noonix TV engine</tizen:name>
+        <tizen:icon src="icons/icon-512.png"/>
+        <tizen:description>Plays torrent sources on this TV</tizen:description>
+        <tizen:category name="http://tizen.org/category/service"/>
+    </tizen:service>
 </widget>

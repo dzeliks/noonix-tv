@@ -1,5 +1,5 @@
-// this computer as a tv's streaming server: lg and samsung tvs have no torrent client, so noonix tv
-// there (or stremio) asks one on the network, stremio's way: GET /<info hash>/<file index>, ranges
+// this computer as a tv's streaming server: noonix tv on lg and samsung tvs has its own small engine,
+// but can ask one on the network instead (as stremio can), stremio's way: GET /<info hash>/<file index>, ranges
 // for seeking. off until the user turns it on, and only while torrents are allowed. like the app's
 // own torrents it only downloads, never uploads; what a tv watched is deleted a while after it stops
 use crate::{store, torrent};

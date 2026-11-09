@@ -202,5 +202,7 @@ var strings = [
     QT_TRANSLATE_NOOP("core", "Planned"),
     QT_TRANSLATE_NOOP("core", "Pilot"),
     QT_TRANSLATE_NOOP("core", "Post Production"),
-    QT_TRANSLATE_NOOP("core", "Rumored")
+    QT_TRANSLATE_NOOP("core", "Rumored"),
+    // streaming torrents to tvs (core/src/tvserver.rs)
+    QT_TRANSLATE_NOOP("core", "Port 11470 is in use: Stremio Service may already be running here")
 ]

@@ -95,7 +95,7 @@ Item {
         out.push({ label: qsTr("Allow torrents"), checkable: true, checked: t.allowed === true, act: "torrents",
                    detail: qsTr("Download only, at your own risk. While it's off, torrent sources stay hidden") })
         out.push({ label: qsTr("What's this?"), detail: qsTr("Torrents in a few lines"), value: "?", act: "help:torrent" })
-        // lg and samsung tvs have no torrent client: this computer can be theirs
+        // lg and samsung tvs stream torrents themselves; this computer can do it for them (more memory, a disk)
         if (t.allowed === true)
             out.push({ label: qsTr("Stream torrents to TVs"), checkable: true, checked: tvs.on === true, act: "tvserver",
                        detail: !tvs.on ? qsTr("Noonix TV on an LG or Samsung TV plays torrent sources through this device")

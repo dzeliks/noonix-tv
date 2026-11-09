@@ -147,7 +147,7 @@ final class SourcesFlow {
                  checkable: true, checked: allowed == true, act: "torrents"),
             Line(label: L("What's this?"), detail: L("Torrents in a few lines"), value: "?", act: "help:torrent"),
         ]
-        // lg and samsung tvs have no torrent client: this device can be theirs (not an apple tv)
+        // lg and samsung tvs stream torrents themselves; this device can do it for them (not an apple tv)
         if allowed == true && !Platform.tv {
             let on = tvs["on"] as? Bool == true
             let detail = !on ? L("Noonix TV on an LG or Samsung TV plays torrent sources through this device")

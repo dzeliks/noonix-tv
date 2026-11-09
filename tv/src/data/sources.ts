@@ -1,9 +1,10 @@
 // sources: stremio addons (core stremio.rs, addons.rs, ranking.rs, cut down for a tv). a tv plays what an
-// addon hands over as a link (debrid, http). it has no torrent client: torrents play through a streaming
-// server on the network (stremio's model: /<infohash>/<file index>), when one is set in settings
+// addon hands over as a link (debrid, http). torrents, once allowed, play through a streaming server
+// (stremio's model: /<infohash>/<file index>): the tv's own engine (data/engine), or one set in settings
 import { json } from "./http"
 import * as store from "./store"
 import * as settings from "./settings"
+import * as engine from "./engine"
 import * as memory from "./memory"
 import { platform } from "../platform"
 import * as look from "../ui/look"
@@ -121,14 +122,17 @@ export function streams(t: Target): Promise<Stream[]> {
         })
     })).then(function (lists) {
         torrentsSkipped = skipped
+        torrentsWhy = settings.all().torrents !== true ? "allow" : "server"
         const ranked = rank(([] as Stream[]).concat.apply([], lists))
         return t.tmdb ? memory.order(t.kind, t.tmdb, ranked) : ranked
     })
 }
 
 let torrentsSkipped = 0
-/** torrent sources the last ask left out: no streaming server set */
+let torrentsWhy: "allow" | "server" = "allow"
+/** torrent sources the last ask left out: torrents not allowed, or nowhere to play them (a browser) */
 export function skippedTorrents(): number { return torrentsSkipped }
+export function skippedWhy(): "allow" | "server" { return torrentsWhy }
 
 /** a torrent source's info hash (infoHash, or a magnet link's btih), else null */
 function hashOf(s: any): string | null {
@@ -161,8 +165,8 @@ function normalize(addon: string, s: any): Stream | "torrent" | null {
     const hash = typeof s.url === "string" && /^https?:/.test(s.url) ? null : hashOf(s)
     let url: string
     if (hash) {
-        const server = settings.all().server
-        if (!server) return "torrent"
+        const server = engine.base()
+        if (settings.all().torrents !== true || !server) return "torrent"
         url = torrentUrl(server, s, hash)
     } else if (typeof s.url === "string" && /^https?:/.test(s.url)) url = s.url
     else return null

@@ -5,6 +5,11 @@ import sys
 import xml.etree.ElementTree as ET
 
 T = {
+    # ---- torrents to lg / samsung tvs
+    "Stream torrents to TVs": "Strimuj torente na TV-e",
+    "Noonix TV on an LG or Samsung TV plays torrent sources through this device": "Noonix TV na LG ili Samsung TV-u pušta torent izvore preko ovog uređaja",
+    "On the TV: Settings › Streaming server › %1, while Noonix TV is open here": "Na TV-u: Podešavanja › Server za strimovanje › %1, dok je Noonix TV ovde otvoren",
+    "Port 11470 is in use: Stremio Service may already be running here": "Port 11470 je zauzet: Stremio Service možda već radi ovde",
     # ---- 0.4.1: search pill, low memory mode
     "All": "Sve",
     "No shows for “%1”": "Nema serija za „%1“",
@@ -786,6 +791,8 @@ T = {
 
 # the same english, another meaning
 BY_CONTEXT = {
+    ("FolderPicker", "That didn't work"): "To nije uspelo",
+    ("core", "Couldn't open that folder"): "Folder nije otvoren",
     ("core", "History"): "Istorijski",
     ("Setup", "Sources"): "Izvori",
     ("Settings", "Hide"): "Skrivanje",

@@ -14,12 +14,16 @@ export interface Settings {
     hidden: string[]
     /** skip "who's watching?": open on the last profile */
     askProfile: boolean
-    /** a stremio-compatible streaming server (stremio service, noonix tv on a computer): plays torrent
-     *  sources for the tv, which has no torrent client of its own. "" = none */
+    /** torrent sources allowed (asked, as on the other builds): null = never asked, they stay hidden */
+    torrents: boolean | null
+    /** a stremio-compatible streaming server (stremio service, noonix tv on a computer) that plays torrent
+     *  sources instead of this tv's own engine. "" = this tv (a browser: none) */
     server: string
 }
 
-const defaults: Settings = { lowMode: "auto", language: "en", quality: "auto", preferred: [], hidden: [], askProfile: true, server: "" }
+const defaults: Settings = {
+    lowMode: "auto", language: "en", quality: "auto", preferred: [], hidden: [], askProfile: true, torrents: null, server: "",
+}
 
 /** what the user typed, as a base url: "192.168.1.5" -> "http://192.168.1.5:11470" (stremio's port) */
 export function serverUrl(typed: string): string {

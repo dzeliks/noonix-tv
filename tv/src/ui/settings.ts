@@ -5,10 +5,12 @@ import { Action } from "../keys"
 import { platform } from "../platform"
 import * as look from "./look"
 import { inputScreen } from "./input"
+import { askPrompt } from "./exitprompt"
 import { App, Screen, MenuEntry } from "./app"
 import { profileName } from "./profiles"
 import * as settings from "../data/settings"
 import * as sources from "../data/sources"
+import * as engine from "../data/engine"
 import * as profiles from "../data/profiles"
 import * as store from "../data/store"
 import * as trakt from "../data/trakt"
@@ -134,8 +136,22 @@ export function settingsScreen(app: App): Screen {
             { label: tr("Addons"), value: function () { return n ? trn("%n installed", n) : tr("None") },
                 hint: tr("Sources come from Stremio addons: a debrid one plays best on a TV"),
                 ok: function () { app.push(addonsScreen(app), false) } },
-            { label: tr("Streaming server"), value: function () { return s.server ? s.server.replace(/^https?:\/\//, "") : tr("None") },
-                hint: tr("Plays torrent sources: Stremio Service or Noonix TV running on a computer on your network"),
+            { label: tr("Allow torrents"), value: function () { return settings.all().torrents ? tr("On") : tr("Off") },
+                hint: tr("Download only, at your own risk. While it's off, torrent sources stay hidden"),
+                ok: function () {
+                    if (settings.all().torrents) { settings.put("torrents", false); app.toast(tr("Torrent sources are off")); return }
+                    app.push(askPrompt(tr("Allow torrents?"), torrentLines(), tr("Allow Torrents"), tr("Not Now"), function () {
+                        settings.put("torrents", true)
+                        app.pop()
+                        app.toast(engine.base() ? tr("Torrent sources are on") : tr("Torrent sources need a streaming server"))
+                    }, app.pop), true)
+                } },
+            { label: tr("Streaming server"), value: function () {
+                    const server = settings.all().server
+                    return server ? server.replace(/^https?:\/\//, "") : engine.onTv() ? tr("This TV") : tr("None")
+                },
+                hint: engine.onTv() ? tr("Torrents play on this TV. Or set a computer on your network: Stremio Service or Noonix TV")
+                    : tr("Plays torrent sources: Stremio Service or Noonix TV running on a computer on your network"),
                 ok: function () { app.push(serverScreen(app), false) } },
             { label: "Trakt", value: function () { const u = trakt.user(); return u ? tr("Signed in as %1", u) : trakt.available() ? tr("Sign in") : tr("Not set up") },
                 hint: tr("Scrobbles what you watch and brings back where you left off"),
@@ -174,12 +190,27 @@ export function settingsScreen(app: App): Screen {
     return screen
 }
 
+/** what allowing torrents means (qml SourcesHelp's words) */
+function torrentLines(): string[] {
+    return [
+        tr("A source of yours can answer with torrents: the video comes straight from other people who have it. Noonix TV only downloads, it never shares pieces back, and deletes the file when you stop."),
+        tr("It can be slower to start, and videos few people have may not play. Others in the swarm can see your IP address."),
+        tr("Downloading videos you have no right to is illegal in many countries. Use it at your own risk, and only for what you're allowed to watch."),
+    ]
+}
+
 /** the streaming server's address, checked before it's kept */
 function serverScreen(app: App): Screen {
-    return inputScreen(tr("Streaming server"), tr("Its address, e.g. 192.168.1.20 (port 11470 unless you type one). Empty: none"),
+    const empty = engine.onTv() ? tr("Its address, e.g. 192.168.1.20 (port 11470 unless you type one). Empty: this TV")
+        : tr("Its address, e.g. 192.168.1.20 (port 11470 unless you type one). Empty: none")
+    return inputScreen(tr("Streaming server"), empty,
         settings.all().server.replace(/^http:\/\//, "").replace(/:11470$/, ""), function (v) {
             const url = settings.serverUrl(v)
-            if (!url) { settings.put("server", ""); app.toast(tr("Torrent sources are off")); return }
+            if (!url) {
+                settings.put("server", "")
+                app.toast(engine.onTv() ? tr("Torrents play on this TV") : tr("Torrent sources are off"))
+                return
+            }
             app.toast(tr("Checking %1…", url.replace(/^https?:\/\//, "")))
             sources.checkServer(url).then(function () {
                 settings.put("server", url)

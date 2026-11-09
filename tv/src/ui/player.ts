@@ -15,6 +15,7 @@ import * as trakt from "../data/trakt"
 import * as subtitles from "../data/subs"
 import * as memory from "../data/memory"
 import * as skip from "../data/skip"
+import * as engine from "../data/engine"
 
 const osdMs = 4500
 const saveEvery = 10000
@@ -169,10 +170,19 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         found = null
         segs = []
         showSkip(null)
-        video.open(s.url)
         clearTimeout(startTimer)
-        // a torrent first finds people and its file list on the server
-        startTimer = window.setTimeout(function () { if (!started) fail("no start") }, s.torrent ? startWait * 3 : startWait)
+        const open = function () {
+            video.open(s.url)
+            // a torrent first finds people and its file list on the server
+            startTimer = window.setTimeout(function () { if (!started) fail("no start") }, s.torrent ? startWait * 3 : startWait)
+        }
+        if (!s.torrent) return open()
+        // this tv's own engine is started first (a server set in settings is already running)
+        engine.ensure(s.url).then(function () {
+            if (alive && list[at] === s) open()
+        }, function (e) {
+            if (alive && list[at] === s) fail(String(e.message || e))
+        })
     }
 
     // ---- how's this one? (qml Match): what works is remembered for the next episodes, what doesn't gets fixed here

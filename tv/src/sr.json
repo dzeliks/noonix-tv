@@ -92,5 +92,28 @@
     "This TV may not decode it": "Ovaj TV možda ne može da ga dekodira",
     "Dolby Vision only: colours may be off": "Samo Dolby Vision: boje mogu biti pogrešne",
     "No sound on this TV (DTS)": "Bez zvuka na ovom TV-u (DTS)",
-    "When a video has more than one language": "Kad video ima više od jednog jezika"
+    "When a video has more than one language": "Kad video ima više od jednog jezika",
+    "Torrent sources are off": "Torent izvori su isključeni",
+    "Torrent sources are on": "Torent izvori su uključeni",
+    "Torrent sources need a streaming server": "Torent izvorima treba server za strimovanje",
+    "Streaming server": "Server za strimovanje",
+    "This TV": "Ovaj TV",
+    "Torrents play on this TV. Or set a computer on your network: Stremio Service or Noonix TV": "Torenti se puštaju na ovom TV-u. Ili postavi računar na svojoj mreži: Stremio Service ili Noonix TV",
+    "Plays torrent sources: Stremio Service or Noonix TV running on a computer on your network": "Pušta torent izvore: Stremio Service ili Noonix TV na računaru na tvojoj mreži",
+    "Its address, e.g. 192.168.1.20 (port 11470 unless you type one). Empty: this TV": "Njegova adresa, npr. 192.168.1.20 (port 11470 ako ne upišeš drugi). Prazno: ovaj TV",
+    "Its address, e.g. 192.168.1.20 (port 11470 unless you type one). Empty: none": "Njegova adresa, npr. 192.168.1.20 (port 11470 ako ne upišeš drugi). Prazno: nijedan",
+    "Torrents play on this TV": "Torenti se puštaju na ovom TV-u",
+    "Checking %1…": "Proveravam %1…",
+    "Streaming server saved: torrent sources play through it": "Server za strimovanje sačuvan: torent izvori se puštaju preko njega",
+    "No streaming server answered at %1": "Nijedan server za strimovanje se ne javlja na %1",
+    "%n torrent source is hidden: allow torrents in Settings": [
+        "%n torent izvor je skriven: dozvoli torente u Podešavanjima",
+        "%n torent izvora su skrivena: dozvoli torente u Podešavanjima",
+        "%n torent izvora je skriveno: dozvoli torente u Podešavanjima"
+    ],
+    "%n torrent source needs a streaming server (Settings)": [
+        "%n torent izvoru treba server za strimovanje (Podešavanja)",
+        "%n torent izvorima treba server za strimovanje (Podešavanja)",
+        "%n torent izvorima treba server za strimovanje (Podešavanja)"
+    ]
 }

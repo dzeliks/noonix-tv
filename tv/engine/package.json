@@ -1,0 +1,9 @@
+{
+    "name": "noonix-tv-engine",
+    "private": true,
+    "description": "the torrent engine bundled into the lg and samsung apps (built by tools/build.mjs)",
+    "license": "GPL-3.0-or-later",
+    "dependencies": {
+        "torrent-stream": "1.2.1"
+    }
+}

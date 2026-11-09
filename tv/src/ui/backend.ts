@@ -147,12 +147,13 @@ function avplay(ev: Events): Backend {
             dur = now = ahead = 0
             // the video is drawn under the page: the page goes see-through while it plays
             if (!/ av\b/.test(document.documentElement.className)) document.documentElement.className += " av"
-            try {
-                av.stop()
-                av.close()
-            } catch (e) { /* nothing open */ }
+            // each on its own: stop throws when nothing plays, and close must still run
+            try { av.stop() } catch (e) { /* nothing playing */ }
+            try { av.close() } catch (e) { /* nothing open */ }
+            let step = "open"
             try {
                 av.open(url)
+                step = "display"
                 av.setDisplayRect(0, 0, window.innerWidth, window.innerHeight)
                 av.setDisplayMethod("PLAYER_DISPLAY_MODE_LETTER_BOX")
                 // 4k streams need it asked for before prepare
@@ -162,6 +163,7 @@ function avplay(ev: Events): Backend {
                     av.setBufferingParam("PLAYER_BUFFER_FOR_PLAY", "PLAYER_BUFFER_SIZE_IN_SECOND", 4)
                     av.setBufferingParam("PLAYER_BUFFER_FOR_RESUME", "PLAYER_BUFFER_SIZE_IN_SECOND", platform.lowMemoryDefault ? 8 : 12)
                 } catch (e) { /* the tv's own sizes */ }
+                step = "listener"
                 av.setListener({
                     onbufferingstart: function () { ev.waiting() },
                     onbufferingcomplete: function () { if (!paused) ev.playing() },
@@ -170,6 +172,7 @@ function avplay(ev: Events): Backend {
                     onerror: function (e: string) { ev.error(String(e)) },
                     onsubtitlechange: function (_ms: number, text: string) { ev.subtitle(text || "") },
                 })
+                step = "prepare"
                 av.prepareAsync(function () {
                     dur = av.getDuration() / 1000
                     ev.meta()
@@ -178,7 +181,11 @@ function avplay(ev: Events): Backend {
                     ev.playing()
                 }, function (e: any) { ev.error("prepare " + (e && e.name || e)) })
             } catch (e) {
-                ev.error("open " + e)
+                // avplay throws WebAPIException objects: their name says what went wrong
+                const x = e as any
+                let state = "?"
+                try { state = av.getState() } catch (e2) { /* old firmware */ }
+                ev.error(step + " (" + state + ") " + (x && x.name ? x.name + " " + (x.message || "") : x))
             }
         },
         play(): void { try { av.play(); paused = false; ev.playing() } catch (e) { /* not ready */ } },

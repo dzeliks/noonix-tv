@@ -191,6 +191,12 @@ html, body {
 }
 .prompt.in .box { -webkit-transform: translate(-50%, -50%); transform: translate(-50%, -50%); }
 .prompt .question { font-size: 64px; font-weight: 700; margin-bottom: 56px; }
+/* a question with a few lines under it (allow torrents?) */
+.prompt.long { background: rgba(0, 0, 0, 0.88); }
+.prompt.long .box { width: 1240px; white-space: normal; }
+.prompt.long .question { margin-bottom: 36px; }
+.prompt .ptext { margin-bottom: 52px; }
+.prompt .pline { font-size: 30px; line-height: 44px; color: rgba(255, 255, 255, 0.72); margin-bottom: 20px; }
 .button {
     display: inline-block; width: 300px; height: 84px; margin: 0 14px;
     border-radius: 42px;

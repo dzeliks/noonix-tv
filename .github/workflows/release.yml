@@ -300,6 +300,8 @@ jobs:
         run: |
           cd tv
           npm ci --no-audit --no-fund
+          # the torrent engine that goes into both packages (tv/engine)
+          npm ci --no-audit --no-fund --prefix engine
           npm run -s check
           node tools/build.mjs --package
           cd dist && for f in *.ipk *.wgt; do sha256sum "$f" > "$f.sha256"; done

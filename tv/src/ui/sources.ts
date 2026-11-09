@@ -46,7 +46,9 @@ export function sourcesScreen(app: App, req: PlayReq): Screen {
         list = got
         const skipped = sources.skippedTorrents()
         status.textContent = !sources.addons().length ? tr("No addons yet: add one in Settings")
-            : skipped ? (got.length ? "" : tr("No sources found") + ". ") + trn("%n torrent source needs a streaming server (Settings)", skipped)
+            : skipped ? (got.length ? "" : tr("No sources found") + ". ") + (sources.skippedWhy() === "allow"
+                ? trn("%n torrent source is hidden: allow torrents in Settings", skipped)
+                : trn("%n torrent source needs a streaming server (Settings)", skipped))
             : got.length ? "" : tr("No sources found")
         // with sources listed the note goes under the title, out of the list's way
         if (got.length) status.className = "sstatus note"

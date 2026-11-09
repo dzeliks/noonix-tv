@@ -8,6 +8,7 @@ import fs from "node:fs"
 import path from "node:path"
 import zlib from "node:zlib"
 import { fileURLToPath } from "node:url"
+import { bundleEngine } from "./engine.mjs"
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const tv = path.dirname(here)
@@ -20,6 +21,8 @@ const pack = process.argv.includes("--package")
 const version = /^version = "(.*)"/m.exec(fs.readFileSync(path.join(repo, "core/Cargo.toml"), "utf8"))[1]
 const webosId = "io.github.dzeliks.noonixtv"
 const tizenPackage = "NoonixTVap"
+// the torrent engine runs beside the app as a service (as stremio's server does on these tvs)
+const webosService = `${webosId}.engine`
 
 // serbian: every translated message of the qt app (the first one wins where contexts differ)
 const sr = {}
@@ -84,10 +87,18 @@ fs.writeFileSync(path.join(app, "appinfo.json"), fill(fs.readFileSync(path.join(
 fs.writeFileSync(path.join(app, "config.xml"), fill(fs.readFileSync(path.join(tv, "static/tizen/config.xml"), "utf8")))
 console.log(`app ${version}: ${path.relative(repo, app)} (app.js ${(es5.length / 1024).toFixed(0)} kb)`)
 
+// the engine: samsung's in the app folder (config.xml points at it), lg's as its own service folder
+const tizenEngine = await bundleEngine("tizen.js", { __VERSION__: version })
+fs.mkdirSync(path.join(app, "engine"), { recursive: true })
+fs.writeFileSync(path.join(app, "engine/service.js"), tizenEngine.code)
+fs.writeFileSync(path.join(app, "engine/NOTICES.txt"), tizenEngine.notices)
+const webosEngine = await bundleEngine("webos.js", { __VERSION__: version, __SERVICE_ID__: webosService })
+console.log(`engine: ${(tizenEngine.code.length / 1024).toFixed(0)} kb`)
+
 if (pack) {
-    const ipk = path.join(out, `Noonix-TV-${version}-webos.ipk`)
+    const ipk = path.join(out, `Noonix-TV-${version}-webos-preview.ipk`)
     fs.writeFileSync(ipk, makeIpk())
-    const wgt = path.join(out, `Noonix-TV-${version}-tizen-unsigned.wgt`)
+    const wgt = path.join(out, `Noonix-TV-${version}-tizen-unsigned-preview.wgt`)
     fs.writeFileSync(wgt, makeZip(listFiles(app).filter((f) => f !== "appinfo.json")))
     console.log(`packages: ${path.relative(repo, ipk)}, ${path.relative(repo, wgt)}`)
 }
@@ -120,15 +131,31 @@ function makeIpk() {
     const dirs = new Set(["usr", "usr/palm", "usr/palm/applications", appDir, "usr/palm/packages", pkgDir])
     let bytes = 0
     for (const rel of listFiles(app)) {
-        if (rel === "config.xml") continue
+        if (rel === "config.xml" || rel.startsWith("engine/")) continue
         const parts = rel.split("/")
         for (let i = 1; i < parts.length; i++) dirs.add(`${appDir}/${parts.slice(0, i).join("/")}`)
         const body = fs.readFileSync(path.join(app, rel))
         bytes += body.length
         data.push({ name: `${appDir}/${rel}`, body })
     }
-    const info = JSON.stringify({ id: webosId, version, app: webosId }, null, 2) + "\n"
+    const info = JSON.stringify({ id: webosId, version, app: webosId, services: [webosService] }, null, 2) + "\n"
     data.push({ name: `${pkgDir}/packageinfo.json`, body: Buffer.from(info) })
+    // the engine service: usr/palm/services/<id>, a node package the system runs on demand
+    const svcDir = `usr/palm/services/${webosService}`
+    dirs.add("usr/palm/services").add(svcDir)
+    const about = "Noonix TV's torrent engine: plays torrent sources on this TV"
+    const svc = {
+        "services.json": JSON.stringify({ id: webosService, description: about, services: [{ name: webosService, description: about }] }, null, 2) + "\n",
+        "package.json": JSON.stringify({ name: webosService, version, description: about, main: "index.js", license: "GPL-3.0-or-later" }, null, 2) + "\n",
+        "index.js": webosEngine.code,
+        "NOTICES.txt": webosEngine.notices,
+        "LICENSE": fs.readFileSync(path.join(repo, "LICENSE"), "utf8"),
+    }
+    for (const [name, body] of Object.entries(svc)) {
+        const b = Buffer.from(body)
+        bytes += b.length
+        data.push({ name: `${svcDir}/${name}`, body: b })
+    }
     const entries = [...dirs].sort().map((name) => ({ name, dir: true })).concat(data.sort((a, b) => a.name < b.name ? -1 : 1))
     const control = [
         `Package: ${webosId}`,

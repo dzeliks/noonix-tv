@@ -132,7 +132,9 @@ function boot(): void {
         details.push(d)
         if (details.length > keepDetails) {
             const old = details.shift() as Screen
-            screens.splice(screens.indexOf(old), 1)
+            const oi = screens.indexOf(old)
+            screens.splice(oi, 1)
+            overs.splice(oi, 1)
             if (old.el.parentNode) old.el.parentNode.removeChild(old.el)
             if (old.closed) old.closed()
         }
@@ -141,6 +143,7 @@ function boot(): void {
     // the home builds under the splash, so its first rows are there when it lifts
     const homeEl = homeScreen(app)
     screens.push(homeEl)
+    overs.push(false)
     stage.appendChild(homeEl.el)
     let ready = false
     // more than one profile: who's watching, once a run (a switch reloads past it)

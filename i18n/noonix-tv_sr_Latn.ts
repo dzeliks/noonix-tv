@@ -2660,6 +2660,18 @@ Ono što ne valja sređuje se na licu mesta.</translation>
         <translation>Torenti u par redova</translation>
     </message>
     <message>
+        <source>Stream torrents to TVs</source>
+        <translation>Strimuj torente na TV-e</translation>
+    </message>
+    <message>
+        <source>Noonix TV on an LG or Samsung TV plays torrent sources through this device</source>
+        <translation>Noonix TV na LG ili Samsung TV-u pušta torent izvore preko ovog uređaja</translation>
+    </message>
+    <message>
+        <source>On the TV: Settings › Streaming server › %1, while Noonix TV is open here</source>
+        <translation>Na TV-u: Podešavanja › Server za strimovanje › %1, dok je Noonix TV ovde otvoren</translation>
+    </message>
+    <message>
         <source>Addon or extension address</source>
         <translation>Adresa addona ili ekstenzije</translation>
     </message>
@@ -3893,6 +3905,10 @@ Ono što ne valja sređuje se na licu mesta.</translation>
     <message>
         <source>Rumored</source>
         <translation>Najavljena</translation>
+    </message>
+    <message>
+        <source>Port 11470 is in use: Stremio Service may already be running here</source>
+        <translation>Port 11470 je zauzet: Stremio Service možda već radi ovde</translation>
     </message>
 </context>
 </TS>
