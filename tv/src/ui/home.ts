@@ -95,6 +95,8 @@ export function homeScreen(app: App): Screen {
         clear(rowsEl)
         const mine = rows = defs.map(function (def) {
             const s = strip(posterKind)
+            // grey cards until it comes (qml Skeleton); fill() replaces them
+            for (let k = 0; k < 8; k++) s.track.appendChild(h("div.card.skel", null, h("div.art")))
             const rowEl = h("div.row", null, h("div.rowtitle", { text: tr(def.title) }), s.track)
             rowsEl.appendChild(rowEl)
             return { def, el: rowEl, strip: s, done: false, top: 0 }
