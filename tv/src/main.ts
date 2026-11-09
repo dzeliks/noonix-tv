@@ -15,6 +15,7 @@ import { settingsScreen } from "./ui/settings"
 import { menuScreen, toast } from "./ui/menu"
 import { prepare as preparePlayback } from "./ui/backend"
 import { pickerScreen } from "./ui/profiles"
+import * as setup from "./ui/setup"
 import * as profiles from "./data/profiles"
 import { detailsScreen } from "./ui/details"
 import { exitPrompt } from "./ui/exitprompt"
@@ -122,7 +123,13 @@ function boot(): void {
     // more than one profile: who's watching, once a run (a switch reloads past it)
     let picked = false
     try { picked = sessionStorage.getItem("noonix:picked") === "1" } catch (e) { /* no session storage */ }
-    if (profiles.list().length > 1 && !picked) {
+    if (setup.needed()) {
+        // the first run: home waits under it
+        push(setup.setupScreen(app, function () {
+            try { sessionStorage.setItem("noonix:picked", "1") } catch (e) { /* fine */ }
+            pop()
+        }), false)
+    } else if (profiles.list().length > 1 && !picked) {
         push(pickerScreen(function (p) {
             try { sessionStorage.setItem("noonix:picked", "1") } catch (e) { /* asked again next run */ }
             if (p.id !== profiles.current().id) { profiles.use(p.id); location.reload(); return }

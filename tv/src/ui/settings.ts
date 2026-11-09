@@ -158,7 +158,7 @@ function addonsScreen(app: App): Screen {
     })
 }
 
-function traktScreen(app: App): Screen {
+export function traktScreen(app: App): Screen {
     let alive = true
     let timer = 0
     const code = h("div.tcode", { text: "· · · · · ·" })

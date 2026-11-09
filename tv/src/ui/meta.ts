@@ -5,6 +5,14 @@ import * as tmdb from "../data/tmdb"
 
 /** year, genres, length, rating, "ends at": short of room the genres go first, then the rating */
 export function metaLine(el: HTMLElement, it: tmdb.Item, d: tmdb.Details | null): void {
+    const owner = el as HTMLElement & { metaFor?: tmdb.Item }
+    owner.metaFor = it
+    // not laid out yet (a page over it): fitted once it shows
+    if (!el.clientWidth) {
+        el.textContent = ""
+        setTimeout(function () { if (owner.metaFor === it) metaLine(el, it, d) }, 400)
+        return
+    }
     const runtime = d && d.kind === "movie" ? d.runtime : 0
     for (let level = 0; level < 3; level++) {
         const parts: string[] = []

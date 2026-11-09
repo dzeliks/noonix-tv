@@ -15,7 +15,19 @@ import { App, Screen } from "./app"
 const rowTitleY = 590
 const rowH = 56 + 321 + 74
 
-export const posterKind = { width: 214, gap: 30, art: function (it: tmdb.Item) { return look.poster(it.poster) } }
+export const posterKind = {
+    width: 214, gap: 30,
+    art: function (it: tmdb.Item) { return look.poster(it.poster) },
+    // part watched: a bar along the bottom of the poster
+    lines: function (it: tmdb.Item): HTMLElement[] {
+        const p = progress.get(it.kind, it.id)
+        const share = !p || p.finished ? 0 : p.duration ? p.position / p.duration : p.share || 0
+        if (share < 0.02) return []
+        const fill = h("div.pfill")
+        fill.style.width = Math.min(100, share * 100).toFixed(1) + "%"
+        return [h("div.pbar", null, fill)]
+    },
+}
 
 interface Row {
     def: home.RowDef
