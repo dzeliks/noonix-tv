@@ -3,6 +3,7 @@ import { platform, registerKeys, exitApp } from "./platform"
 import { listen, Action } from "./keys"
 import { setLanguage, tr } from "./i18n"
 import * as settings from "./data/settings"
+import * as updates from "./data/updates"
 import * as tmdb from "./data/tmdb"
 import * as look from "./ui/look"
 import { nextFrame } from "./ui/dom"
@@ -150,7 +151,11 @@ function boot(): void {
             pop()
         }), true)
     }
-    showSplash(stage, __VERSION__).then(function () { ready = true })
+    showSplash(stage, __VERSION__).then(function () {
+        ready = true
+        // a while after start, once: a newer release on github
+        setTimeout(function () { updates.announce(function (v) { app.toast(tr("%1 is out", "Noonix TV " + v)) }) }, 15000)
+    })
     listen(function (a: Action) {
         if (!ready) return
         if (a === "leave") { exitApp(); return }

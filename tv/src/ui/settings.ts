@@ -13,6 +13,7 @@ import * as profiles from "../data/profiles"
 import * as store from "../data/store"
 import * as trakt from "../data/trakt"
 import * as subtitles from "../data/subs"
+import * as updates from "../data/updates"
 
 declare const __VERSION__: string
 
@@ -72,9 +73,12 @@ function patternRow(app: App, key: "preferred" | "hidden", label: string, none: 
 
 function qualityName(r: number): string { return r >= 2160 ? "4K" : r + "p" }
 
+// what github said this run: undefined while it's asked
+let latestSeen: string | null | undefined
+
 export function settingsScreen(app: App): Screen {
     const lowNames: { [k: string]: string } = { auto: tr("Auto"), on: tr("On"), off: tr("Off") }
-    return listScreen(tr("Settings"), function (): Row[] {
+    const screen = listScreen(tr("Settings"), function (): Row[] {
         const s = settings.all()
         const n = sources.addons().length
         return [
@@ -136,10 +140,16 @@ export function settingsScreen(app: App): Screen {
                 ok: function () { store.evict(1); app.toast(tr("Cache cleared")) } },
             { label: tr("Run setup again"), value: function () { return "" },
                 ok: function () { store.remove("setup"); store.remove("setupStep"); location.reload() } },
+            { label: tr("Updates"), value: function () {
+                    return latestSeen === undefined ? tr("Checking…") : latestSeen && updates.newer(latestSeen, __VERSION__) ? tr("%1 is out", latestSeen) : tr("Up to date")
+                }, hint: tr("Looks for a new version once a day") + ". " + tr("Install it from github.com/dzeliks/noonix-tv › Releases"),
+                ok: function () { /* nothing to run on a tv */ } },
             { label: tr("About"), value: function () { return "Noonix TV " + __VERSION__ + "  ·  " + platform.label + "  ·  Chromium " + platform.chrome },
                 ok: function () { /* nothing */ } },
         ]
     })
+    updates.latest().then(function (v) { latestSeen = v; screen.redraw() })
+    return screen
 }
 
 function profilesScreen(app: App): Screen {
