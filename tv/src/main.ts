@@ -6,6 +6,7 @@ import * as settings from "./data/settings"
 import * as look from "./ui/look"
 import { showSplash } from "./ui/splash"
 import { homeScreen, Screen } from "./ui/home"
+import { exitPrompt } from "./ui/exitprompt"
 
 declare const __VERSION__: string
 
@@ -36,8 +37,11 @@ function boot(): void {
         if (!ready) return
         if (a === "leave") { exitApp(); return }
         const top = screens[screens.length - 1]
-        top.action(a)
-        // TODO(F3d): back with nothing left to close asks first (qml ExitPrompt); held back leaves now
+        if (top.action(a) || a !== "back" || screens.length > 1) return
+        // back with nothing left to close: ask first
+        const prompt = exitPrompt(exitApp, function () { screens.pop() })
+        screens.push(prompt)
+        stage.appendChild(prompt.el)
     })
 }
 
