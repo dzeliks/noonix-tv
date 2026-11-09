@@ -84,12 +84,34 @@ const parsed: { [url: string]: Cue[] } = {}
 
 export function load(url: string): Promise<Cue[]> {
     if (parsed[url]) return Promise.resolve(parsed[url])
-    return send({ url: url, timeout: 20, retries: 1 }).then(function (text) {
-        const cues = parse(text)
+    return send({ url: url, timeout: 20, retries: 1, utf8: true }).then(function (text) {
+        const cues = parse(unmangle(text))
         if (!cues.length) throw new Error("no cues")
         parsed[url] = cues
         return cues
     })
+}
+
+// cp1252's 0x80-0x9f, as the characters they turn into
+const cp1252: { [ch: string]: number } = {
+    "\u20ac": 0x80, "\u201a": 0x82, "\u0192": 0x83, "\u201e": 0x84, "\u2026": 0x85, "\u2020": 0x86, "\u2021": 0x87, "\u02c6": 0x88,
+    "\u2030": 0x89, "\u0160": 0x8a, "\u2039": 0x8b, "\u0152": 0x8c, "\u017d": 0x8e, "\u2018": 0x91, "\u2019": 0x92, "\u201c": 0x93,
+    "\u201d": 0x94, "\u2022": 0x95, "\u2013": 0x96, "\u2014": 0x97, "\u02dc": 0x98, "\u2122": 0x99, "\u0161": 0x9a, "\u203a": 0x9b,
+    "\u0153": 0x9c, "\u017e": 0x9e, "\u0178": 0x9f,
+}
+
+/** utf-8 that was read as cp1252 and saved again ("â™ª" for "♪"): put back; anything else stays */
+export function unmangle(text: string): string {
+    if (!/[\u00c2-\u00f4][\u0080-\u00bf\u0152-\u2122]/.test(text)) return text
+    let enc = ""
+    for (let i = 0; i < text.length; i++) {
+        const c = text.charCodeAt(i)
+        const b = c < 0x100 ? c : cp1252[text.charAt(i)]
+        // a real character past latin-1: not mangled after all
+        if (b === undefined) return text
+        enc += b < 0x80 && b !== 0x25 ? text.charAt(i) : "%" + (b < 16 ? "0" : "") + b.toString(16)
+    }
+    try { return decodeURIComponent(enc) } catch (e) { return text }
 }
 
 function secs(t: string): number {

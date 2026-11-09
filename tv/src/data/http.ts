@@ -16,6 +16,8 @@ export interface Req {
     /** seconds */
     timeout?: number
     retries?: number
+    /** read the body as utf-8 whatever the server says (old engines fall back to latin-1) */
+    utf8?: boolean
 }
 
 function once(req: Req): Promise<string> {
@@ -23,6 +25,7 @@ function once(req: Req): Promise<string> {
         const x = new XMLHttpRequest()
         x.open(req.method || "GET", req.url, true)
         x.timeout = (req.timeout || 15) * 1000
+        if (req.utf8 && x.overrideMimeType) x.overrideMimeType("text/plain; charset=utf-8")
         const headers = req.headers || {}
         for (const k in headers) x.setRequestHeader(k, headers[k])
         if (req.body !== undefined) x.setRequestHeader("content-type", "application/json")

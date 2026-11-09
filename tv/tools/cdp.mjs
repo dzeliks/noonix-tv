@@ -33,7 +33,9 @@ if (cmd === "shot") {
 } else if (cmd === "reload") {
     await send("Page.reload", { ignoreCache: true })
 } else if (cmd === "eval") {
-    const r = await send("Runtime.evaluate", { expression: args.join(" "), returnByValue: true, awaitPromise: true })
-    console.log(JSON.stringify(r.result.result.value ?? r.result))
+    let r = await send("Runtime.evaluate", { expression: args.join(" "), returnByValue: true, awaitPromise: true })
+    // chromium 56 refuses awaitPromise on a plain value
+    if (r.error) r = await send("Runtime.evaluate", { expression: args.join(" "), returnByValue: true })
+    console.log(JSON.stringify(r.result ? r.result.result.value ?? r.result : r.error))
 }
 ws.close()
