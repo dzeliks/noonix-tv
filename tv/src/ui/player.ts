@@ -13,6 +13,7 @@ import * as sources from "../data/sources"
 import * as progress from "../data/progress"
 import * as trakt from "../data/trakt"
 import * as subtitles from "../data/subs"
+import * as memory from "../data/memory"
 import * as skip from "../data/skip"
 
 const osdMs = 4500
@@ -30,6 +31,8 @@ function clock(s: number): string {
 
 export function playerScreen(app: App, first: PlayReq): Screen {
     let req = first
+    // the binge group of the source that played (a switch or a fallback changes it)
+    let playedGroup: string | null = first.stream ? first.stream.bingeGroup : null
     let list: sources.Stream[] = []
     let at = 0
     let alive = true
@@ -118,7 +121,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             if (!alive || req !== r) return
             r.imdb = imdb
             if (!imdb) throw new Error(tr("This title has no imdb id: addons can't look it up"))
-            return sources.streams({ kind: r.item.kind, imdb: imdb, season: r.season, episode: r.episode }).then(function (got) {
+            return sources.streams({ kind: r.item.kind, imdb: imdb, tmdb: r.item.id, season: r.season, episode: r.episode }).then(function (got) {
                 if (!alive || req !== r) return
                 list = pickOrder(got)
                 at = 0
@@ -141,11 +144,12 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         return tmdb.details(r.item.kind, r.item.id).then(function (d) { return d.imdb })
     }
 
-    /** the next episode keeps to the last one's release (its binge group) */
+    /** the next episode keeps to the release that played last (its binge group), unless it was reported */
     function pickOrder(got: sources.Stream[]): sources.Stream[] {
-        const group = first.stream && first.stream.bingeGroup
+        const group = playedGroup
         if (!group) return got
-        return got.filter(function (s) { return s.bingeGroup === group }).concat(got.filter(function (s) { return s.bingeGroup !== group }))
+        const same = function (s: sources.Stream): boolean { return s.bingeGroup === group && !memory.isBad(s) }
+        return got.filter(same).concat(got.filter(function (s) { return !same(s) }))
     }
 
     function start(): void {
@@ -168,6 +172,32 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         video.open(s.url)
         clearTimeout(startTimer)
         startTimer = window.setTimeout(function () { if (!started) fail("no start") }, startWait)
+    }
+
+    // ---- how's this one? (qml Match): what works is remembered for the next episodes, what doesn't gets fixed here
+
+    function rate(): void {
+        const s = list[at]
+        app.menu(tr("How's this one?"), [
+            { label: tr("Good match"), icon: "check", run: function () {
+                memory.like(req.item.kind, req.item.id, s)
+                app.toast(tr("Good match · saved"))
+            } },
+            { label: tr("Picture or sound problem"), run: function () { memory.report(s); playedGroup = null; otherSource() } },
+            { label: tr("Wrong subtitles"), run: findMenu },
+            { label: tr("Subtitles out of sync"), run: function () { if (ext) timingMenu(); else findMenu() } },
+        ])
+    }
+
+    /** another source, from the same spot */
+    function otherSource(): void {
+        if (at + 1 >= list.length) { app.toast(tr("No sources found")); return }
+        save(false)
+        req.start = video.time()
+        started = false
+        app.toast(tr("Another source, from the same spot"))
+        at++
+        start()
     }
 
     function fail(why: string): void {
@@ -196,6 +226,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             if (!started) {
                 started = true
                 clearTimeout(startTimer)
+                if (list[at]) playedGroup = list[at].bingeGroup
                 poster.style.display = "none"
                 say("")
                 trakt.scrobble("start", target(), share())
@@ -393,6 +424,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         if (ext) entries.push({ label: tr("Subtitles") + ": " + extName, icon: "check", run: function () { /* on */ } })
         if (req.imdb) entries.push({ label: tr("Find subtitles"), icon: "search", run: findMenu })
         if (ext) entries.push({ label: tr("Subtitle timing") + (delay ? " (" + (delay > 0 ? "+" : "") + delay.toFixed(1) + " s)" : ""), icon: "clock", run: timingMenu })
+        if (started && list[at]) entries.push({ label: tr("How's this one?"), icon: "eye", run: rate })
         // the osd's other buttons (qml Osd): for remotes without media keys
         if (req.item.kind === "show") entries.push({ label: tr("Next Episode"), icon: "next", run: upNextNow })
         entries.push({ label: tr("Start Over"), icon: "restart", run: function () { video.seek(0); showOsd() } })

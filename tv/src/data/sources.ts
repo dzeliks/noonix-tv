@@ -3,6 +3,7 @@
 import { json } from "./http"
 import * as store from "./store"
 import * as settings from "./settings"
+import * as memory from "./memory"
 import { platform } from "../platform"
 import * as look from "../ui/look"
 
@@ -39,6 +40,8 @@ export interface Stream {
 export interface Target {
     kind: "movie" | "show"
     imdb: string
+    /** the viewers' word on its sources (memory.ts) */
+    tmdb?: number
     season?: number
     episode?: number
 }
@@ -107,7 +110,10 @@ export function streams(t: Target): Promise<Stream[]> {
             console.warn("streams " + a.name + ": " + e)
             return [] as Stream[]
         })
-    })).then(function (lists) { return rank(([] as Stream[]).concat.apply([], lists)) })
+    })).then(function (lists) {
+        const ranked = rank(([] as Stream[]).concat.apply([], lists))
+        return t.tmdb ? memory.order(t.kind, t.tmdb, ranked) : ranked
+    })
 }
 
 function normalize(addon: string, s: any): Stream | null {

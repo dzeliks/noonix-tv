@@ -43,7 +43,7 @@ export function sourcesScreen(app: App, req: PlayReq): Screen {
     imdb.then(function (id) {
         if (!id) throw new Error(tr("This title has no imdb id: addons can't look it up"))
         req.imdb = id
-        return sources.streams({ kind: req.item.kind, imdb: id, season: req.season, episode: req.episode })
+        return sources.streams({ kind: req.item.kind, imdb: id, tmdb: req.item.id, season: req.season, episode: req.episode })
     }).then(function (got) {
         if (!alive) return
         list = got
