@@ -96,7 +96,15 @@ function boot(): void {
         sources(req: PlayReq): void { push(sourcesScreen(app, req), false) },
         menu(title: string, entries: MenuEntry[]): void {
             if (!entries.length) return
-            push(menuScreen(title, entries, pop), true)
+            const under = screens[screens.length - 1]
+            // the page under it redraws once the pick has run (the menu closes first)
+            const after = entries.map(function (e): MenuEntry {
+                return { label: e.label, icon: e.icon, run: function () {
+                    e.run()
+                    if (screens[screens.length - 1] === under && under.shown) under.shown()
+                } }
+            })
+            push(menuScreen(title, after, pop), true)
         },
         push: push,
         pop: pop,

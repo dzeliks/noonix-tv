@@ -2,6 +2,7 @@
 // addon hands over as a link (debrid, http): torrents need an engine it doesn't have
 import { json } from "./http"
 import * as store from "./store"
+import * as settings from "./settings"
 import { platform } from "../platform"
 import * as look from "../ui/look"
 
@@ -179,8 +180,19 @@ function parseSize(text: string): number | null {
 
 // ---- ranking for this tv
 
-/** the tallest picture worth asking for here: low memory tvs stay at full hd */
-function maxResolution(): number { return look.lowMemory ? 1080 : 2160 }
+declare const webapis: any
+
+/** a full hd panel says so (samsung); lg's answer needs a service call, so it counts as 4k */
+function fullHdPanel(): boolean {
+    try { return typeof webapis !== "undefined" && webapis.productinfo && webapis.productinfo.isUdPanelSupported() === false } catch (e) { return false }
+}
+
+/** the tallest picture worth asking for here: the user's pick, else low memory and full hd tvs stay at 1080p */
+export function maxResolution(): number {
+    const q = settings.all().quality
+    if (q !== "auto") return parseInt(q, 10)
+    return look.lowMemory || fullHdPanel() ? 1080 : 2160
+}
 
 /** what this tv's player is known to trip on */
 function trouble(s: Stream): string | null {
@@ -209,6 +221,8 @@ export function rank(list: Stream[]): Stream[] {
         if (s.cached === true) n += 4e6
         else if (s.cached === null) n += 2e6
         n += Math.min(s.resolution, maxResolution()) * 1000
+        // over the limit: the closest one first
+        if (s.warn === "level") n -= s.resolution * 10
         if (s.hdr.length && s.hdr[0] !== "DV" || s.hdr.length > 1) n += 500
         if (s.source === "Remux") n -= 200 // a remux is huge for what a tv's wifi can carry
         // bigger is better within a tier, to about 40 gb

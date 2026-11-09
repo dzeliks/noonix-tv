@@ -6,13 +6,14 @@ import * as look from "./look"
 import { App, PlayReq, Screen } from "./app"
 import * as tmdb from "../data/tmdb"
 import * as sources from "../data/sources"
+import * as settings from "../data/settings"
 
 const rowH = 132
 const visible = 6
 
 function warnText(w: string): string {
     switch (w) {
-        case "level": return tr("Too big for this TV")
+        case "level": return settings.all().quality === "auto" ? tr("Too big for this TV") : tr("Above your picture quality")
         case "codec": return tr("This TV may not decode it")
         case "dv": return tr("Dolby Vision only: colours may be off")
         case "audio": return tr("No sound on this TV (DTS)")

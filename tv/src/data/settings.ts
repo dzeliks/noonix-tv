@@ -2,13 +2,16 @@
 import * as store from "./store"
 
 export type LowMode = "auto" | "on" | "off"
+/** the tallest picture to pick first: auto follows the tv */
+export type Quality = "auto" | "2160" | "1080" | "720"
 
 export interface Settings {
     lowMode: LowMode
     language: "en" | "sr"
+    quality: Quality
 }
 
-const defaults: Settings = { lowMode: "auto", language: "en" }
+const defaults: Settings = { lowMode: "auto", language: "en", quality: "auto" }
 
 export function all(): Settings {
     const s = store.get<Partial<Settings>>("settings", {})

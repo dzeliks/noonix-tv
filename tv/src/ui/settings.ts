@@ -5,7 +5,7 @@ import { Action } from "../keys"
 import { platform } from "../platform"
 import * as look from "./look"
 import { inputScreen } from "./input"
-import { App, Screen } from "./app"
+import { App, Screen, MenuEntry } from "./app"
 import { profileName } from "./profiles"
 import * as settings from "../data/settings"
 import * as sources from "../data/sources"
@@ -53,6 +53,8 @@ function listScreen(title: string, rows: () => Row[]): Screen & { redraw(): void
     }
 }
 
+function qualityName(r: number): string { return r >= 2160 ? "4K" : r + "p" }
+
 export function settingsScreen(app: App): Screen {
     const lowNames: { [k: string]: string } = { auto: tr("Auto"), on: tr("On"), off: tr("Off") }
     return listScreen(tr("Settings"), function (): Row[] {
@@ -72,6 +74,17 @@ export function settingsScreen(app: App): Screen {
                         .concat(subtitles.languages.map(function (l) {
                             return { label: l.name, icon: cur === l.code ? "check" : undefined, run: function () { subtitles.setPreferred(l.code) } }
                         })))
+                } },
+            { label: tr("Picture quality"), value: function () {
+                    return s.quality === "auto" ? tr("Auto") + " (" + qualityName(sources.maxResolution()) + ")" : qualityName(parseInt(s.quality, 10))
+                },
+                hint: tr("Sources above it still show, last and marked"),
+                ok: function () {
+                    const pick = function (q: settings.Quality): MenuEntry {
+                        return { label: q === "auto" ? tr("Auto") : qualityName(parseInt(q, 10)), icon: s.quality === q ? "check" : undefined,
+                            run: function () { settings.put("quality", q) } }
+                    }
+                    app.menu(tr("Picture quality"), [pick("auto"), pick("2160"), pick("1080"), pick("720")])
                 } },
             { label: tr("Low memory mode"), value: function () { return lowNames[s.lowMode] + (s.lowMode === "auto" ? " (" + (look.lowMemory ? tr("On") : tr("Off")) + ")" : "") },
                 hint: tr("Lighter artwork and fewer cards kept, for older TVs"),
