@@ -1,0 +1,15 @@
+{
+  "name": "noonix-tv-webapp",
+  "private": true,
+  "description": "noonix tv for lg webOS and samsung tizen tvs",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "check": "tsc --noEmit -p .",
+    "build": "node tools/build.mjs",
+    "package": "node tools/build.mjs --package"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "typescript": "5.9.3"
+  }
+}

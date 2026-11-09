@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets" xmlns:tizen="http://tizen.org/ns/widgets"
+        id="https://github.com/dzeliks/noonix-tv" version="@VERSION@" viewmodes="maximized">
+    <tizen:application id="@TIZEN_PACKAGE@.NoonixTV" package="@TIZEN_PACKAGE@" required_version="4.0"/>
+    <tizen:profile name="tv-samsung"/>
+    <content src="index.html"/>
+    <name>Noonix TV</name>
+    <icon src="icons/icon-512.png"/>
+    <author href="https://github.com/dzeliks/noonix-tv">dzeliks</author>
+    <license href="https://www.gnu.org/licenses/gpl-3.0.html">GPL-3.0-or-later</license>
+    <feature name="http://tizen.org/feature/screen.size.all"/>
+    <access origin="*" subdomains="true"/>
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+    <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+    <tizen:setting screen-orientation="landscape" context-menu="disable" background-support="disable"
+                   encryption="disable" install-location="auto" hwkey-event="enable"/>
+</widget>

@@ -1,0 +1,16 @@
+{
+    "id": "@WEBOS_ID@",
+    "version": "@VERSION@",
+    "vendor": "dzeliks",
+    "type": "web",
+    "main": "index.html",
+    "title": "Noonix TV",
+    "icon": "icons/icon-80.png",
+    "largeIcon": "icons/icon-130.png",
+    "bgColor": "#000000",
+    "iconColor": "#e0457b",
+    "resolution": "1920x1080",
+    "disableBackHistoryAPI": true,
+    "handlesRelaunch": false,
+    "requiredMemory": 150
+}

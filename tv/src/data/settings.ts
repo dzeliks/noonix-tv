@@ -1,0 +1,36 @@
+// settings and the user's own keys (localStorage: the tv keeps it per app)
+import * as store from "./store"
+
+export type LowMode = "auto" | "on" | "off"
+
+export interface Settings {
+    lowMode: LowMode
+    language: "en" | "sr"
+}
+
+const defaults: Settings = { lowMode: "auto", language: "en" }
+
+export function all(): Settings {
+    const s = store.get<Partial<Settings>>("settings", {})
+    const out = {} as Settings
+    for (const k in defaults) (out as any)[k] = (s as any)[k] !== undefined ? (s as any)[k] : (defaults as any)[k]
+    return out
+}
+
+export function put<K extends keyof Settings>(key: K, value: Settings[K]): void {
+    const s = store.get<Partial<Settings>>("settings", {})
+    s[key] = value
+    store.set("settings", s)
+}
+
+/** an api key or token the user typed in (empty: the built-in one) */
+export function secret(name: string): string {
+    return store.get<{ [k: string]: string }>("secrets", {})[name] || ""
+}
+
+export function setSecret(name: string, value: string): void {
+    const s = store.get<{ [k: string]: string }>("secrets", {})
+    if (value) s[name] = value
+    else delete s[name]
+    store.set("secrets", s)
+}
