@@ -26,3 +26,8 @@ export function poster(url: string | null): string | null {
 export function backdrop(url: string | null): string | null {
     return url ? url.replace(/\/t\/p\/(w\d+|original)\//, lowMemory ? "/t/p/w780/" : "/t/p/w1280/") : null
 }
+
+/** an episode still for a 400 wide card */
+export function still(url: string | null): string | null {
+    return url ? url.replace(/\/t\/p\/(w\d+|original)\//, lowMemory ? "/t/p/w300/" : "/t/p/w780/") : null
+}

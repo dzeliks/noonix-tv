@@ -195,3 +195,85 @@ html, body {
     transition: background-color 0.15s ease, color 0.15s ease, -webkit-transform 0.2s ease, transform 0.2s ease;
 }
 .button.lit { background: #fff; color: #1c1c1e; -webkit-transform: scale(1.06); transform: scale(1.06); }
+
+/* ---- pages over pages */
+.screen { opacity: 0; transition: opacity 0.24s ease-out; }
+.screen.in { opacity: 1; }
+
+/* ---- details (qml Details) */
+.details { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; background: #000; }
+.details .shade-side {
+    position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+    background: -webkit-linear-gradient(left, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.5) 55%, rgba(0, 0, 0, 0.15));
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.88), rgba(0, 0, 0, 0.5) 55%, rgba(0, 0, 0, 0.15));
+}
+.details .shade-low {
+    position: absolute; left: 0; bottom: 0; width: 1920px; height: 594px;
+    background: -webkit-linear-gradient(top, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.9) 60%, #000);
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.9) 60%, #000);
+}
+.details .body {
+    position: absolute; left: 0; top: 0; width: 1920px;
+    transition: -webkit-transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.details .info {
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-align: end; -webkit-align-items: flex-end; align-items: flex-end;
+    -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between;
+    padding: 0 96px;
+}
+.details .identity { width: 845px; }
+.details .logobox { margin-bottom: 20px; }
+.details .logo { display: none; max-width: 600px; max-height: 210px; padding-bottom: 16px; }
+.details .title {
+    font-size: 84px; font-weight: 700; line-height: 1.02; letter-spacing: -1px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.details .meta { font-size: 24px; color: rgba(255, 255, 255, 0.66); white-space: nowrap; overflow: hidden; }
+.details .meta b { color: #fff; font-weight: 600; }
+.details .story { width: 691px; }
+.details .tagline { font-size: 26px; font-weight: 600; margin-bottom: 14px; }
+.details .tagline:empty { display: none; }
+.details .plot {
+    font-size: 24px; line-height: 1.42; color: rgba(255, 255, 255, 0.86);
+    display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical; overflow: hidden;
+}
+.details .starring { margin-top: 18px; font-size: 21px; color: rgba(255, 255, 255, 0.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.details .facts { margin-top: 8px; font-size: 21px; font-weight: 500; color: rgba(255, 255, 255, 0.62); }
+.details .starring:empty, .details .facts:empty { display: none; }
+
+.details .actions { height: 90px; margin: 34px 0 0 96px; white-space: nowrap; }
+.gbutton {
+    display: inline-block; vertical-align: middle; margin: 7px 26px 0 0;
+    height: 76px; padding: 0 32px 0 28px; border-radius: 38px;
+    background: rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.16);
+    font-size: 27px; font-weight: 600; line-height: 76px;
+    transition: background-color 0.15s ease, color 0.15s ease, -webkit-transform 0.2s ease, transform 0.2s ease;
+}
+.blur .gbutton { background: rgba(255, 255, 255, 0.1); -webkit-backdrop-filter: blur(30px); backdrop-filter: blur(30px); }
+.gbutton .ico { display: inline-block; vertical-align: top; margin: 23px 14px 0 0; width: 30px; height: 30px; }
+.gbutton .ico svg { display: block; }
+.gbutton.lit, .blur .gbutton.lit { background: #fff; color: #1c1c1e; -webkit-transform: scale(1.06); transform: scale(1.06); }
+
+.details .seasons { height: 60px; margin: 34px 0 0 96px; white-space: nowrap; }
+.details .seasons .season {
+    display: inline-block; height: 56px; padding: 0 22px; margin-right: 16px; border-radius: 28px;
+    font-size: 25px; font-weight: 600; line-height: 56px; color: rgba(255, 255, 255, 0.66);
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+.details .seasons .season.sel { background: rgba(255, 255, 255, 0.22); color: #fff; }
+.details .seasons .season.lit { background: #fff; color: #1c1c1e; }
+
+.details .episodes { position: relative; height: 317px; margin-top: 34px; }
+.details .episodes .track { top: 0; }
+.card.wide { width: 400px; height: auto; margin-right: 44px; }
+.card.wide .art { height: 225px; border-radius: 18px; }
+.card.wide .label {
+    margin-top: 16px; font-size: 24px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.card.wide .sublabel { margin-top: 4px; font-size: 21px; color: rgba(255, 255, 255, 0.62); }
+.card.wide.lit { -webkit-transform: scale(1.06); transform: scale(1.06); }
+
+.details .more { position: relative; height: 451px; margin-top: 34px; }

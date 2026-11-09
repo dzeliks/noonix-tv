@@ -1,36 +1,37 @@
 // home: the top nav, the hero (whatever the focus is on) and the rows under it (qml Home, Hero, MediaRow)
 import { h, clear } from "./dom"
-import { tr, trn } from "../i18n"
+import { tr } from "../i18n"
 import { Action } from "../keys"
 import * as look from "./look"
+import { metaLine, hhmm } from "./meta"
+import { strip, step, Strip } from "./strip"
 import * as home from "../data/home"
 import * as tmdb from "../data/tmdb"
 
-// the 1080 grid (qml Theme): side margin, poster card, where the focused row's title rests
-const margin = 96
-const posterW = 214
-const posterH = 321
-const gap = 30
-const restSlot = 2
+// where the focused row's title rests on the 1080 page, and a row's height (title, poster, room)
 const rowTitleY = 590
-const rowH = 56 + posterH + 74
+const rowH = 56 + 321 + 74
+
+export const posterKind = { width: 214, gap: 30, art: function (it: tmdb.Item) { return look.poster(it.poster) } }
 
 interface Row {
     def: home.RowDef
     el: HTMLElement
-    track: HTMLElement
-    cards: HTMLElement[]
-    items: tmdb.Item[]
-    at: number
+    strip: Strip<tmdb.Item>
+    done: boolean
     top: number
 }
 
 export interface Screen {
     el: HTMLElement
     action(a: Action): boolean
+    /** back on top after the screen over it closed */
+    shown?(): void
+    /** gone for good: timers stop */
+    closed?(): void
 }
 
-export function homeScreen(): Screen {
+export function homeScreen(open: (it: tmdb.Item) => void): Screen {
     const tabs = [
         { id: "search", label: "", icon: "search" },
         { id: "home", label: tr("Home") },
@@ -66,35 +67,50 @@ export function homeScreen(): Screen {
         hero, rowsEl, hint, nav)
 
     let rows: Row[] = []
-    // a page's rows (home, movies, shows): built fresh, the first ones asked for first
+    let current = 0
+    let inNav = false
+    let tab = 1
+    let page = "home"
+    let shown = ""
+    let detailTimer = 0
+
+    // ---- pages: home, movies, shows (each its own rows, built fresh, the first ones asked for first)
+
+    const pages: { [id: string]: () => home.RowDef[] } = { home: home.rows, movies: home.movieRows, shows: home.showRows }
+
     function build(defs: home.RowDef[]): void {
         clear(rowsEl)
-        rows = defs.map(function (def) {
-            const track = h("div.track")
-            const rowEl = h("div.row", null, h("div.rowtitle", { text: tr(def.title) }), track)
+        const mine = rows = defs.map(function (def) {
+            const s = strip(posterKind)
+            const rowEl = h("div.row", null, h("div.rowtitle", { text: tr(def.title) }), s.track)
             rowsEl.appendChild(rowEl)
-            return { def, el: rowEl, track, cards: [], items: [], at: 0, top: 0 }
+            return { def, el: rowEl, strip: s, done: false, top: 0 }
         })
         current = 0
         shown = ""
         layoutRows()
-        const mine = rows
-        rows.forEach(function (r, i) {
+        mine.forEach(function (r, i) {
             setTimeout(function () {
                 if (rows !== mine) return
-                home.row(r.def.id).then(function (items) { if (rows === mine) fill(r, items) }, function (e) {
-                    console.warn("row " + r.def.id + ": " + e)
+                home.row(r.def.id).then(function (items) {
                     if (rows !== mine) return
-                    r.el.setAttribute("data-done", "1")
-                    layoutRows()
-                    place()
+                    r.strip.fill(items)
+                    loaded(r)
+                }, function (e) {
+                    console.warn("row " + r.def.id + ": " + e)
+                    if (rows === mine) loaded(r)
                 })
             }, i < 3 ? 0 : 300 + i * 80)
         })
         place()
     }
-    const pages: { [id: string]: () => home.RowDef[] } = { home: home.rows, movies: home.movieRows, shows: home.showRows }
-    let page = "home"
+
+    function loaded(r: Row): void {
+        r.done = true
+        layoutRows()
+        place()
+    }
+
     function choose(id: string): void {
         // TODO(F3d): search, library and settings pages
         if (!pages[id] || id === page) return
@@ -102,83 +118,37 @@ export function homeScreen(): Screen {
         build(pages[id]())
     }
 
-    let current = 0
-    let inNav = false
-    let tab = 1
-
     // ---- rows
 
     function layoutRows(): void {
         let y = 0
         for (let i = 0; i < rows.length; i++) {
             const r = rows[i]
+            // an empty row (nothing came) takes no room
+            const there = r.strip.items.length > 0 || !r.done
             r.top = y
             r.el.style.top = y + "px"
-            // an empty row (nothing came) takes no room
-            if (r.items.length || !r.el.getAttribute("data-done")) y += rowH
-            r.el.style.display = r.items.length || !r.el.getAttribute("data-done") ? "" : "none"
+            r.el.style.display = there ? "" : "none"
+            if (there) y += rowH
         }
-    }
-
-    function fill(r: Row, items: tmdb.Item[]): void {
-        r.items = items
-        r.cards = items.map(function (it) {
-            const card = h("div.card", null, h("div.art"))
-            r.track.appendChild(card)
-            ;(card as any).item = it
-            return card
-        })
-        r.el.setAttribute("data-done", "1")
-        layoutRows()
-        place()
-    }
-
-    /** cards near the view get their art, far ones let it go (low memory keeps fewer) */
-    function art(r: Row, near: boolean): void {
-        const keep = look.lowMemory ? 10 : 16
-        for (let i = 0; i < r.cards.length; i++) {
-            const c = r.cards[i]
-            const box = c.firstChild as HTMLElement
-            const want = near && i >= r.at - keep && i <= r.at + keep
-            const url = want ? look.poster((c as any).item.poster) : null
-            const has = box.getAttribute("data-src")
-            if (url && has !== url) {
-                box.style.backgroundImage = "url(\"" + url + "\")"
-                box.setAttribute("data-src", url)
-            } else if (!url && has) {
-                box.style.backgroundImage = ""
-                box.removeAttribute("data-src")
-            }
-        }
-    }
-
-    function slide(r: Row): void {
-        const step = posterW + gap
-        const first = Math.max(0, Math.min(r.at - restSlot, r.cards.length - Math.floor((1920 - 2 * margin + gap) / step)))
-        r.track.style.transform = r.track.style.webkitTransform = "translate3d(" + (-Math.max(0, first) * step) + "px,0,0)"
     }
 
     function place(): void {
         const r = rows[current]
         rowsEl.style.transform = rowsEl.style.webkitTransform = "translate3d(0," + (rowTitleY - (r ? r.top : 0)) + "px,0)"
         for (let i = 0; i < rows.length; i++) {
-            const row = rows[i]
-            row.el.className = "row" + (i < current ? " gone" : "")
-            for (let j = 0; j < row.cards.length; j++) row.cards[j].className = "card" + (!inNav && i === current && j === row.at ? " lit" : "")
-            slide(row)
-            art(row, Math.abs(i - current) <= (look.lowMemory ? 1 : 2))
+            rows[i].el.className = "row" + (i < current ? " gone" : "")
+            rows[i].strip.place(!inNav && i === current, Math.abs(i - current) <= (look.lowMemory ? 1 : 2))
         }
         for (let t = 0; t < tabEls.length; t++) {
             tabEls[t].className = "tab" + (tabs[t].icon ? " icon " + tabs[t].icon : "") + (t === tab ? " on" : "") + (inNav && t === tab ? " lit" : "")
         }
         hint.style.opacity = inNav ? "0" : "1"
-        show(r && r.items[r.at])
+        show(r && r.strip.current())
     }
 
     // ---- the hero: the focused title, its details a moment later (moving fast fetches nothing)
 
-    let shown = ""
-    let detailTimer = 0
     function show(it: tmdb.Item | undefined): void {
         const key = it ? it.kind + ":" + it.id : ""
         if (key === shown) return
@@ -190,7 +160,7 @@ export function homeScreen(): Screen {
         title.style.display = ""
         title.textContent = it.title
         sub.textContent = ""
-        metaLine(it, null)
+        metaLine(meta, it, null)
         overview.textContent = it.overview
         extra.textContent = ""
         detailTimer = window.setTimeout(function () {
@@ -200,31 +170,13 @@ export function homeScreen(): Screen {
                     logo.onload = function () { if (shown === key) { logo.style.display = ""; title.style.display = "none" } }
                     logo.src = d.logo
                 }
-                metaLine(it, d)
+                metaLine(meta, it, d)
                 const cast = d.cast.slice(0, 3).map(function (c) { return c.name }).join(", ")
                 clear(extra)
                 if (cast) extra.appendChild(h("div", { text: tr("Starring %1", cast) }))
                 if (d.network) extra.appendChild(h("div.network", { text: d.network }))
             }, function () { /* the list's own words stay */ })
         }, 350)
-    }
-
-    /** year, genres, length, rating, "ends at" (qml MetaLine): short of room the genres go first, then the rating */
-    function metaLine(it: tmdb.Item, d: tmdb.Details | null): void {
-        const runtime = d && d.kind === "movie" ? d.runtime : 0
-        for (let level = 0; level < 3; level++) {
-            const parts: string[] = []
-            if (it.year) parts.push(String(it.year))
-            const genres = (d ? d.genres : it.genres).slice(0, 2)
-            if (level === 0 && genres.length) parts.push(genres.join(", "))
-            if (runtime) parts.push(length(runtime))
-            if (d && d.kind === "show" && d.seasons) parts.push(trn("%n season(s)", d.seasons.length))
-            if (d && d.certification) parts.push(d.certification)
-            if (level < 2 && it.rating) parts.push("★ " + it.rating)
-            meta.textContent = parts.join("  ·  ")
-            if (runtime) meta.appendChild(h("b", { text: (parts.length ? "  ·  " : "") + tr("Ends at %1", hhmm(new Date(Date.now() + runtime * 60000))) }))
-            if (meta.scrollWidth <= meta.clientWidth) return
-        }
     }
 
     function setBackdrop(url: string | null): void {
@@ -242,7 +194,7 @@ export function homeScreen(): Screen {
 
     function tick(): void { clock.textContent = hhmm(new Date()) }
     tick()
-    setInterval(tick, 15000)
+    const ticker = setInterval(tick, 15000)
 
     // ---- keys
 
@@ -250,33 +202,28 @@ export function homeScreen(): Screen {
         if (inNav) {
             if (a === "left" && tab > 0) { tab--; choose(tabs[tab].id) }
             else if (a === "right" && tab < tabs.length - 1) { tab++; choose(tabs[tab].id) }
-            else if (a === "down" || a === "ok") { if (rows.some(function (r) { return r.items.length > 0 })) inNav = false }
+            else if (a === "down" || a === "ok") { if (rows.some(function (r) { return r.strip.items.length > 0 })) inNav = false }
             else return a !== "back"
             place()
             return true
         }
         const r = rows[current]
         if (!r) return false
-        if (a === "left" && r.at > 0) r.at--
-        else if (a === "right" && r.at < r.cards.length - 1) r.at++
-        else if (a === "down") { let n = current + 1; while (n < rows.length && !rows[n].items.length) n++; if (n < rows.length) current = n }
-        else if (a === "up") { let n = current - 1; while (n >= 0 && !rows[n].items.length) n--; if (n >= 0) current = n; else inNav = true }
-        else if (a === "back" && (current > 0 || r.at > 0)) { current = 0; rows[0].at = 0; rows.forEach(function (x) { x.at = 0 }) }
+        if (a === "left" || a === "right") step(r.strip, a === "left" ? -1 : 1)
+        else if (a === "down") { let n = current + 1; while (n < rows.length && !rows[n].strip.items.length) n++; if (n < rows.length) current = n }
+        else if (a === "up") { let n = current - 1; while (n >= 0 && !rows[n].strip.items.length) n--; if (n >= 0) current = n; else inNav = true }
+        else if (a === "ok") { const it = r.strip.current(); if (it) open(it); return true }
+        else if (a === "back" && (current > 0 || r.strip.at > 0)) { current = 0; rows.forEach(function (x) { x.strip.at = 0 }) }
         else return false
         place()
         return true
     }
 
     build(home.rows())
-    return { el, action }
-}
-
-function hhmm(d: Date): string {
-    const two = function (n: number) { return (n < 10 ? "0" : "") + n }
-    return two(d.getHours()) + ":" + two(d.getMinutes())
-}
-
-function length(min: number): string {
-    const hh = Math.floor(min / 60)
-    return hh ? hh + "h " + (min % 60) + "m" : min + "m"
+    return {
+        el,
+        action,
+        shown(): void { tick() },
+        closed(): void { clearInterval(ticker); clearTimeout(detailTimer) },
+    }
 }

@@ -5,8 +5,8 @@ without a framework, because the oldest supported TVs (webOS 4, Tizen 4, both fr
 Chromium 53 and 56: no WebAssembly, so the Rust core can't run there. The parts of the core a TV
 needs are ported to TypeScript in `src/data`.
 
-Work in progress: home and its rows run; playback, details, search, settings, profiles and Trakt
-are next.
+Work in progress: home, movies, shows and the details page run; playback, search, settings,
+profiles and Trakt are next.
 
 ## Build
 
@@ -40,5 +40,10 @@ wgt -s <profile>`), with the TV in Developer Mode, then `tizen install`.
 
 - `node tools/cdp.mjs <port> shot|key|eval|reload` drives a page over the DevTools protocol: the
   webOS TV simulators (start them with `--remote-debugging-port`) and old Chromium builds.
+- The Samsung TV web simulator (Tizen Studio, `tools/sec-tv-simulator`) takes its arguments as
+  `--key=value`: `nwjs --file=<dist/app/index.html> --platform=tizentv --resolution=1920x1080
+  --remote-debugging-port=<port> --disableInspector`. It runs a copy it makes at launch, so start
+  it again after a build. Focus the app's frame (`document.getElementById("document")`) before
+  sending keys.
 - Keys: arrows, OK (held: options), Back (held: leave), the media and colour keys. In a desktop
   browser: Escape or Backspace for Back, M for options.
