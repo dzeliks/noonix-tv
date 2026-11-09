@@ -417,20 +417,28 @@ export function playerScreen(app: App, first: PlayReq): Screen {
 
     /** the preferred language when the file has none of it */
     function autoSubs(): void {
-        const choice = subtitles.preferred()
-        if (!choice || ext) return
+        const order = subtitles.choices()
+        if (!order.length || ext) return
         const own = video.textTracks()
-        for (let i = 0; i < own.length; i++) {
-            const l = own[i].label.toLowerCase()
-            if (subtitles.matches(choice, l.split(/[^a-z]/)[0]) || l.indexOf(subtitles.languageName(choice).toLowerCase()) >= 0) {
-                if (!own[i].on) video.setText(own[i].id)
-                return
+        const ownFor = function (choice: string): number {
+            for (let i = 0; i < own.length; i++) {
+                const l = own[i].label.toLowerCase()
+                if (subtitles.matches(choice, l.split(/[^a-z]/)[0]) || l.indexOf(subtitles.languageName(choice).toLowerCase()) >= 0) return i
             }
+            return -1
         }
+        // the first choice the file has wins outright; past that the online ones count too
+        const first = ownFor(order[0])
+        if (first >= 0) { if (!own[first].on) video.setText(own[first].id); return }
         const r = req
         foundList().then(function (f) {
-            const pick = subtitles.best(f, choice, release())[0]
-            if (pick && alive && req === r && !ext) useExt(pick, false)
+            if (!alive || req !== r || ext) return
+            for (let k = 0; k < order.length; k++) {
+                const mine = k ? ownFor(order[k]) : -1
+                if (mine >= 0) { if (!own[mine].on) video.setText(own[mine].id); return }
+                const pick = subtitles.best(f, order[k], release())[0]
+                if (pick) { useExt(pick, false); return }
+            }
         })
     }
 
@@ -466,10 +474,11 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             if (!alive) return
             if (!f.length) { app.toast(tr("No subtitles found")); return }
             // the preferred language first (closest releases), then the best of each other one
-            const choice = subtitles.preferred()
-            const picks = choice ? subtitles.best(f, choice, release()).slice(0, 6) : []
+            const order = subtitles.choices()
+            let picks: subtitles.Found[] = []
+            order.forEach(function (c, k) { picks = picks.concat(subtitles.best(f, c, release()).slice(0, k ? 3 : 6)) })
             const langs: { [l: string]: boolean } = {}
-            f.forEach(function (x) { if (!choice || !subtitles.matches(choice, x.lang)) langs[x.lang] = true })
+            f.forEach(function (x) { if (!order.some(function (c) { return subtitles.matches(c, x.lang) })) langs[x.lang] = true })
             Object.keys(langs).forEach(function (l) { const b = subtitles.best(f, l, release())[0]; if (b) picks.push(b) })
             app.menu(tr("Find subtitles"), picks.slice(0, 14).map(function (x): MenuEntry {
                 const name = x.name.replace(/\.(srt|vtt|sub|ass)$/i, "")

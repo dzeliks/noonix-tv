@@ -32,6 +32,8 @@ for (const m of ts_.matchAll(/<source>([\s\S]*?)<\/source>\s*(?:<comment>[\s\S]*
     const tr = forms.length ? forms : unxml(m[2])
     if (tr.length && !(src in sr)) sr[src] = tr
 }
+// the tv's own words the qt app doesn't have
+for (const [src, tr] of Object.entries(JSON.parse(fs.readFileSync(path.join(tv, "src/sr.json"), "utf8")))) if (!(src in sr)) sr[src] = tr
 
 // the bundle: esbuild joins the modules (es2015), typescript lowers it to es5 (esbuild can't)
 const bundled = await build({

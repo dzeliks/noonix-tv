@@ -96,6 +96,16 @@ export function settingsScreen(app: App): Screen {
                             return { label: l.name, icon: cur === l.code ? "check" : undefined, run: function () { subtitles.setPreferred(l.code) } }
                         })))
                 } },
+            { label: tr("Second subtitles"), value: function () { const c = subtitles.second(); return c ? subtitles.languageName(c) : tr("None") },
+                hint: tr("For videos without the first language"),
+                ok: function () {
+                    const first = subtitles.preferred(), cur = subtitles.second()
+                    if (!first) { app.toast(tr("Choose the first language above")); return }
+                    app.menu(tr("Second subtitles"), [{ label: tr("None"), icon: cur ? undefined : "check", run: function () { subtitles.setSecond("") } }]
+                        .concat(subtitles.languages.filter(function (l) { return l.code !== first }).map(function (l) {
+                            return { label: l.name, icon: cur === l.code ? "check" : undefined, run: function () { subtitles.setSecond(l.code) } }
+                        })))
+                } },
             { label: tr("Picture quality"), value: function () {
                     return s.quality === "auto" ? tr("Auto") + " (" + qualityName(sources.maxResolution()) + ")" : qualityName(parseInt(s.quality, 10))
                 },

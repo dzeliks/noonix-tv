@@ -36,7 +36,15 @@ export function languageName(lang: string): string {
 
 /** "" is off */
 export function preferred(): string { return store.get<string>("subLang", "") }
-export function setPreferred(code: string): void { store.set("subLang", code) }
+export function setPreferred(code: string): void {
+    store.set("subLang", code)
+    if (!code || second() === code) setSecond("")
+}
+/** a second choice, for videos without the first (qml: in order of preference) */
+export function second(): string { return store.get<string>("subLang2", "") }
+export function setSecond(code: string): void { store.set("subLang2", code) }
+/** the choices in order, none when off */
+export function choices(): string[] { return [preferred(), second()].filter(function (c) { return !!c }) }
 
 /** every subtitle the addons know for it; a slow or broken addon is left out */
 export function find(t: sources.Target): Promise<Found[]> {
