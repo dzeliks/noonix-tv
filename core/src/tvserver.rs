@@ -133,12 +133,30 @@ async fn serve_all(listener: TcpListener) {
             }
         }
     });
-    while let Ok((sock, _)) = listener.accept().await {
+    while let Ok((sock, from)) = listener.accept().await {
+        // the tvs at home only: never a stranger's torrent proxy on a public address
+        if !local(from.ip()) {
+            tracing::debug!("tv server: {from} isn't on the local network");
+            continue;
+        }
         tokio::spawn(async move {
             if let Err(e) = serve(sock).await {
                 tracing::debug!("tv server http: {e:#}");
             }
         });
+    }
+}
+
+/// this device, the private ranges, link-local, and tailscale's 100.64/10 (a tv on the same tailnet)
+fn local(ip: std::net::IpAddr) -> bool {
+    use std::net::IpAddr;
+    match ip {
+        IpAddr::V4(v) => v.is_loopback() || v.is_private() || v.is_link_local() || (v.octets()[0] == 100 && v.octets()[1] & 0xc0 == 64),
+        IpAddr::V6(v) => match v.to_ipv4_mapped() {
+            Some(m) => local(IpAddr::V4(m)),
+            // ::1, fc00::/7 (unique local), fe80::/10 (link-local)
+            None => v.is_loopback() || v.segments()[0] & 0xfe00 == 0xfc00 || v.segments()[0] & 0xffc0 == 0xfe80,
+        },
     }
 }
 
@@ -314,4 +332,19 @@ async fn file_for(hash: &str, idx: i64, trackers: &[String]) -> Result<(Arc<Mana
         s.unpause(&handle).await.ok();
     }
     Ok((handle, file))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::local;
+
+    #[test]
+    fn only_the_local_network() {
+        for ip in ["127.0.0.1", "192.168.1.20", "10.0.0.5", "172.16.3.4", "169.254.1.1", "100.101.102.103", "::1", "fd12::1", "fe80::1", "::ffff:192.168.0.9"] {
+            assert!(local(ip.parse().unwrap()), "{ip}");
+        }
+        for ip in ["8.8.8.8", "100.128.0.1", "172.32.0.1", "2001:4860::8888", "::ffff:1.2.3.4"] {
+            assert!(!local(ip.parse().unwrap()), "{ip}");
+        }
+    }
 }
