@@ -16,6 +16,7 @@ import * as subtitles from "../data/subs"
 import * as memory from "../data/memory"
 import * as skip from "../data/skip"
 import * as engine from "../data/engine"
+import * as platform from "../platform"
 
 const osdMs = 4500
 const saveEvery = 10000
@@ -232,6 +233,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             if (resume > 0 && resume < d - 30) video.seek(resume)
         },
         playing(): void {
+            platform.keepAwake(true)
             spinner.style.display = "none"
             stateIco.style.display = "none"
             if (!started) {
@@ -249,6 +251,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         },
         waiting(): void { if (started) spinner.style.display = "" },
         error(why: string): void {
+            platform.keepAwake(false)
             if (!started) fail(why)
             else { spinner.style.display = "none"; say(tr("Playback stopped: the source broke off")) }
         },
@@ -259,6 +262,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             if (req.item.kind === "show" && started && !nextOff && left > 0 && left <= nextSecs + 0.5 && nextLeft < 0) upNext()
         },
         ended(): void {
+            platform.keepAwake(false)
             ended = true
             save(true)
             trakt.scrobble("stop", target(), 1)
@@ -266,6 +270,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             app.pop()
         },
         paused(): void {
+            platform.keepAwake(false)
             if (!started || ended) return
             save(false)
             trakt.scrobble("pause", target(), share())
@@ -605,6 +610,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         shown(): void { showOsd() },
         closed(): void {
             alive = false
+            platform.keepAwake(false)
             if (started && !ended) {
                 save(false)
                 trakt.scrobble(share() >= 0.92 ? "stop" : "pause", target(), share())

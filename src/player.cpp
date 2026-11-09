@@ -5,6 +5,7 @@
 #include <EGL/egl.h>
 #include <mpv/render_gl.h>
 #endif
+#include "keepawake.h"
 #include "remote.h"
 #include "videosurface.h"
 #include "noonix_core/src/bridge.cxxqt.h"
@@ -85,6 +86,10 @@ Player::Player(bool nativeVideo, QObject *parent)
 {
     std::setlocale(LC_NUMERIC, "C"); // libmpv needs it
     m_native = nativeVideo;
+    // the screen stays on while a video plays (not while paused)
+    auto awake = [this] { KeepAwake::set(m_state == QLatin1String("playing") && !m_paused); };
+    connect(this, &Player::stateChanged, this, awake);
+    connect(this, &Player::pausedChanged, this, awake);
     m_mpv = mpv_create();
     auto opt = [this](const char *k, const char *v) { mpv_set_option_string(m_mpv, k, v); };
 #ifdef Q_OS_WIN
@@ -220,6 +225,7 @@ Player::Player(bool nativeVideo, QObject *parent)
 
 Player::~Player()
 {
+    KeepAwake::set(false);
     mpv_set_wakeup_callback(m_mpv, nullptr, nullptr);
     mpv_terminate_destroy(m_mpv);
 }

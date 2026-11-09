@@ -69,3 +69,25 @@ export function exitApp(): void {
     }
     window.close()
 }
+
+/** samsung's screensaver stays away while a video plays (lg's player holds it off by itself).
+ * webapis.js comes from the tv's runtime, loaded once here */
+let webapisAsked = false
+export function keepAwake(on: boolean): void {
+    if (platform.os !== "tizen") return
+    const w = (window as any).webapis
+    if (!w && !webapisAsked) {
+        webapisAsked = true
+        const s = document.createElement("script")
+        s.src = "$WEBAPIS/webapis/webapis.js"
+        s.onload = function () { keepAwake(on) }
+        document.head.appendChild(s)
+        return
+    }
+    try {
+        const c = w && w.appcommon
+        if (c) c.setScreenSaver(on ? c.AppCommonScreenSaverState.SCREEN_SAVER_OFF : c.AppCommonScreenSaverState.SCREEN_SAVER_ON)
+    } catch (e) {
+        console.warn("screensaver: " + e)
+    }
+}

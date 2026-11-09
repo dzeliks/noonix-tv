@@ -968,7 +968,7 @@
         <source>What works is remembered for the next episodes.
 What doesn&apos;t gets fixed where you are.</source>
         <translation>Ono što valja pamti se za sledeće epizode.
-Ono što ne valja sređuje se na licu mesta.</translation>
+Ono što ne valja sređuje se automatski.</translation>
     </message>
     <message>
         <source>OK</source>

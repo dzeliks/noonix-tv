@@ -42,12 +42,12 @@ final class VideoLayer: CAMetalLayer {
 final class MPVPlayer {
     enum State: Equatable { case idle, opening, playing, ended, failed(String) }
 
-    var state: State = .idle
+    var state: State = .idle { didSet { keepAwake() } }
     var title = ""
     var subtitle: String?
     var position: Double = 0
     var duration: Double = 0
-    var paused = false
+    var paused = false { didSet { keepAwake() } }
     var logo: String?
     var cacheAhead: Double = 0
     /// the screen's refresh rate follows the video (qml Player.refreshMatch)
@@ -153,6 +153,22 @@ final class MPVPlayer {
     }
 
     /// asks the core for the session (start point, languages) and loads the file paused
+    /// the screen stays on while a video plays, not while it's paused
+    @ObservationIgnored private var awake: NSObjectProtocol?
+    private func keepAwake() {
+        let on = state == .playing && !paused
+        #if os(macOS)
+        if on, awake == nil {
+            awake = ProcessInfo.processInfo.beginActivity(options: [.idleDisplaySleepDisabled, .idleSystemSleepDisabled], reason: "Playing a video")
+        } else if !on, let a = awake {
+            ProcessInfo.processInfo.endActivity(a)
+            awake = nil
+        }
+        #else
+        UIApplication.shared.isIdleTimerDisabled = on
+        #endif
+    }
+
     func play(_ target: PlayTarget, stream: [String: Any]) async {
         guard create() else { state = .failed(L("The player could not start.")); return }
         stopTicks()

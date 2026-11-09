@@ -47,7 +47,7 @@ T = {
     "Right-click for options": "Desni klik za opcije",
     "Tap the screen while watching, then the speech bubble, to say if the source and subtitles fit.": "Dok gledaš, dodirni ekran pa oblačić da kažeš da li izvor i titlovi odgovaraju.",
     "Click the speech bubble while watching to say if the source and subtitles fit.": "Dok gledaš, klikni oblačić da kažeš da li izvor i titlovi odgovaraju.",
-    "What works is remembered for the next episodes.\nWhat doesn't gets fixed where you are.": "Ono što valja pamti se za sledeće epizode.\nOno što ne valja sređuje se na licu mesta.",
+    "What works is remembered for the next episodes.\nWhat doesn't gets fixed where you are.": "Ono što valja pamti se za sledeće epizode.\nOno što ne valja sređuje se automatski.",
     "Save": "Sačuvaj",
     "Create": "Napravi",
     "Up to pick a colour, or + for a picture.": "Gore biraš boju, ili + za sliku.",
@@ -309,7 +309,7 @@ T = {
     "Press Menu while watching to say if the source and subtitles fit.": "Tokom gledanja pritisni Meni i reci da li su izvor i titlovi dobri.",
     "Out of sync": "Kasne ili žure",
     "Picture or sound": "Slika ili zvuk",
-    "What works is remembered for the next episodes. What doesn't gets fixed where you are.": "Ono što valja pamti se za sledeće epizode. Ono što ne valja sređuje se na licu mesta.",
+    "What works is remembered for the next episodes. What doesn't gets fixed where you are.": "Ono što valja pamti se za sledeće epizode. Ono što ne valja sređuje se automatski.",
     "OK": "U redu",
     "Don't show again": "Ne prikazuj ponovo",
     # ---- rows, meta
