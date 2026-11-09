@@ -135,16 +135,17 @@ html, body {
     position: absolute; left: 0; top: 0; width: 1920px;
     transition: -webkit-transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.row { position: absolute; left: 0; width: 1920px; height: 451px; transition: opacity 0.25s ease; }
+.row { position: absolute; left: 0; width: 1920px; height: 439px; transition: opacity 0.25s ease; }
 .row.gone { opacity: 0; }
-.rowtitle { margin-left: 96px; height: 56px; font-size: 31px; font-weight: 700; line-height: 40px; }
+.rowtitle { margin-left: 96px; height: 40px; font-size: 31px; font-weight: 600; line-height: 40px; color: rgba(255, 255, 255, 0.66); transition: color 0.18s ease; }
+.row.on .rowtitle, .details .rowtitle, .searchpage .rowtitle { color: #fff; }
 .track {
-    position: absolute; left: 96px; top: 60px; white-space: nowrap;
+    position: absolute; left: 96px; top: 80px; white-space: nowrap;
     transition: -webkit-transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .card {
     display: inline-block; vertical-align: top;
-    width: 214px; height: 321px; margin-right: 30px;
+    width: 214px; height: 321px; margin-right: 34px;
     transition: -webkit-transform 0.22s cubic-bezier(0.3, 1.4, 0.5, 1), transform 0.22s cubic-bezier(0.3, 1.4, 0.5, 1);
 }
 .card .art {
@@ -275,13 +276,22 @@ html, body {
 .card.wide { width: 400px; height: auto; margin-right: 44px; }
 .card.wide .art { height: 225px; border-radius: 18px; }
 .card.wide .label {
-    margin-top: 16px; font-size: 24px; font-weight: 600;
+    margin-top: 16px; font-size: 25px; font-weight: 600;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .card.wide .sublabel { margin-top: 4px; font-size: 21px; color: rgba(255, 255, 255, 0.62); }
-.card.wide.lit { -webkit-transform: scale(1.06); transform: scale(1.06); }
+/* the art grows, the lines under it only step down (qml Card lifted) */
+.card.wide, .card.wide .label { transition: margin-top 0.2s ease; }
+.card.wide .art, .card.wide .pbar, .card.wide .pdone { transition: -webkit-transform 0.22s cubic-bezier(0.3, 1.4, 0.5, 1), transform 0.22s cubic-bezier(0.3, 1.4, 0.5, 1); }
+.card.wide.lit { -webkit-transform: none; transform: none; }
+.card.wide.lit .art, .card.wide.lit .pbar, .card.wide.lit .pdone { -webkit-transform: scale(1.1); transform: scale(1.1); }
+.card.wide.lit .label { margin-top: 30px; }
+.card.wide.skel { height: 225px; }
+/* scaled about the art's middle like the art */
+.card.wide .pbar { top: 205px; bottom: auto; -webkit-transform-origin: 186px -92.5px; transform-origin: 186px -92.5px; }
+.card.wide .pdone { top: 12px; -webkit-transform-origin: -146px 100.5px; transform-origin: -146px 100.5px; }
 
-.details .more { position: relative; height: 451px; margin-top: 34px; }
+.details .more { position: relative; height: 439px; margin-top: 34px; }
 
 /* ---- a soft shade behind text over artwork (qml Scrim): darkest in the middle, gone at the edges */
 .scrim { position: absolute; pointer-events: none; transition: opacity 0.3s ease; }
@@ -389,17 +399,20 @@ html, body {
 .player .nhint { margin-top: 14px; font-size: 20px; color: rgba(255, 255, 255, 0.5); }
 
 /* ---- sources (qml Sources) */
-.sources { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: #0b0b0d; overflow: hidden; }
-.sources .backdrop { opacity: 0; }
-.sources .backdrop.on { opacity: 0.28; }
-.sources .sshade { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: linear-gradient(to right, rgba(11, 11, 13, 0.95), rgba(11, 11, 13, 0.6)); }
-.sources .shead { position: absolute; left: 96px; top: 70px; right: 96px; }
-.sources .stitle { font-size: 52px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sources .ssub { margin-top: 6px; font-size: 27px; color: rgba(255, 255, 255, 0.7); }
-.sources .sstatus { position: absolute; left: 96px; top: 260px; font-size: 30px; color: rgba(255, 255, 255, 0.7); }
+.sources { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: linear-gradient(to right, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.6)); }
+.sources .spanel {
+    position: absolute; left: 920px; top: 40px; width: 960px; height: 1000px; overflow: hidden;
+    border-radius: 56px; background: rgba(30, 30, 34, 0.95); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), inset 0 0 0 1.5px rgba(255, 255, 255, 0.1);
+}
+.blur .sources .spanel { background: rgba(44, 44, 50, 0.72); -webkit-backdrop-filter: blur(40px) saturate(1.6); backdrop-filter: blur(40px) saturate(1.6); }
+.sources .shead { position: absolute; left: 56px; top: 52px; right: 56px; }
+.sources .stitle { font-size: 46px; font-weight: 700; line-height: 56px; }
+.sources .ssub { margin-top: 8px; font-size: 25px; color: rgba(255, 255, 255, 0.66); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sources .sstatus { position: absolute; left: 56px; right: 56px; top: 230px; font-size: 28px; color: rgba(255, 255, 255, 0.7); }
 .sources .sstatus:empty { display: none; }
-.sources .slist { position: absolute; left: 76px; top: 240px; width: 1768px; height: 792px; overflow: hidden; }
-.sources .strack { position: absolute; left: 0; top: 0; right: 0; transition: -webkit-transform 0.22s ease-out, transform 0.22s ease-out; }
+.sources .sstatus.note { top: 166px; font-size: 22px; color: rgba(255, 255, 255, 0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sources .slist { position: absolute; left: 16px; top: 214px; width: 928px; height: 760px; overflow: hidden; }
+.sources .strack { position: absolute; left: 0; top: 8px; right: 0; transition: -webkit-transform 0.22s ease-out, transform 0.22s ease-out; }
 .srcrow {
     position: relative; height: 112px; margin: 0 20px 20px; padding: 0 28px; border-radius: 24px;
     background: rgba(255, 255, 255, 0.07);

@@ -12,12 +12,14 @@ import * as trakt from "../data/trakt"
 import { App, Screen } from "./app"
 import { icon } from "./icons"
 
-// where the focused row's title rests on the 1080 page, and a row's height (title, poster, room)
+// where the focused row's title rests on the 1080 page, and a row's height (qml MediaRow: title,
+// the gap the grown card needs, the card, room; the rows 8 apart)
 const rowTitleY = 590
-const rowH = 56 + 321 + 74
+const posterRowH = 40 + 40 + 321 + 30 + 8
+const wideRowH = 40 + 40 + 317 + 30 + 8
 
 export const posterKind = {
-    width: 214, gap: 30,
+    width: 214, gap: 34,
     art: function (it: tmdb.Item) { return look.poster(it.poster) },
     // part watched: a bar along the bottom of the poster
     lines: function (it: tmdb.Item): HTMLElement[] {
@@ -31,9 +33,24 @@ export const posterKind = {
     },
 }
 
+// continue watching, up next: the backdrop, the title and the episode under it (qml Card landscape)
+const wideKind = {
+    width: 400, gap: 44, cls: "wide",
+    art: function (it: tmdb.Item) { return look.still(it.backdrop) },
+    lines: function (it: tmdb.Item): HTMLElement[] {
+        const p = progress.get(it.kind, it.id)
+        const ep = p && !p.finished && p.season !== undefined && p.episode !== undefined
+            ? "S" + p.season + " · E" + p.episode + (p.episodeTitle ? "  " + p.episodeTitle : "") : ""
+        const out = posterKind.lines(it)
+        out.push(h("div.label", { text: it.title }), h("div.sublabel", { text: ep }))
+        return out
+    },
+}
+
 interface Row {
     def: home.RowDef
     el: HTMLElement
+    h: number
     strip: Strip<tmdb.Item>
     done: boolean
     top: number
@@ -94,12 +111,13 @@ export function homeScreen(app: App): Screen {
     function build(defs: home.RowDef[]): void {
         clear(rowsEl)
         const mine = rows = defs.map(function (def) {
-            const s = strip(posterKind)
+            const wide = def.style !== "poster"
+            const s = strip<tmdb.Item>(wide ? wideKind : posterKind)
             // grey cards until it comes (qml Skeleton); fill() replaces them
-            for (let k = 0; k < 8; k++) s.track.appendChild(h("div.card.skel", null, h("div.art")))
+            for (let k = 0; k < 8; k++) s.track.appendChild(h("div.card.skel" + (wide ? ".wide" : ""), null, h("div.art")))
             const rowEl = h("div.row", null, h("div.rowtitle", { text: tr(def.title) }), s.track)
             rowsEl.appendChild(rowEl)
-            return { def, el: rowEl, strip: s, done: false, top: 0 }
+            return { def, el: rowEl, h: wide ? wideRowH : posterRowH, strip: s, done: false, top: 0 }
         })
         current = 0
         shown = ""
@@ -194,7 +212,7 @@ export function homeScreen(app: App): Screen {
             r.top = y
             r.el.style.top = y + "px"
             r.el.style.display = there ? "" : "none"
-            if (there) y += rowH
+            if (there) y += r.h
         }
     }
 
@@ -202,7 +220,7 @@ export function homeScreen(app: App): Screen {
         const r = rows[current]
         rowsEl.style.transform = rowsEl.style.webkitTransform = "translate3d(0," + (rowTitleY - (r ? r.top : 0)) + "px,0)"
         for (let i = 0; i < rows.length; i++) {
-            rows[i].el.className = "row" + (i < current ? " gone" : "")
+            rows[i].el.className = "row" + (i < current ? " gone" : i === current && !inNav ? " on" : "")
             rows[i].strip.place(!inNav && i === current, Math.abs(i - current) <= (look.lowMemory ? 1 : 2))
         }
         for (let t = 0; t < tabEls.length; t++) {

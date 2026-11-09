@@ -15,8 +15,8 @@ export function isLocal(id: string): boolean { return /^(continue|upnext|library
 
 export function rows(): RowDef[] {
     return [
-        { id: "continue", title: "Continue Watching", style: "poster" },
-        { id: "upnext", title: "Up Next", style: "poster" },
+        { id: "continue", title: "Continue Watching", style: "landscape" },
+        { id: "upnext", title: "Up Next", style: "episode" },
         { id: "library", title: "My List", style: "poster" },
         { id: "popular-tv", title: "Popular TV Shows", style: "poster" },
         { id: "popular-movie", title: "Popular Movies", style: "poster" },
@@ -59,7 +59,7 @@ export function showRows(): RowDef[] {
 
 export function libraryRows(): RowDef[] {
     const out: RowDef[] = [
-        { id: "continue", title: "Continue Watching", style: "poster" },
+        { id: "continue", title: "Continue Watching", style: "landscape" },
         { id: "library-show", title: "Shows", style: "poster" },
         { id: "library-movie", title: "Movies", style: "poster" },
     ]

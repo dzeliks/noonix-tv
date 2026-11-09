@@ -48,25 +48,33 @@ function boot(): void {
 
     const screens: Screen[] = []
     const details: Screen[] = []
+    // screens[i] drawn over the one under it (a panel, a menu): that one stays drawn
+    const overs: boolean[] = []
 
     /** a page over the others: fades in, what's under it stops drawing once it's covered */
     function push(s: Screen, over: boolean): void {
-        const under = screens[screens.length - 1]
         screens.push(s)
+        overs.push(over)
         s.el.className += " screen"
         stage.appendChild(s.el)
         nextFrame(function () { s.el.className += " in" })
-        if (under && !over) setTimeout(function () { if (screens[screens.length - 1] === s) under.el.style.display = "none" }, 260)
+        // covered: everything under it stops drawing (a panel's page too)
+        if (!over) setTimeout(function () {
+            if (screens[screens.length - 1] !== s) return
+            for (let i = 0; i < screens.length - 1; i++) screens[i].el.style.display = "none"
+        }, 260)
     }
 
     function pop(): void {
         const s = screens.pop()
+        overs.pop()
         if (!s) return
         const di = details.indexOf(s)
         if (di >= 0) details.splice(di, 1)
         const under = screens[screens.length - 1]
         if (under) {
             under.el.style.display = ""
+            for (let i = screens.length - 1; i > 0 && overs[i]; i--) screens[i - 1].el.style.display = ""
             if (under.shown) under.shown()
         }
         s.el.className = s.el.className.replace(/ in\b/g, "")
@@ -96,7 +104,7 @@ function boot(): void {
             p.closed = function () { if (player === p) player = null; if (closed) closed() }
             push(p, false)
         },
-        sources(req: PlayReq): void { push(sourcesScreen(app, req), false) },
+        sources(req: PlayReq): void { push(sourcesScreen(app, req), true) },
         menu(title: string, entries: MenuEntry[]): void {
             if (!entries.length) return
             const under = screens[screens.length - 1]

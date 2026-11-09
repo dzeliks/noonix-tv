@@ -2,7 +2,6 @@
 import { h, clear } from "./dom"
 import { tr, trn } from "../i18n"
 import { Action } from "../keys"
-import * as look from "./look"
 import { App, PlayReq, Screen } from "./app"
 import * as tmdb from "../data/tmdb"
 import * as sources from "../data/sources"
@@ -10,7 +9,7 @@ import * as settings from "../data/settings"
 import * as memory from "../data/memory"
 
 const rowH = 132
-const visible = 6
+const visible = 5
 
 function warnText(w: string): string {
     switch (w) {
@@ -27,18 +26,15 @@ export function sourcesScreen(app: App, req: PlayReq): Screen {
     let at = 0
     let alive = true
 
-    const back = h("img.backdrop", { alt: "" }) as HTMLImageElement
+    // a panel on the right over the page it came from (qml Sources: the glass sheet)
     const head = h("div.shead", null,
-        h("div.stitle", { text: req.item.title }),
-        h("div.ssub", { text: req.item.kind === "show" && req.season !== undefined
-            ? "S" + req.season + " E" + req.episode + (req.episodeTitle ? "  ·  " + req.episodeTitle : "") : tr("Sources") }))
+        h("div.stitle", { text: tr("Sources") }),
+        h("div.ssub", { text: req.item.title + (req.item.kind === "show" && req.season !== undefined
+            ? "  ·  S" + req.season + " E" + req.episode + (req.episodeTitle ? "  " + req.episodeTitle : "") : "") }))
     const status = h("div.sstatus", { text: tr("Looking for sources…") })
     const track = h("div.strack")
     const listEl = h("div.slist", null, track)
-    const el = h("div.sources", null, back, h("div.sshade"), head, status, listEl)
-
-    const b = look.backdrop(req.item.backdrop)
-    if (b) { back.onload = function () { back.className = "backdrop on" }; back.src = b }
+    const el = h("div.sources", null, h("div.spanel", null, head, status, listEl))
 
     const imdb = req.imdb ? Promise.resolve(req.imdb) : tmdb.details(req.item.kind, req.item.id).then(function (d) { return d.imdb })
     imdb.then(function (id) {
@@ -52,6 +48,8 @@ export function sourcesScreen(app: App, req: PlayReq): Screen {
         status.textContent = !sources.addons().length ? tr("No addons yet: add one in Settings")
             : skipped ? (got.length ? "" : tr("No sources found") + ". ") + trn("%n torrent source needs a streaming server (Settings)", skipped)
             : got.length ? "" : tr("No sources found")
+        // with sources listed the note goes under the title, out of the list's way
+        if (got.length) status.className = "sstatus note"
         build()
     }).catch(function (e) {
         if (alive) status.textContent = String(e.message || e)
