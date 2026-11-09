@@ -22,6 +22,34 @@ export function rows(): RowDef[] {
     ]
 }
 
+export function movieRows(): RowDef[] {
+    return [
+        { id: "popular-movie", title: "Popular", style: "poster" },
+        { id: "trending-movie", title: "Trending", style: "poster" },
+        { id: "netflix-movie", title: "Netflix", style: "poster", brand: "netflix" },
+        { id: "max-movie", title: "Max", style: "poster", brand: "max" },
+        { id: "genre-movie-28", title: "Action", style: "poster" },
+        { id: "genre-movie-35", title: "Comedy", style: "poster" },
+        { id: "genre-movie-53", title: "Thriller", style: "poster" },
+        { id: "genre-movie-878", title: "Science Fiction", style: "poster" },
+        { id: "genre-movie-16", title: "Animation", style: "poster" },
+    ]
+}
+
+export function showRows(): RowDef[] {
+    return [
+        { id: "popular-tv", title: "Popular", style: "poster" },
+        { id: "trending-tv", title: "Trending", style: "poster" },
+        { id: "netflix-tv", title: "Netflix", style: "poster", brand: "netflix" },
+        { id: "max-tv", title: "Max", style: "poster", brand: "max" },
+        { id: "genre-tv-18", title: "Drama", style: "poster" },
+        { id: "genre-tv-35", title: "Comedy", style: "poster" },
+        { id: "genre-tv-80", title: "Crime", style: "poster" },
+        { id: "genre-tv-10765", title: "Sci-Fi & Fantasy", style: "poster" },
+        { id: "genre-tv-16", title: "Animation", style: "poster" },
+    ]
+}
+
 export function row(id: string): Promise<tmdb.Item[]> {
     const parts = id.split("-")
     const kind: tmdb.Kind = parts[1] === "tv" ? "show" : "movie"

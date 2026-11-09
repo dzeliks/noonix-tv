@@ -65,12 +65,43 @@ export function homeScreen(): Screen {
         h("div.shade"),
         hero, rowsEl, hint, nav)
 
-    const rows: Row[] = home.rows().map(function (def) {
-        const track = h("div.track")
-        const rowEl = h("div.row", null, h("div.rowtitle", { text: tr(def.title) }), track)
-        rowsEl.appendChild(rowEl)
-        return { def, el: rowEl, track, cards: [], items: [], at: 0, top: 0 }
-    })
+    let rows: Row[] = []
+    // a page's rows (home, movies, shows): built fresh, the first ones asked for first
+    function build(defs: home.RowDef[]): void {
+        clear(rowsEl)
+        rows = defs.map(function (def) {
+            const track = h("div.track")
+            const rowEl = h("div.row", null, h("div.rowtitle", { text: tr(def.title) }), track)
+            rowsEl.appendChild(rowEl)
+            return { def, el: rowEl, track, cards: [], items: [], at: 0, top: 0 }
+        })
+        current = 0
+        shown = ""
+        layoutRows()
+        const mine = rows
+        rows.forEach(function (r, i) {
+            setTimeout(function () {
+                if (rows !== mine) return
+                home.row(r.def.id).then(function (items) { if (rows === mine) fill(r, items) }, function (e) {
+                    console.warn("row " + r.def.id + ": " + e)
+                    if (rows !== mine) return
+                    r.el.setAttribute("data-done", "1")
+                    layoutRows()
+                    place()
+                })
+            }, i < 3 ? 0 : 300 + i * 80)
+        })
+        place()
+    }
+    const pages: { [id: string]: () => home.RowDef[] } = { home: home.rows, movies: home.movieRows, shows: home.showRows }
+    let page = "home"
+    function choose(id: string): void {
+        // TODO(F3d): search, library and settings pages
+        if (!pages[id] || id === page) return
+        page = id
+        build(pages[id]())
+    }
+
     let current = 0
     let inNav = false
     let tab = 1
@@ -159,8 +190,7 @@ export function homeScreen(): Screen {
         title.style.display = ""
         title.textContent = it.title
         sub.textContent = ""
-        meta.textContent = [it.year, it.genres.slice(0, 2).join(", "), it.rating ? "★ " + it.rating : ""]
-            .filter(function (x) { return !!x }).join("  ·  ")
+        metaLine(it, null)
         overview.textContent = it.overview
         extra.textContent = ""
         detailTimer = window.setTimeout(function () {
@@ -170,23 +200,31 @@ export function homeScreen(): Screen {
                     logo.onload = function () { if (shown === key) { logo.style.display = ""; title.style.display = "none" } }
                     logo.src = d.logo
                 }
-                const parts: string[] = []
-                if (d.genres.length) parts.push(d.genres.slice(0, 2).join(", "))
-                if (d.kind === "movie" && d.runtime) parts.push(runtime(d.runtime))
-                if (d.kind === "show" && d.seasons) parts.push(trn("%n season(s)", d.seasons.length))
-                if (d.certification) parts.push(d.certification)
-                if (d.rating) parts.push("★ " + d.rating)
-                meta.textContent = (d.year ? d.year + "  ·  " : "") + parts.join("  ·  ")
-                if (d.kind === "movie" && d.runtime) {
-                    const end = new Date(Date.now() + d.runtime * 60000)
-                    meta.appendChild(h("b", { text: "  ·  " + tr("Ends at %1", hhmm(end)) }))
-                }
+                metaLine(it, d)
                 const cast = d.cast.slice(0, 3).map(function (c) { return c.name }).join(", ")
                 clear(extra)
                 if (cast) extra.appendChild(h("div", { text: tr("Starring %1", cast) }))
                 if (d.network) extra.appendChild(h("div.network", { text: d.network }))
             }, function () { /* the list's own words stay */ })
         }, 350)
+    }
+
+    /** year, genres, length, rating, "ends at" (qml MetaLine): short of room the genres go first, then the rating */
+    function metaLine(it: tmdb.Item, d: tmdb.Details | null): void {
+        const runtime = d && d.kind === "movie" ? d.runtime : 0
+        for (let level = 0; level < 3; level++) {
+            const parts: string[] = []
+            if (it.year) parts.push(String(it.year))
+            const genres = (d ? d.genres : it.genres).slice(0, 2)
+            if (level === 0 && genres.length) parts.push(genres.join(", "))
+            if (runtime) parts.push(length(runtime))
+            if (d && d.kind === "show" && d.seasons) parts.push(trn("%n season(s)", d.seasons.length))
+            if (d && d.certification) parts.push(d.certification)
+            if (level < 2 && it.rating) parts.push("★ " + it.rating)
+            meta.textContent = parts.join("  ·  ")
+            if (runtime) meta.appendChild(h("b", { text: (parts.length ? "  ·  " : "") + tr("Ends at %1", hhmm(new Date(Date.now() + runtime * 60000))) }))
+            if (meta.scrollWidth <= meta.clientWidth) return
+        }
     }
 
     function setBackdrop(url: string | null): void {
@@ -210,9 +248,9 @@ export function homeScreen(): Screen {
 
     function action(a: Action): boolean {
         if (inNav) {
-            if (a === "left" && tab > 0) tab--
-            else if (a === "right" && tab < tabs.length - 1) tab++
-            else if (a === "down") inNav = false
+            if (a === "left" && tab > 0) { tab--; choose(tabs[tab].id) }
+            else if (a === "right" && tab < tabs.length - 1) { tab++; choose(tabs[tab].id) }
+            else if (a === "down" || a === "ok") { if (rows.some(function (r) { return r.items.length > 0 })) inNav = false }
             else return a !== "back"
             place()
             return true
@@ -229,20 +267,7 @@ export function homeScreen(): Screen {
         return true
     }
 
-    // ---- loading: the first rows first, the rest after
-
-    layoutRows()
-    rows.forEach(function (r, i) {
-        setTimeout(function () {
-            home.row(r.def.id).then(function (items) { fill(r, items) }, function (e) {
-                console.warn("row " + r.def.id + ": " + e)
-                r.el.setAttribute("data-done", "1")
-                layoutRows()
-                place()
-            })
-        }, i < 3 ? 0 : 300 + i * 80)
-    })
-    place()
+    build(home.rows())
     return { el, action }
 }
 
@@ -251,7 +276,7 @@ function hhmm(d: Date): string {
     return two(d.getHours()) + ":" + two(d.getMinutes())
 }
 
-function runtime(min: number): string {
+function length(min: number): string {
     const hh = Math.floor(min / 60)
     return hh ? hh + "h " + (min % 60) + "m" : min + "m"
 }
