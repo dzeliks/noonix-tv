@@ -223,7 +223,7 @@ html, body {
     -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between;
     padding: 0 96px;
 }
-.details .identity { width: 845px; }
+.details .identity { position: relative; width: 845px; }
 .details .logobox { margin-bottom: 20px; }
 .details .logo { display: none; max-width: 600px; max-height: 210px; padding-bottom: 16px; }
 .details .title {
@@ -232,7 +232,7 @@ html, body {
 }
 .details .meta { font-size: 24px; color: rgba(255, 255, 255, 0.66); white-space: nowrap; overflow: hidden; }
 .details .meta b { color: #fff; font-weight: 600; }
-.details .story { width: 691px; }
+.details .story { position: relative; width: 691px; }
 .details .tagline { font-size: 26px; font-weight: 600; margin-bottom: 14px; }
 .details .tagline:empty { display: none; }
 .details .plot {
