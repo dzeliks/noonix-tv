@@ -217,6 +217,7 @@ html, body {
     transition: -webkit-transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .details .info {
+    position: relative;
     display: -webkit-box; display: -webkit-flex; display: flex;
     -webkit-box-align: end; -webkit-align-items: flex-end; align-items: flex-end;
     -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between;
@@ -277,3 +278,9 @@ html, body {
 .card.wide.lit { -webkit-transform: scale(1.06); transform: scale(1.06); }
 
 .details .more { position: relative; height: 451px; margin-top: 34px; }
+
+/* ---- a soft shade behind text over artwork (qml Scrim): darkest in the middle, gone at the edges */
+.scrim { position: absolute; pointer-events: none; transition: opacity 0.3s ease; }
+.scrim.s70 { background: radial-gradient(closest-side, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.5) 25%, rgba(0, 0, 0, 0.175) 50%, rgba(0, 0, 0, 0.017) 75%, rgba(0, 0, 0, 0)); }
+.scrim.s55 { background: radial-gradient(closest-side, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.39) 25%, rgba(0, 0, 0, 0.14) 50%, rgba(0, 0, 0, 0.013) 75%, rgba(0, 0, 0, 0)); }
+.details .spacer { height: 216px; }

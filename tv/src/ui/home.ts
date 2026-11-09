@@ -1,5 +1,5 @@
 // home: the top nav, the hero (whatever the focus is on) and the rows under it (qml Home, Hero, MediaRow)
-import { h, clear } from "./dom"
+import { h, clear, fitScrim } from "./dom"
 import { tr } from "../i18n"
 import { Action } from "../keys"
 import * as look from "./look"
@@ -56,7 +56,9 @@ export function homeScreen(open: (it: tmdb.Item) => void): Screen {
     const meta = h("div.meta")
     const overview = h("div.overview")
     const extra = h("div.extra")
-    const hero = h("div.hero", null, h("div.story", null, logo, title, sub, meta), h("div.side", null, overview, extra))
+    const side = h("div.side", null, overview, extra)
+    const scrim = h("div.scrim.s70")
+    const hero = h("div.hero", null, scrim, h("div.story", null, logo, title, sub, meta), side)
 
     const rowsEl = h("div.rows")
     const hint = h("div.hint", null, h("span.cap", { text: "HOLD OK" }), h("span", { text: tr("Options") }))
@@ -163,6 +165,7 @@ export function homeScreen(open: (it: tmdb.Item) => void): Screen {
         metaLine(meta, it, null)
         overview.textContent = it.overview
         extra.textContent = ""
+        fitScrim(scrim, side, 0, 0)
         detailTimer = window.setTimeout(function () {
             tmdb.details(it.kind, it.id).then(function (d) {
                 if (shown !== key) return
@@ -175,6 +178,7 @@ export function homeScreen(open: (it: tmdb.Item) => void): Screen {
                 clear(extra)
                 if (cast) extra.appendChild(h("div", { text: tr("Starring %1", cast) }))
                 if (d.network) extra.appendChild(h("div.network", { text: d.network }))
+                fitScrim(scrim, side, 0, 0)
             }, function () { /* the list's own words stay */ })
         }, 350)
     }

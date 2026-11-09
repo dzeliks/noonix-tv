@@ -37,3 +37,13 @@ export function clear(el: Element): void {
 export function nextFrame(fn: () => void): void {
     requestAnimationFrame(function () { requestAnimationFrame(fn) })
 }
+
+/** a scrim around a block of text (qml Scrim placement): wider than the text, mostly above it */
+export function fitScrim(scrim: HTMLElement, box: HTMLElement, dx: number, dy: number): void {
+    const w = box.offsetWidth
+    const ht = box.offsetHeight
+    scrim.style.left = (dx + box.offsetLeft - w * 0.45) + "px"
+    scrim.style.top = (dy + box.offsetTop - ht * 0.8 - 80) + "px"
+    scrim.style.width = (w * 1.9 + 96) + "px"
+    scrim.style.height = (ht * 2.6 + 160) + "px"
+}

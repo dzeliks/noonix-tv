@@ -1,5 +1,5 @@
 // a movie or a show (qml Details): backdrop, logo, meta, the story, actions, seasons + episodes, more like this
-import { h, clear } from "./dom"
+import { h, clear, fitScrim } from "./dom"
 import { tr } from "../i18n"
 import { Action } from "../keys"
 import * as look from "./look"
@@ -35,7 +35,8 @@ export function detailsScreen(item: tmdb.Item, open: (it: tmdb.Item) => void): S
     const identity = h("div.identity", null, h("div.logobox", null, logo, title), meta)
     const story = h("div.story", null, tagline, plot, starring, facts)
     const spacer = h("div.spacer")
-    const info = h("div.info", null, identity, story)
+    const scrim = h("div.scrim.s55")
+    const info = h("div.info", null, scrim, identity, story)
 
     const buttons = h("div.actions")
     const seasonsEl = h("div.seasons")
@@ -168,6 +169,7 @@ export function detailsScreen(item: tmdb.Item, open: (it: tmdb.Item) => void): S
             ? Math.round(1080 * 0.2)
             : Math.max(60, 1080 - edge - (info.offsetHeight + underInfo))
         spacer.style.height = top + "px"
+        fitScrim(scrim, story, 0, 0)
     }
 
     function place(): void {
