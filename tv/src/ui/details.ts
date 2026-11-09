@@ -6,8 +6,11 @@ import * as look from "./look"
 import { icon } from "./icons"
 import { metaLine, length, day } from "./meta"
 import { strip, step } from "./strip"
-import { Screen, posterKind } from "./home"
+import { posterKind } from "./home"
+import { App, PlayReq, Screen, MenuEntry } from "./app"
 import * as tmdb from "../data/tmdb"
+import * as progress from "../data/progress"
+import * as trakt from "../data/trakt"
 
 type Part = "actions" | "seasons" | "episodes" | "more"
 
@@ -15,7 +18,7 @@ type Part = "actions" | "seasons" | "episodes" | "more"
 const edge = 44
 const underInfo = 90 + 60 + 225 + 92 + 4 * 34
 
-export function detailsScreen(item: tmdb.Item, open: (it: tmdb.Item) => void): Screen {
+export function detailsScreen(item: tmdb.Item, app: App): Screen {
     const isMovie = item.kind === "movie"
     let details: tmdb.Details | null = null
     let seasonNo = 1
@@ -45,8 +48,9 @@ export function detailsScreen(item: tmdb.Item, open: (it: tmdb.Item) => void): S
         art: function (e) { return look.still(e.still) },
         lines: function (e) {
             const sub = [e.runtime ? length(e.runtime) : "", day(e.airDate, true)].filter(function (x) { return !!x }).join("  ·  ")
+            const seen = progress.watched(item.id)[e.season + ":" + e.episode]
             return [
-                h("div.label", { text: e.episode + ".  " + (e.episodeTitle || tr("Episode %1", e.episode)) }),
+                h("div.label", null, seen ? icon("check", 26) : null, e.episode + ".  " + (e.episodeTitle || tr("Episode %1", e.episode))),
                 h("div.sublabel", { text: sub }),
             ]
         },
@@ -90,7 +94,11 @@ export function detailsScreen(item: tmdb.Item, open: (it: tmdb.Item) => void): S
         facts.textContent = factLine(d)
         if (d.seasons && d.seasons.length) {
             buildSeasons(d.seasons)
-            loadSeason(d.seasons[0].number, 0)
+            // the season of the episode up next
+            const p = progress.get("show", item.id)
+            const s = p && p.season !== undefined && d.seasons.some(function (x) { return x.number === p.season }) ? p.season : d.seasons[0].number
+            loadSeason(s, p && p.episode ? p.episode - 1 : 0)
+            findUp()
         }
         more.fill(d.more)
         moreEl.style.display = d.more.length ? "" : "none"
@@ -108,22 +116,121 @@ export function detailsScreen(item: tmdb.Item, open: (it: tmdb.Item) => void): S
         return f.join("  ·  ")
     }
 
-    // ---- actions (play, sources)
+    // ---- actions: play (or resume), start over, sources, my list
 
-    // TODO(F3e): play, start over, sources, library once the player and the addons are in
-    const actionDefs = [
-        { id: "play", icon: "play", label: function () {
-            // nothing watched yet (no progress before trakt): a show starts at its first episode
-            const first = details && details.seasons && details.seasons[0]
-            return tr("Play") + (first ? "  S" + first.number + " E1" : "")
-        } },
-        { id: "sources", icon: "list", label: function () { return tr("Sources") } },
+    /** a show's episode to play: the one left off, the one after the last finished, else the first */
+    let up: { season: number; episode: number; title?: string } | null = null
+
+    function findUp(): void {
+        const p = progress.get("show", item.id)
+        const first = details && details.seasons && details.seasons[0]
+        if (!p || p.season === undefined || p.episode === undefined) {
+            up = first ? { season: first.number, episode: 1 } : null
+            place()
+            return
+        }
+        if (!p.finished) { up = { season: p.season, episode: p.episode, title: p.episodeTitle }; place(); return }
+        const s = p.season, e = p.episode
+        tmdb.season(item.id, s).then(function (cur) {
+            const n = cur.episodes.filter(function (x) { return x.episode === e + 1 })[0]
+            if (n) return n
+            return tmdb.season(item.id, s + 1).then(function (nx) { return nx.episodes[0] || null }, function () { return null })
+        }).then(function (n: tmdb.Episode | null) {
+            if (!alive) return
+            up = n ? { season: n.season, episode: n.episode, title: n.episodeTitle } : first ? { season: first.number, episode: 1 } : null
+            place()
+        }, function () { /* the first episode stays */ })
+    }
+
+    function resumable(): boolean {
+        if (isMovie) return progress.resumeAt("movie", item.id, undefined, undefined, 1e9) > 0
+        return !!up && progress.resumeAt("show", item.id, up.season, up.episode, 1e9) > 0
+    }
+
+    function req(start?: number): PlayReq {
+        const r: PlayReq = { item: details || item, imdb: details && details.imdb, start: start }
+        if (!isMovie && up) { r.season = up.season; r.episode = up.episode; r.episodeTitle = up.title }
+        return r
+    }
+
+    function episodeReq(e: tmdb.Episode, start?: number): PlayReq {
+        return { item: details || item, imdb: details && details.imdb, season: e.season, episode: e.episode, episodeTitle: e.episodeTitle, start: start }
+    }
+
+    interface Act { id: string; icon(): string; label(): string; show(): boolean; run(): void }
+    const actionDefs: Act[] = [
+        { id: "play", icon: function () { return "play" }, show: function () { return true },
+            label: function () {
+                const where = !isMovie && up ? "  S" + up.season + " E" + up.episode : ""
+                return (resumable() ? tr("Resume") : tr("Play")) + where
+            },
+            run: function () { if (isMovie || up) app.play(req()) } },
+        { id: "restart", icon: function () { return "restart" }, show: resumable, label: function () { return tr("Start Over") },
+            run: function () { app.play(req(0)) } },
+        { id: "sources", icon: function () { return "list" }, show: function () { return isMovie || !!up }, label: function () { return tr("Sources") },
+            run: function () { app.sources(req()) } },
+        { id: "library", icon: function () { return progress.inLibrary(item.kind, item.id) ? "check" : "plus" }, show: function () { return true },
+            label: function () { return tr("My List") },
+            run: function () { app.toast(progress.toggleLibrary(details || item) ? tr("Added to My List") : tr("Removed from My List")) } },
     ]
-    const buttonEls = actionDefs.map(function (a) {
-        const b = h("div.gbutton", null, icon(a.icon, 30), h("span", { text: a.label() }))
-        buttons.appendChild(b)
-        return b
-    })
+    let shownActs: Act[] = []
+    let buttonEls: HTMLElement[] = []
+    function buildButtons(): void {
+        const now = actionDefs.filter(function (a) { return a.show() })
+        const same = now.length === shownActs.length && now.every(function (a, i) { return a === shownActs[i] })
+        if (!same) {
+            const was = shownActs[button]
+            shownActs = now
+            clear(buttons)
+            buttonEls = now.map(function () { const b = h("div.gbutton"); buttons.appendChild(b); return b })
+            button = Math.max(0, was ? now.indexOf(was) : 0)
+        }
+        for (let i = 0; i < shownActs.length; i++) {
+            const b = buttonEls[i]
+            clear(b)
+            b.appendChild(icon(shownActs[i].icon(), 30))
+            b.appendChild(h("span", { text: shownActs[i].label() }))
+            b.className = "gbutton" + (part === "actions" && i === button ? " lit" : "")
+        }
+    }
+
+    function episodeOptions(e: tmdb.Episode): void {
+        const seen = progress.watched(item.id)[e.season + ":" + e.episode]
+        const entries: MenuEntry[] = [
+            { label: tr("Play"), icon: "play", run: function () { app.play(episodeReq(e)) } },
+            { label: tr("Play from the start"), icon: "restart", run: function () { app.play(episodeReq(e, 0)) } },
+            { label: tr("Sources"), icon: "list", run: function () { app.sources(episodeReq(e)) } },
+            { label: seen ? tr("Mark as unwatched") : tr("Mark as watched"), icon: seen ? "minus" : "check", run: function () {
+                if (seen) progress.markUnwatched(details || item, e.season, e.episode)
+                else {
+                    progress.markWatched(details || item, e.season, e.episode)
+                    trakt.addHistory({ kind: "show", tmdb: item.id, season: e.season, episode: e.episode })
+                }
+                episodes.fill(episodes.items)
+                findUp()
+                place()
+            } },
+        ]
+        app.menu("S" + e.season + " E" + e.episode + "  ·  " + e.episodeTitle, entries)
+    }
+
+    function titleOptions(): void {
+        const entries: MenuEntry[] = []
+        if (isMovie) {
+            entries.push({ label: tr("Mark as watched"), icon: "check", run: function () {
+                progress.markWatched(details || item)
+                trakt.addHistory({ kind: "movie", tmdb: item.id, imdb: details && details.imdb })
+                app.toast(tr("Marked as watched"))
+                place()
+            } })
+        }
+        const kept = progress.inLibrary(item.kind, item.id)
+        entries.push({ label: kept ? tr("Remove from My List") : tr("Add to My List"), icon: kept ? "minus" : "plus", run: function () {
+            app.toast(progress.toggleLibrary(details || item) ? tr("Added to My List") : tr("Removed from My List"))
+            place()
+        } })
+        app.menu(item.title, entries)
+    }
 
     // ---- seasons and their episodes
 
@@ -173,10 +280,7 @@ export function detailsScreen(item: tmdb.Item, open: (it: tmdb.Item) => void): S
     }
 
     function place(): void {
-        for (let i = 0; i < buttonEls.length; i++) {
-            buttonEls[i].className = "gbutton" + (part === "actions" && i === button ? " lit" : "")
-            ;(buttonEls[i].lastChild as HTMLElement).textContent = actionDefs[i].label()
-        }
+        buildButtons()
         const list = (details && details.seasons) || []
         for (let i = 0; i < seasonEls.length; i++) {
             seasonEls[i].className = "season" + (list[i].number === seasonNo ? " sel" : "") + (part === "seasons" && i === seasonAt ? " lit" : "")
@@ -215,13 +319,25 @@ export function detailsScreen(item: tmdb.Item, open: (it: tmdb.Item) => void): S
                 const s = list[seasonIndex() + dir]
                 if (s) loadSeason(s.number, dir < 0 ? -1 : 0)
             } else if (part === "more") step(more, dir)
+        } else if (a === "menu") {
+            if (part === "episodes") { const e = episodes.current(); if (e) episodeOptions(e) }
+            else if (part === "more") { const it = more.current(); if (it) app.open(it) }
+            else titleOptions()
+            return true
         } else if (a === "ok") {
-            if (part === "seasons") {
+            if (part === "actions") {
+                const act = shownActs[button]
+                if (act) act.run()
+            } else if (part === "episodes") {
+                const e = episodes.current()
+                if (e) app.play(episodeReq(e))
+                return true
+            } else if (part === "seasons") {
                 const list = (details && details.seasons) || []
                 if (list[seasonAt] && list[seasonAt].number !== seasonNo) loadSeason(list[seasonAt].number, 0)
             } else if (part === "more") {
                 const it = more.current()
-                if (it) open(it)
+                if (it) app.open(it)
                 return true
             }
         } else if (a === "back" && part !== "actions") {
@@ -234,9 +350,16 @@ export function detailsScreen(item: tmdb.Item, open: (it: tmdb.Item) => void): S
         return true
     }
 
+    place()
     return {
         el,
         action,
+        shown(): void {
+            // back from the player: what's watched and where to go on
+            if (episodes.items.length) episodes.fill(episodes.items)
+            if (!isMovie && details) findUp()
+            place()
+        },
         closed(): void { alive = false },
     }
 }

@@ -7,6 +7,9 @@ import { metaLine, hhmm } from "./meta"
 import { strip, step, Strip } from "./strip"
 import * as home from "../data/home"
 import * as tmdb from "../data/tmdb"
+import * as progress from "../data/progress"
+import * as trakt from "../data/trakt"
+import { App, Screen } from "./app"
 
 // where the focused row's title rests on the 1080 page, and a row's height (title, poster, room)
 const rowTitleY = 590
@@ -22,22 +25,9 @@ interface Row {
     top: number
 }
 
-export interface Screen {
-    el: HTMLElement
-    action(a: Action): boolean
-    /** back on top after the screen over it closed */
-    shown?(): void
-    /** gone for good: timers stop */
-    closed?(): void
-}
+export type { Screen } from "./app"
 
-/** what home asks of the app: a title's page, or a page of its own (search, library, settings) */
-export interface Nav {
-    open(it: tmdb.Item): void
-    page(id: string): void
-}
-
-export function homeScreen(app: Nav): Screen {
+export function homeScreen(app: App): Screen {
     const tabs = [
         { id: "search", label: "", icon: "search" },
         { id: "home", label: tr("Home") },
@@ -67,12 +57,13 @@ export function homeScreen(app: Nav): Screen {
     const hero = h("div.hero", null, scrim, h("div.story", null, logo, title, sub, meta), side)
 
     const rowsEl = h("div.rows")
+    const emptyEl = h("div.homeempty")
     const hint = h("div.hint", null, h("span.cap", { text: "HOLD OK" }), h("span", { text: tr("Options") }))
 
     const el = h("div.home", null,
         h("div.backdrops", null, backA, backB),
         h("div.shade"),
-        hero, rowsEl, hint, nav)
+        hero, rowsEl, emptyEl, hint, nav)
 
     let rows: Row[] = []
     let current = 0
@@ -84,7 +75,7 @@ export function homeScreen(app: Nav): Screen {
 
     // ---- pages: home, movies, shows (each its own rows, built fresh, the first ones asked for first)
 
-    const pages: { [id: string]: () => home.RowDef[] } = { home: home.rows, movies: home.movieRows, shows: home.showRows }
+    const pages: { [id: string]: () => home.RowDef[] } = { home: home.rows, movies: home.movieRows, shows: home.showRows, library: home.libraryRows }
 
     function build(defs: home.RowDef[]): void {
         clear(rowsEl)
@@ -119,6 +110,51 @@ export function homeScreen(app: Nav): Screen {
         place()
     }
 
+    /** the rows kept on the tv change under home (played, added): asked again when it's back on top */
+    function refreshLocal(): void {
+        const mine = rows
+        mine.forEach(function (r) {
+            if (!home.isLocal(r.def.id)) return
+            home.row(r.def.id).then(function (items) {
+                if (rows !== mine) return
+                const was = r.strip.current()
+                r.strip.fill(items)
+                if (was) for (let i = 0; i < items.length; i++) if (items[i].kind === was.kind && items[i].id === was.id) r.strip.at = i
+                r.done = true
+                layoutRows()
+                if (!rows[current] || !rows[current].strip.items.length) {
+                    let n = 0
+                    while (n < rows.length && !rows[n].strip.items.length) n++
+                    current = n < rows.length ? n : 0
+                }
+                place()
+            }, function () { /* kept as it was */ })
+        })
+    }
+
+    function options(r: Row, it: tmdb.Item): void {
+        const entries = []
+        const kept = progress.inLibrary(it.kind, it.id)
+        entries.push({ label: kept ? tr("Remove from My List") : tr("Add to My List"), icon: kept ? "minus" : "plus", run: function () {
+            app.toast(progress.toggleLibrary(it) ? tr("Added to My List") : tr("Removed from My List"))
+            refreshLocal()
+        } })
+        if (r.def.id === "continue" || r.def.id === "upnext") {
+            entries.push({ label: tr("Remove from %1", tr(r.def.title)), icon: "minus", run: function () { progress.forget(it.kind, it.id); refreshLocal() } })
+        }
+        if (it.kind === "movie") {
+            entries.push({ label: tr("Mark as watched"), icon: "check", run: function () {
+                progress.markWatched(it)
+                trakt.addHistory({ kind: "movie", tmdb: it.id })
+                app.toast(tr("Marked as watched"))
+                refreshLocal()
+            } })
+            entries.push({ label: tr("Sources"), icon: "list", run: function () { app.sources({ item: it }) } })
+        }
+        entries.push({ label: tr("Details"), icon: "eye", run: function () { app.open(it) } })
+        app.menu(it.title, entries)
+    }
+
     function choose(id: string): void {
         if (!pages[id] || id === page) return
         page = id
@@ -150,7 +186,12 @@ export function homeScreen(app: Nav): Screen {
         for (let t = 0; t < tabEls.length; t++) {
             tabEls[t].className = "tab" + (tabs[t].icon ? " icon " + tabs[t].icon : "") + (t === tab ? " on" : "") + (inNav && t === tab ? " lit" : "")
         }
-        hint.style.opacity = inNav ? "0" : "1"
+        const any = rows.some(function (x) { return x.strip.items.length > 0 })
+        const settled = rows.every(function (x) { return x.done })
+        hint.style.opacity = inNav || !any ? "0" : "1"
+        emptyEl.textContent = settled && !any
+            ? page === "library" ? tr("Nothing here yet: hold OK on a title to add it to My List") : tr("Nothing came: is the TV online?") : ""
+        if (!any && settled) inNav = true
         show(r && r.strip.current())
     }
 
@@ -223,6 +264,7 @@ export function homeScreen(app: Nav): Screen {
         else if (a === "down") { let n = current + 1; while (n < rows.length && !rows[n].strip.items.length) n++; if (n < rows.length) current = n }
         else if (a === "up") { let n = current - 1; while (n >= 0 && !rows[n].strip.items.length) n--; if (n >= 0) current = n; else inNav = true }
         else if (a === "ok") { const it = r.strip.current(); if (it) app.open(it); return true }
+        else if (a === "menu") { const it = r.strip.current(); if (it) options(r, it); return true }
         else if (a === "back" && (current > 0 || r.strip.at > 0)) { current = 0; rows.forEach(function (x) { x.strip.at = 0 }) }
         else return false
         place()
@@ -233,7 +275,7 @@ export function homeScreen(app: Nav): Screen {
     return {
         el,
         action,
-        shown(): void { tick() },
+        shown(): void { tick(); refreshLocal() },
         closed(): void { clearInterval(ticker); clearTimeout(detailTimer) },
     }
 }

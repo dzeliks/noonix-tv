@@ -42,7 +42,7 @@ export function searchScreen(open: (it: tmdb.Item) => void): Screen {
     const empty = h("div.empty")
     const area = h("div.area", null, rowEls[0], rowEls[1], empty)
 
-    const el = h("div.search", null, area, column)
+    const el = h("div.searchpage", null, area, column)
 
     // ---- what's typed: suggestions right away, results a moment later
 

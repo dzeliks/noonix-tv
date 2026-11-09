@@ -286,22 +286,22 @@ html, body {
 .details .spacer { height: 216px; }
 
 /* ---- search (qml Search, the tv terminal) */
-.search { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0b0b0d; }
-.search .area { position: absolute; left: 0; top: 140px; width: 1193px; height: 900px; overflow: hidden; }
-.search .srow { position: absolute; left: 0; width: 1193px; height: 400px; }
-.search .srow .track { top: 66px; }
-.search .empty { position: absolute; left: 96px; top: 20px; font-size: 30px; color: rgba(255, 255, 255, 0.62); }
+.searchpage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; background: #0b0b0d; }
+.searchpage .area { position: absolute; left: 0; top: 140px; width: 1193px; height: 900px; overflow: hidden; }
+.searchpage .srow { position: absolute; left: 0; width: 1193px; height: 400px; }
+.searchpage .srow .track { top: 66px; }
+.searchpage .empty { position: absolute; left: 96px; top: 20px; font-size: 30px; color: rgba(255, 255, 255, 0.62); }
 .card.small { width: 180px; height: 270px; margin-right: 26px; }
 .card.small .art { border-radius: 14px; }
-.search .column { position: absolute; left: 1249px; top: 150px; width: 575px; }
-.search .field {
+.searchpage .column { position: absolute; left: 1249px; top: 150px; width: 575px; }
+.searchpage .field {
     height: 76px; padding: 0 28px; border-radius: 38px; margin-bottom: 28px;
     background: rgba(255, 255, 255, 0.12); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.14);
     font-size: 32px; font-weight: 600; line-height: 76px; white-space: nowrap; overflow: hidden;
 }
-.search .field.placeholder .text { color: rgba(255, 255, 255, 0.45); font-weight: 500; }
-.search .field.placeholder .caret { display: none; }
-.search .caret {
+.searchpage .field.placeholder .text { color: rgba(255, 255, 255, 0.45); font-weight: 500; }
+.searchpage .field.placeholder .caret { display: none; }
+.searchpage .caret {
     display: inline-block; width: 3px; height: 38px; margin-left: 3px; vertical-align: -6px;
     background: #ef6f9b; -webkit-animation: blink 1s steps(1) infinite; animation: blink 1s steps(1) infinite;
 }
@@ -319,10 +319,165 @@ html, body {
 .kb .key.on { background: rgba(255, 255, 255, 0.4); }
 .kb .key.gap { background: transparent; }
 .kb .key.lit { background: #fff; color: #1c1c1e; -webkit-transform: scale(1.08); transform: scale(1.08); }
-.search .suggestions { margin-top: 24px; }
-.search .suggestion {
+.searchpage .suggestions { margin-top: 24px; }
+.searchpage .suggestion {
     height: 52px; padding: 0 22px; border-radius: 26px;
     font-size: 26px; font-weight: 500; line-height: 52px; color: rgba(255, 255, 255, 0.8);
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.search .suggestion.lit { background: #fff; color: #1c1c1e; }
+.searchpage .suggestion.lit { background: #fff; color: #1c1c1e; }
+
+/* ---- home with nothing in it (an empty library) */
+.home .homeempty { position: absolute; left: 96px; top: 640px; font-size: 32px; color: rgba(255, 255, 255, 0.62); }
+.card.wide .label .ico { display: inline-block; vertical-align: -4px; margin-right: 10px; color: #8fe3a5; }
+.card.wide .label .ico svg { display: block; }
+
+/* ---- the player (qml Player): video under, osd over */
+.player { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: #000; overflow: hidden; }
+.player .video { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: #000; }
+.player .pbackdrop { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; opacity: 0.35; }
+.player .pstatus {
+    position: absolute; left: 0; right: 0; top: 600px; text-align: center;
+    font-size: 32px; font-weight: 500; color: rgba(255, 255, 255, 0.8);
+}
+.spinner {
+    position: absolute; left: 50%; top: 50%; width: 72px; height: 72px; margin: -36px 0 0 -36px;
+    border-radius: 50%; border: 6px solid rgba(255, 255, 255, 0.18); border-top-color: #fff;
+    -webkit-animation: spin 0.9s linear infinite; animation: spin 0.9s linear infinite;
+}
+@-webkit-keyframes spin { to { -webkit-transform: rotate(360deg); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+.player .pstate {
+    position: absolute; left: 50%; top: 50%; width: 180px; height: 180px; margin: -90px 0 0 -90px; border-radius: 90px;
+    background: rgba(0, 0, 0, 0.45);
+}
+.player .pstate .ico { position: absolute; left: 42px; top: 42px; }
+.player .pstate svg { display: block; }
+.player .osd { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; opacity: 0; transition: opacity 0.3s ease; }
+.player .osd.on { opacity: 1; }
+.player .ograd {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 520px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.55) 55%, rgba(0, 0, 0, 0.82));
+}
+.player .pclock { position: absolute; right: 96px; top: 56px; font-size: 32px; font-weight: 600; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6); }
+.player .obottom { position: absolute; left: 96px; right: 96px; bottom: 70px; }
+.player .ptitle { font-size: 54px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player .psub { margin-top: 6px; font-size: 27px; font-weight: 500; color: rgba(255, 255, 255, 0.75); }
+.player .bar { position: relative; height: 8px; margin-top: 34px; border-radius: 4px; background: rgba(255, 255, 255, 0.22); }
+.player .bar .buffered { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: rgba(255, 255, 255, 0.3); }
+.player .bar .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: #ef6f9b; }
+.player .bar .knob { position: absolute; top: -8px; width: 24px; height: 24px; margin-left: -12px; border-radius: 12px; background: #fff; }
+.player .times { position: relative; height: 40px; margin-top: 16px; font-size: 25px; font-weight: 600; }
+.player .times .pos { position: absolute; left: 0; }
+.player .times .left { position: absolute; right: 0; }
+.player .times .ends { position: absolute; left: 0; right: 0; text-align: center; color: rgba(255, 255, 255, 0.7); font-weight: 500; }
+.player .psrc { margin-top: 10px; font-size: 21px; color: rgba(255, 255, 255, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player .nextcard {
+    position: absolute; right: 96px; bottom: 260px; width: 560px; padding: 30px 36px; border-radius: 28px;
+    background: rgba(28, 28, 30, 0.92); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.14);
+    opacity: 0; -webkit-transform: translateY(20px); transform: translateY(20px);
+    transition: opacity 0.25s ease, -webkit-transform 0.25s ease, transform 0.25s ease;
+}
+.player .nextcard.on { opacity: 1; -webkit-transform: none; transform: none; }
+.player .nlabel { font-size: 21px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: #ef6f9b; }
+.player .ntitle { margin-top: 8px; font-size: 30px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player .ncount { margin-top: 6px; font-size: 25px; color: rgba(255, 255, 255, 0.8); }
+.player .nhint { margin-top: 14px; font-size: 20px; color: rgba(255, 255, 255, 0.5); }
+
+/* ---- sources (qml Sources) */
+.sources { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: #0b0b0d; overflow: hidden; }
+.sources .backdrop { opacity: 0; }
+.sources .backdrop.on { opacity: 0.28; }
+.sources .sshade { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: linear-gradient(to right, rgba(11, 11, 13, 0.95), rgba(11, 11, 13, 0.6)); }
+.sources .shead { position: absolute; left: 96px; top: 70px; right: 96px; }
+.sources .stitle { font-size: 52px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sources .ssub { margin-top: 6px; font-size: 27px; color: rgba(255, 255, 255, 0.7); }
+.sources .sstatus { position: absolute; left: 96px; top: 260px; font-size: 30px; color: rgba(255, 255, 255, 0.7); }
+.sources .sstatus:empty { display: none; }
+.sources .slist { position: absolute; left: 76px; top: 240px; width: 1768px; height: 792px; overflow: hidden; }
+.sources .strack { position: absolute; left: 0; top: 0; right: 0; transition: -webkit-transform 0.22s ease-out, transform 0.22s ease-out; }
+.srcrow {
+    position: relative; height: 112px; margin: 0 20px 20px; padding: 0 28px; border-radius: 24px;
+    background: rgba(255, 255, 255, 0.07);
+    transition: background-color 0.12s ease, color 0.12s ease, -webkit-transform 0.15s ease, transform 0.15s ease;
+}
+.srcrow.lit { background: #fff; color: #1c1c1e; -webkit-transform: scale(1.015); transform: scale(1.015); }
+.srcrow .badges { position: absolute; left: 28px; top: 0; width: 190px; height: 112px; line-height: 112px; white-space: nowrap; overflow: hidden; }
+.badge {
+    display: inline-block; vertical-align: middle; height: 34px; padding: 0 10px; margin-right: 8px; border-radius: 8px;
+    font-size: 19px; font-weight: 700; line-height: 34px; background: rgba(255, 255, 255, 0.16);
+}
+.badge.res { background: rgba(255, 255, 255, 0.9); color: #1c1c1e; }
+.badge.hdr { background: rgba(239, 111, 155, 0.85); color: #fff; }
+.badge.fast { background: transparent; padding: 0 2px; }
+.srcrow.lit .badge { background: rgba(28, 28, 30, 0.12); }
+.srcrow.lit .badge.res { background: #1c1c1e; color: #fff; }
+.srcrow.lit .badge.hdr { background: #ef6f9b; color: #fff; }
+.srcrow .stext { position: absolute; left: 230px; right: 28px; top: 20px; }
+.srcrow .sname { font-size: 26px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.srcrow .sline { margin-top: 6px; font-size: 21px; opacity: 0.66; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.srcrow .warn { color: #ffb347; }
+.srcrow.lit .warn { color: #b25f00; }
+
+/* ---- the options menu and notes (qml OptionsMenu, Toast) */
+.menu { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: rgba(0, 0, 0, 0.6); }
+.menu .mbox {
+    position: absolute; left: 50%; top: 50%; width: 640px; padding: 30px 24px 18px; border-radius: 34px;
+    -webkit-transform: translate(-50%, -50%); transform: translate(-50%, -50%);
+    background: rgba(32, 32, 36, 0.97); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.12);
+}
+.blur .menu .mbox { background: rgba(40, 40, 46, 0.72); -webkit-backdrop-filter: blur(40px); backdrop-filter: blur(40px); }
+.menu .mtitle { padding: 0 20px 18px; font-size: 25px; font-weight: 600; color: rgba(255, 255, 255, 0.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.menu .mrow { height: 76px; padding: 0 20px; margin-bottom: 8px; border-radius: 22px; font-size: 28px; font-weight: 600; line-height: 76px; white-space: nowrap; }
+.menu .mrow .ico { display: inline-block; vertical-align: top; margin: 23px 18px 0 0; }
+.menu .mrow .ico svg { display: block; }
+.menu .mrow.lit { background: #fff; color: #1c1c1e; }
+.toast {
+    position: absolute; left: 50%; bottom: 64px; max-width: 1400px; padding: 0 34px; height: 72px; border-radius: 36px;
+    -webkit-transform: translate(-50%, 30px); transform: translate(-50%, 30px);
+    background: rgba(40, 40, 44, 0.96); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.14);
+    font-size: 27px; font-weight: 600; line-height: 72px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    opacity: 0; transition: opacity 0.2s ease, -webkit-transform 0.2s ease, transform 0.2s ease; z-index: 10;
+}
+.toast.on { opacity: 1; -webkit-transform: translate(-50%, 0); transform: translate(-50%, 0); }
+
+/* ---- typing a line (qml TextEntry) */
+.input { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: #0b0b0d; }
+.input .ibox { position: absolute; left: 50%; top: 120px; width: 1050px; margin-left: -525px; }
+.input .ititle { font-size: 52px; font-weight: 700; }
+.input .ihint { margin: 10px 0 34px; font-size: 26px; color: rgba(255, 255, 255, 0.62); }
+.input .field {
+    height: 92px; padding: 0 34px; border-radius: 46px; margin-bottom: 44px;
+    background: rgba(255, 255, 255, 0.12); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.14);
+    font-size: 36px; font-weight: 600; line-height: 92px; white-space: nowrap; overflow: hidden;
+}
+.input .caret {
+    display: inline-block; width: 3px; height: 44px; margin-left: 3px; vertical-align: -8px;
+    background: #ef6f9b; -webkit-animation: blink 1s steps(1) infinite; animation: blink 1s steps(1) infinite;
+}
+.input .kb .kbrow { margin-bottom: 14px; }
+.input .kb .key { font-size: 40px; border-radius: 18px; }
+.input .kb .key.fn { font-size: 30px; }
+
+/* ---- settings lists (qml Settings) */
+.list { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: #0b0b0d; }
+.list .ltitle { position: absolute; left: 96px; top: 70px; font-size: 52px; font-weight: 700; }
+.list .lbox { position: absolute; left: 76px; top: 200px; width: 1300px; height: 832px; overflow: hidden; }
+.list .ltrack { position: absolute; left: 0; top: 0; right: 0; transition: -webkit-transform 0.2s ease-out, transform 0.2s ease-out; }
+.list .lrow {
+    position: relative; height: 88px; margin: 0 20px 16px; padding: 0 32px; border-radius: 26px;
+    background: rgba(255, 255, 255, 0.07); font-size: 29px; font-weight: 600; line-height: 88px; white-space: nowrap;
+    transition: background-color 0.12s ease, color 0.12s ease;
+}
+.list .lrow .lvalue { position: absolute; right: 32px; max-width: 700px; overflow: hidden; text-overflow: ellipsis; font-weight: 500; opacity: 0.66; }
+.list .lrow.lit { background: #fff; color: #1c1c1e; }
+.list .lhint { position: absolute; left: 1440px; top: 216px; width: 400px; font-size: 25px; line-height: 1.45; color: rgba(255, 255, 255, 0.6); }
+
+/* ---- trakt sign-in */
+.trakt { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: #0b0b0d; }
+.trakt .tbox { position: absolute; left: 0; right: 0; top: 200px; text-align: center; }
+.trakt .ttitle { font-size: 56px; font-weight: 700; margin-bottom: 60px; }
+.trakt .tsteps { font-size: 30px; color: rgba(255, 255, 255, 0.7); }
+.trakt .turl { margin: 14px 0 40px; font-size: 44px; font-weight: 700; color: #ef6f9b; }
+.trakt .tcode { margin-top: 20px; font-size: 120px; font-weight: 800; letter-spacing: 18px; }
+.trakt .tnote { margin-top: 50px; font-size: 27px; color: rgba(255, 255, 255, 0.55); }

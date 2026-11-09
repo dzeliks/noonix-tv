@@ -51,6 +51,7 @@ const bundled = await build({
         __TMDB_KEY__: JSON.stringify(process.env.NOONIX_TMDB_API_KEY || ""),
         __TMDB_TOKEN__: JSON.stringify(process.env.NOONIX_TMDB_READ_TOKEN || ""),
         __TRAKT_ID__: JSON.stringify(process.env.NOONIX_TRAKT_CLIENT_ID || ""),
+        __TRAKT_SECRET__: JSON.stringify(process.env.NOONIX_TRAKT_CLIENT_SECRET || ""),
         // dev: tmdb ids kept out of tests and screenshots
         __HIDE__: JSON.stringify(dev ? process.env.NOONIX_HIDE || "" : ""),
     },

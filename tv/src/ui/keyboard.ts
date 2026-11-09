@@ -78,6 +78,7 @@ export function keyboard(unit: number, enter: string, typed: (s: string) => void
         clear(el)
         keyEls = all[page].map(function (keys, r) {
             const rowEl = h("div.kbrow")
+            rowEl.style.height = keyH + "px"
             el.appendChild(rowEl)
             return keys.map(function (k) {
                 const w = k.w * unit + (k.w - 1) * gap

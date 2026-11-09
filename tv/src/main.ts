@@ -7,7 +7,12 @@ import * as tmdb from "./data/tmdb"
 import * as look from "./ui/look"
 import { nextFrame } from "./ui/dom"
 import { showSplash } from "./ui/splash"
-import { homeScreen, Screen } from "./ui/home"
+import { homeScreen } from "./ui/home"
+import { App, PlayReq, Screen, MenuEntry } from "./ui/app"
+import { playerScreen } from "./ui/player"
+import { sourcesScreen } from "./ui/sources"
+import { settingsScreen } from "./ui/settings"
+import { menuScreen, toast } from "./ui/menu"
 import { detailsScreen } from "./ui/details"
 import { exitPrompt } from "./ui/exitprompt"
 import { searchScreen } from "./ui/search"
@@ -63,8 +68,38 @@ function boot(): void {
         if (s.closed) s.closed()
     }
 
+    let player: Screen | null = null
+
+    const app: App = {
+        open: openDetails,
+        page(id: string): void {
+            if (id === "search") push(searchScreen(openDetails), false)
+            else if (id === "settings") push(settingsScreen(app), false)
+        },
+        play(req: PlayReq): void {
+            // one player: a source picked while one plays takes its place
+            if (player) {
+                while (screens.length > 1 && screens[screens.length - 1] !== player) pop()
+                if (screens[screens.length - 1] === player) pop()
+            }
+            const p = playerScreen(app, req)
+            player = p
+            const closed = p.closed
+            p.closed = function () { if (player === p) player = null; if (closed) closed() }
+            push(p, false)
+        },
+        sources(req: PlayReq): void { push(sourcesScreen(app, req), false) },
+        menu(title: string, entries: MenuEntry[]): void {
+            if (!entries.length) return
+            push(menuScreen(title, entries, pop), true)
+        },
+        push: push,
+        pop: pop,
+        toast(text: string): void { toast(stage, text) },
+    }
+
     function openDetails(it: tmdb.Item): void {
-        const d = detailsScreen(it, openDetails)
+        const d = detailsScreen(it, app)
         push(d, false)
         details.push(d)
         if (details.length > keepDetails) {
@@ -76,13 +111,7 @@ function boot(): void {
     }
 
     // the home builds under the splash, so its first rows are there when it lifts
-    const homeEl = homeScreen({
-        open: openDetails,
-        page(id: string): void {
-            if (id === "search") push(searchScreen(openDetails), false)
-            // TODO(F3d): library and settings
-        },
-    })
+    const homeEl = homeScreen(app)
     screens.push(homeEl)
     stage.appendChild(homeEl.el)
     let ready = false
