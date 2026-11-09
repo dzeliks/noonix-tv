@@ -143,7 +143,7 @@ function boot(): void {
             try { sessionStorage.setItem("noonix:picked", "1") } catch (e) { /* fine */ }
             pop()
         }), false)
-    } else if (profiles.list().length > 1 && !picked) {
+    } else if (profiles.list().length > 1 && !picked && settings.all().askProfile) {
         push(pickerScreen(function (p) {
             try { sessionStorage.setItem("noonix:picked", "1") } catch (e) { /* asked again next run */ }
             if (p.id !== profiles.current().id) { profiles.use(p.id); location.reload(); return }

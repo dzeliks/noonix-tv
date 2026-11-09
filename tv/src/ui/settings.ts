@@ -53,6 +53,23 @@ function listScreen(title: string, rows: () => Row[]): Screen & { redraw(): void
     }
 }
 
+// the qml PatternField as a line of text: commas between them
+function patternRow(app: App, key: "preferred" | "hidden", label: string, none: string): Row {
+    return {
+        label: label, value: function () { const l = settings.all()[key]; return l.length ? l.join(", ") : tr("None") },
+        hint: settings.all()[key].length ? tr("Commas between them. Words match whole words in any case; /…/ is a regular expression. Empty clears it") : none,
+        ok: function () {
+            app.push(inputScreen(label, tr("Commas between them. Words match whole words in any case; /…/ is a regular expression. Empty clears it"),
+                settings.all()[key].join(", "), function (v) {
+                    // a regex may hold commas: /a,b/ stays one
+                    const out = (v.match(/\s*\/[^/]+\/\s*|[^,]+/g) || []).map(function (x) { return x.trim() }).filter(function (x) { return !!x })
+                    settings.put(key, out)
+                    app.toast(tr("Saved"))
+                }, app.pop), false)
+        },
+    }
+}
+
 function qualityName(r: number): string { return r >= 2160 ? "4K" : r + "p" }
 
 export function settingsScreen(app: App): Screen {
@@ -86,6 +103,8 @@ export function settingsScreen(app: App): Screen {
                     }
                     app.menu(tr("Picture quality"), [pick("auto"), pick("2160"), pick("1080"), pick("720")])
                 } },
+            patternRow(app, "preferred", tr("Preferred release patterns"), tr("None. Words in a release name you like, best first, like REMUX or a language tag")),
+            patternRow(app, "hidden", tr("Hidden release patterns"), tr("None. Releases with these words never show")),
             { label: tr("Low memory mode"), value: function () { return lowNames[s.lowMode] + (s.lowMode === "auto" ? " (" + (look.lowMemory ? tr("On") : tr("Off")) + ")" : "") },
                 hint: tr("Lighter artwork and fewer cards kept, for older TVs"),
                 ok: function () { settings.put("lowMode", s.lowMode === "auto" ? "on" : s.lowMode === "on" ? "off" : "auto"); location.reload() } },
@@ -115,6 +134,8 @@ export function settingsScreen(app: App): Screen {
                 } },
             { label: tr("Clear cache"), value: function () { return "" }, hint: tr("Lists and artwork are fetched again"),
                 ok: function () { store.evict(1); app.toast(tr("Cache cleared")) } },
+            { label: tr("Run setup again"), value: function () { return "" },
+                ok: function () { store.remove("setup"); store.remove("setupStep"); location.reload() } },
             { label: tr("About"), value: function () { return "Noonix TV " + __VERSION__ + "  ·  " + platform.label + "  ·  Chromium " + platform.chrome },
                 ok: function () { /* nothing */ } },
         ]
@@ -142,6 +163,11 @@ function profilesScreen(app: App): Screen {
                     app.menu(profileName(p), entries)
                 },
             }
+        })
+        if (profiles.list().length > 1) rows.push({
+            label: tr("Ask who's watching"), value: function () { return settings.all().askProfile ? tr("On") : tr("Off") },
+            hint: tr("Open on the last profile without asking who's watching"),
+            ok: function () { settings.put("askProfile", !settings.all().askProfile) },
         })
         rows.push({ label: tr("Add a profile"), value: function () { return "" }, ok: function () {
             app.push(inputScreen(tr("Add a profile"), tr("A name"), "", function (v) {

@@ -9,9 +9,14 @@ export interface Settings {
     lowMode: LowMode
     language: "en" | "sr"
     quality: Quality
+    /** release patterns: words (whole, any case) or /a regex/; preferred lift, hidden drop */
+    preferred: string[]
+    hidden: string[]
+    /** skip "who's watching?": open on the last profile */
+    askProfile: boolean
 }
 
-const defaults: Settings = { lowMode: "auto", language: "en", quality: "auto" }
+const defaults: Settings = { lowMode: "auto", language: "en", quality: "auto", preferred: [], hidden: [], askProfile: true }
 
 export function all(): Settings {
     const s = store.get<Partial<Settings>>("settings", {})

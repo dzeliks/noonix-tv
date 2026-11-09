@@ -206,14 +206,39 @@ function trouble(s: Stream): string | null {
     return null
 }
 
+const patterns: { [p: string]: RegExp | null } = {}
+
+/** a release pattern as the user writes it (core ranking.rs pattern): words, whole and in any case,
+ *  or /a regex/. a broken one matches nothing */
+export function pattern(p: string): RegExp | null {
+    p = p.trim()
+    if (!p) return null
+    if (patterns[p] !== undefined) return patterns[p]
+    // no \p{L} before chromium 64: latin, greek and cyrillic letters count as word letters
+    const edge = "[^0-9A-Za-z\u00c0-\u024f\u0370-\u03ff\u0400-\u04ff]"
+    let re: RegExp | null = null
+    try {
+        re = p.length > 2 && p.charAt(0) === "/" && p.charAt(p.length - 1) === "/" ? new RegExp(p.slice(1, -1), "i")
+            : new RegExp("(^|" + edge + ")" + p.replace(/[.*+?^${}()|[\]\\\/-]/g, "\\$&").replace(/ +/g, "[ ._\\-]+") + "(" + edge + "|$)", "i")
+    } catch (e) { re = null }
+    patterns[p] = re
+    return re
+}
+
+function releaseText(s: Stream): string { return (s.filename || "") + "\n" + s.title }
+
 export function rank(list: Stream[]): Stream[] {
     const seen: { [k: string]: boolean } = {}
+    const set = settings.all()
+    const hidden = set.hidden.map(pattern).filter(function (r): r is RegExp { return !!r })
+    const liked = set.preferred.map(pattern).filter(function (r): r is RegExp { return !!r })
     const out = list.filter(function (s) {
         const k = (s.filename || s.title) + "|" + s.size
         if (seen[k]) return false
         seen[k] = true
         s.warn = trouble(s)
-        return s.warn !== "cam"
+        const t = releaseText(s)
+        return s.warn !== "cam" && !hidden.some(function (r) { return r.test(t) })
     })
     const score = function (s: Stream): number {
         let n = 0
@@ -224,6 +249,9 @@ export function rank(list: Stream[]): Stream[] {
         // over the limit: the closest one first
         if (s.warn === "level") n -= s.resolution * 10
         if (s.hdr.length && s.hdr[0] !== "DV" || s.hdr.length > 1) n += 500
+        // a liked pattern lifts it within its tier (resolutions are 360000 apart), the first one most
+        const t = releaseText(s)
+        for (let i = 0; i < liked.length; i++) if (liked[i].test(t)) { n += (liked.length - i) * 1000; break }
         if (s.source === "Remux") n -= 200 // a remux is huge for what a tv's wifi can carry
         // bigger is better within a tier, to about 40 gb
         n += Math.min(s.size || 0, 40 * 1073741824) / 1073741824
