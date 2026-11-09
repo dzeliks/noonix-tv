@@ -157,6 +157,11 @@ function avplay(ev: Events): Backend {
                 av.setDisplayMethod("PLAYER_DISPLAY_MODE_LETTER_BOX")
                 // 4k streams need it asked for before prepare
                 if (!platform.lowMemoryDefault) try { av.setStreamingProperty("SET_MODE_4K", "TRUE") } catch (e) { /* hd tv */ }
+                // starts after a few seconds in hand; after a stall it waits for more, so it doesn't stall again at once
+                try {
+                    av.setBufferingParam("PLAYER_BUFFER_FOR_PLAY", "PLAYER_BUFFER_SIZE_IN_SECOND", 4)
+                    av.setBufferingParam("PLAYER_BUFFER_FOR_RESUME", "PLAYER_BUFFER_SIZE_IN_SECOND", platform.lowMemoryDefault ? 8 : 12)
+                } catch (e) { /* the tv's own sizes */ }
                 av.setListener({
                     onbufferingstart: function () { ev.waiting() },
                     onbufferingcomplete: function () { if (!paused) ev.playing() },

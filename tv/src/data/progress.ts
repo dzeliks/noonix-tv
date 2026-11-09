@@ -68,9 +68,18 @@ export function save(p: Progress): void {
     if (p.finished && p.item.kind === "show" && p.season !== undefined && p.episode !== undefined) setWatched(p.item.id, p.season, p.episode, true)
 }
 
-export function forget(kind: tmdb.Kind, id: number): void {
+/** drops it; what was there comes back for an undo */
+export function forget(kind: tmdb.Kind, id: number): Progress | null {
     const list = all()
+    const was = list[key(kind, id)] || null
     delete list[key(kind, id)]
+    store.set(profiles.key("progress"), list)
+    return was
+}
+
+export function restore(p: Progress): void {
+    const list = all()
+    list[key(p.item.kind, p.item.id)] = p
     store.set(profiles.key("progress"), list)
 }
 

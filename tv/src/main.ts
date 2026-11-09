@@ -1,7 +1,7 @@
 // noonix tv for lg webOS and samsung tizen: boot
 import { platform, registerKeys, exitApp } from "./platform"
 import { listen, Action } from "./keys"
-import { setLanguage } from "./i18n"
+import { setLanguage, tr } from "./i18n"
 import * as settings from "./data/settings"
 import * as tmdb from "./data/tmdb"
 import * as look from "./ui/look"
@@ -74,6 +74,8 @@ function boot(): void {
     }
 
     let player: Screen | null = null
+    let undoing: (() => void) | null = null
+    let undoUntil = 0
 
     const app: App = {
         open: openDetails,
@@ -108,7 +110,11 @@ function boot(): void {
         },
         push: push,
         pop: pop,
-        toast(text: string): void { toast(stage, text) },
+        toast(text: string, undo?: () => void): void {
+            undoing = undo || null
+            undoUntil = Date.now() + 4000
+            toast(stage, undo ? text + "  ·  " + tr("OK to undo") : text, undo ? 4000 : 0)
+        },
     }
 
     function openDetails(it: tmdb.Item): void {
@@ -148,6 +154,14 @@ function boot(): void {
     listen(function (a: Action) {
         if (!ready) return
         if (a === "leave") { exitApp(); return }
+        if (undoing && a === "ok" && Date.now() < undoUntil) {
+            const f = undoing
+            undoing = null
+            f()
+            toast(stage, tr("Undone"), 0)
+            return
+        }
+        if (a !== "ok") undoing = null
         const top = screens[screens.length - 1]
         if (top.action(a) || a !== "back") return
         if (screens.length > 1) { pop(); return }

@@ -37,7 +37,7 @@ export function menuScreen(title: string, entries: MenuEntry[], close: () => voi
 let toastEl: HTMLElement | null = null
 let toastTimer = 0
 
-export function toast(stage: HTMLElement, text: string): void {
+export function toast(stage: HTMLElement, text: string, ms: number): void {
     if (!toastEl) {
         toastEl = h("div.toast")
         stage.appendChild(toastEl)
@@ -46,5 +46,5 @@ export function toast(stage: HTMLElement, text: string): void {
     t.textContent = text
     t.className = "toast on"
     clearTimeout(toastTimer)
-    toastTimer = window.setTimeout(function () { t.className = "toast" }, 2600)
+    toastTimer = window.setTimeout(function () { t.className = "toast" }, ms || 2600)
 }

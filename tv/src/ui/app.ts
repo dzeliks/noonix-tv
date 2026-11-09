@@ -44,5 +44,6 @@ export interface App {
     /** closes the top screen */
     pop(): void
     /** a short note at the bottom of the screen */
-    toast(text: string): void
+    /** with undo: ok while it shows runs it */
+    toast(text: string, undo?: () => void): void
 }

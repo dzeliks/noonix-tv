@@ -150,11 +150,17 @@ export function homeScreen(app: App): Screen {
         const entries = []
         const kept = progress.inLibrary(it.kind, it.id)
         entries.push({ label: kept ? tr("Remove from My List") : tr("Add to My List"), icon: kept ? "minus" : "plus", run: function () {
-            app.toast(progress.toggleLibrary(it) ? tr("Added to My List") : tr("Removed from My List"))
+            const added = progress.toggleLibrary(it)
             refreshLocal()
+            app.toast(added ? tr("Added to My List") : tr("Removed from My List"),
+                added ? undefined : function () { progress.toggleLibrary(it); refreshLocal() })
         } })
         if (r.def.id === "continue" || r.def.id === "upnext" || r.def.id === "history") {
-            entries.push({ label: tr("Remove from %1", tr(r.def.title)), icon: "minus", run: function () { progress.forget(it.kind, it.id); refreshLocal() } })
+            entries.push({ label: tr("Remove from %1", tr(r.def.title)), icon: "minus", run: function () {
+                const was = progress.forget(it.kind, it.id)
+                refreshLocal()
+                app.toast(tr("Removed %1", it.title), was ? function () { progress.restore(was); refreshLocal() } : undefined)
+            } })
         }
         if (it.kind === "movie") {
             entries.push({ label: tr("Mark as watched"), icon: "check", run: function () {
