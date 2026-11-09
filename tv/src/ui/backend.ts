@@ -146,7 +146,7 @@ function avplay(ev: Events): Backend {
             done = false
             dur = now = ahead = 0
             // the video is drawn under the page: the page goes see-through while it plays
-            document.documentElement.className += " av"
+            if (!/ av\b/.test(document.documentElement.className)) document.documentElement.className += " av"
             try {
                 av.stop()
                 av.close()
