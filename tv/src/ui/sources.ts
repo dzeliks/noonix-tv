@@ -7,6 +7,7 @@ import { App, PlayReq, Screen } from "./app"
 import * as tmdb from "../data/tmdb"
 import * as sources from "../data/sources"
 import * as settings from "../data/settings"
+import * as memory from "../data/memory"
 
 const rowH = 132
 const visible = 6
@@ -64,10 +65,13 @@ export function sourcesScreen(app: App, req: PlayReq): Screen {
             if (s.cached === true) badges.appendChild(badge("⚡", "fast"))
             const line = [s.addon, sources.sizeText(s.size), s.codec || "", s.audio.slice(0, 2).join(" "), s.source || "",
                 s.languages.filter(function (l) { return l !== "en" }).join(" ").toUpperCase()].filter(function (x) { return !!x }).join("  ·  ")
+            // what the viewers said (how's this one?) before the tv's own warning
+            const said = memory.isBad(s) ? h("span.warn", { text: "  ·  " + tr("Picture or sound problem") })
+                : memory.isGood(req.item.kind, req.item.id, s) ? h("span.good", { text: "  ·  " + tr("Good match") }) : null
             const w = s.warn ? warnText(s.warn) : ""
             track.appendChild(h("div.srcrow", null, badges, h("div.stext", null,
                 h("div.sname", { text: s.title }),
-                h("div.sline", null, line, w ? h("span.warn", { text: "  ·  " + w }) : null))))
+                h("div.sline", null, line, said, w ? h("span.warn", { text: "  ·  " + w }) : null))))
         })
         place()
     }

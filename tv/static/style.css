@@ -422,6 +422,8 @@ html, body {
 .srcrow .sline { margin-top: 6px; font-size: 21px; opacity: 0.66; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .srcrow .warn { color: #ffb347; }
 .srcrow.lit .warn { color: #b25f00; }
+.srcrow .good { color: #6fdc9a; }
+.srcrow.lit .good { color: #1d7a44; }
 
 /* ---- the options menu and notes (qml OptionsMenu, Toast) */
 .menu { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: rgba(0, 0, 0, 0.6); }

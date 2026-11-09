@@ -43,6 +43,11 @@ export function report(s: Stream): void {
     put(m)
 }
 
+export function isGood(kind: string, tmdb: number, s: Stream): boolean {
+    const g = get().good[kind + ":" + tmdb]
+    return !!g && g.files.indexOf(fileKey(s)) >= 0
+}
+
 export function isBad(s: Stream): boolean { return get().bad.indexOf(fileKey(s)) >= 0 }
 
 /** the list in the viewers' order; the rest keeps the ranking */
