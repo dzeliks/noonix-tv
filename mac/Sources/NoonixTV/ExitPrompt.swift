@@ -56,13 +56,17 @@ final class ConfirmModel {
     let detail: String
     let ok: String
     let yes: () -> Void
+    /// cancel, back or a tap outside
+    let no: (() -> Void)?
+    var answered = false
     var choice = 1          // 0 yes, 1 cancel
 
-    init(title: String, detail: String, ok: String, yes: @escaping () -> Void) {
+    init(title: String, detail: String, ok: String, yes: @escaping () -> Void, no: (() -> Void)? = nil) {
         self.title = title
         self.detail = detail
         self.ok = ok
         self.yes = yes
+        self.no = no
     }
 }
 
@@ -124,6 +128,7 @@ extension AppModel {
 
     func confirmYes() {
         let f = confirm?.yes
+        confirm?.answered = true
         confirm = nil
         f?()
     }

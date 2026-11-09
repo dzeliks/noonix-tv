@@ -150,10 +150,13 @@ final class SourcesFlow {
         // lg and samsung tvs stream torrents themselves; this device can do it for them (not an apple tv)
         if allowed == true && !Platform.tv {
             let on = tvs["on"] as? Bool == true
-            let detail = !on ? L("Noonix TV on an LG or Samsung TV plays torrent sources through this device")
+            let detail = !on ? L("Noonix TV on an LG or Samsung TV plays torrent sources through this device. Each TV asks here first")
                 : (tvs["error"] as? String).map { Lc($0) }
-                ?? L("On the TV: Settings › Streaming server › %1, while Noonix TV is open here", tvs["address"] as? String ?? "")
+                ?? L("On the TV: Settings › Streaming server › %1, while Noonix TV is open here. Only on a home network you trust", tvs["address"] as? String ?? "")
             out.append(Line(label: L("Stream torrents to TVs"), detail: detail, checkable: true, checked: on, act: "tvserver"))
+            if on, let n = tvs["allowed"] as? Int, n > 0 {
+                out.append(Line(label: L("Forget allowed TVs"), detail: L("Each TV asks again before it can use this device"), value: String(n), act: "tvforget"))
+            }
         }
         return out
     }
@@ -203,6 +206,8 @@ final class SourcesFlow {
             app.help = SourcesHelpModel(topic: "debrid")
         } else if a == "help:torrent" {
             app.help = SourcesHelpModel(topic: "torrent")
+        } else if a == "tvforget" {
+            Task { if let d = await json("tvServer.forget") as? [String: Any] { tvs = d }; changed() }
         } else if a == "tvserver" {
             Task { if let d = await json("tvServer.set", ["on": tvs["on"] as? Bool != true]) as? [String: Any] { tvs = d }; changed() }
         } else if a == "torrents" {

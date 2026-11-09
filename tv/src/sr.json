@@ -103,7 +103,6 @@
     "Its address, e.g. 192.168.1.20 (port 11470 unless you type one). Empty: this TV": "Njegova adresa, npr. 192.168.1.20 (port 11470 ako ne upišeš drugi). Prazno: ovaj TV",
     "Its address, e.g. 192.168.1.20 (port 11470 unless you type one). Empty: none": "Njegova adresa, npr. 192.168.1.20 (port 11470 ako ne upišeš drugi). Prazno: nijedan",
     "Torrents play on this TV": "Torenti se puštaju na ovom TV-u",
-    "Checking %1…": "Proveravam %1…",
     "Streaming server saved: torrent sources play through it": "Server za strimovanje sačuvan: torent izvori se puštaju preko njega",
     "No streaming server answered at %1": "Nijedan server za strimovanje se ne javlja na %1",
     "%n torrent source is hidden: allow torrents in Settings": [
@@ -122,5 +121,8 @@
     "Measures this TV's internet for a few seconds: Auto picture quality follows it": "Meri internet ovog TV-a par sekundi: automatski kvalitet slike ga prati",
     "%1 Mbit/s: up to %2": "%1 Mbit/s: najviše %2",
     "Couldn't reach the speed test": "Test brzine nije dostupan",
-    "Torrents on this TV (MIT and ISC licenses: engine/NOTICES.txt in the app)": "Torenti na ovom TV-u (MIT i ISC licence: engine/NOTICES.txt u aplikaciji)"
+    "Torrents on this TV (MIT and ISC licenses: engine/NOTICES.txt in the app)": "Torenti na ovom TV-u (MIT i ISC licence: engine/NOTICES.txt u aplikaciji)",
+    "Checking %1… If it's Noonix TV, allow this TV there": "Proveravam %1… Ako je to Noonix TV, dozvoli ovaj TV tamo",
+    "The computer didn't allow this TV. Turn its Stream torrents to TVs off and on to ask again": "Računar nije dozvolio ovaj TV. Isključi i uključi tamo Strimuj torente na TV-e da opet pita",
+    "On this TV they play through a small engine inside Noonix TV: it only downloads, keeps the video in the TV's memory and saves nothing. The TV's IP address is the one others see.": "Na ovom TV-u se puštaju preko malog pogona u Noonix TV-u: samo preuzima, drži video u memoriji TV-a i ništa ne čuva. Drugi vide IP adresu TV-a."
 }

@@ -1276,7 +1276,25 @@ Window {
             if (name === "notice" && d && d.message) toast.notify(qsTranslate("core", d.message))
             // a library scan finished: its rows follow
             if (name === "library") refreshRows()
+            // a tv wants this computer's torrents: allowed once, by address
+            if (name === "tvServer.ask" && d && d.ip) {
+                var who = d.device === "lg" ? qsTr("An LG TV") : d.device === "samsung" ? qsTr("A Samsung TV") : qsTr("A device")
+                tvAsk.back = win.activeFocusItem
+                tvAsk.open({ title: qsTr("Allow this TV?"), ok: qsTr("Allow"),
+                    detail: qsTr("%1 at %2 wants to play torrents through this computer. Allow only TVs in your home: what they download is your responsibility, as if you watched it here.").arg(who).arg(d.ip),
+                    yes: function () { Api.call("tvServer.allow", { ip: d.ip, allow: true }, function () {}) },
+                    no: function () { Api.call("tvServer.allow", { ip: d.ip, allow: false }, function () {}) } })
+            }
         }
+    }
+
+    // a tv asking for this computer's torrents: over everything, focus goes back where it was
+    Confirm {
+        id: tvAsk
+        property Item back: null
+        anchors.fill: parent
+        z: 9
+        onClosed: { if (back) back.forceActiveFocus(); else win.focusPage(); back = null }
     }
 
     TraktChoice {

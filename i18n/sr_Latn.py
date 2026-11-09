@@ -7,8 +7,16 @@ import xml.etree.ElementTree as ET
 T = {
     # ---- torrents to lg / samsung tvs
     "Stream torrents to TVs": "Strimuj torente na TV-e",
-    "Noonix TV on an LG or Samsung TV plays torrent sources through this device": "Noonix TV na LG ili Samsung TV-u pušta torent izvore preko ovog uređaja",
-    "On the TV: Settings › Streaming server › %1, while Noonix TV is open here": "Na TV-u: Podešavanja › Server za strimovanje › %1, dok je Noonix TV ovde otvoren",
+    "Noonix TV on an LG or Samsung TV plays torrent sources through this device. Each TV asks here first": "Noonix TV na LG ili Samsung TV-u pušta torent izvore preko ovog uređaja. Svaki TV prvo pita ovde",
+    "On the TV: Settings › Streaming server › %1, while Noonix TV is open here. Only on a home network you trust": "Na TV-u: Podešavanja › Server za strimovanje › %1, dok je Noonix TV ovde otvoren. Samo na kućnoj mreži kojoj veruješ",
+    "Forget allowed TVs": "Zaboravi dozvoljene TV-e",
+    "Each TV asks again before it can use this device": "Svaki TV ponovo pita pre nego što može da koristi ovaj uređaj",
+    "An LG TV": "LG TV",
+    "A Samsung TV": "Samsung TV",
+    "A device": "Uređaj",
+    "Allow this TV?": "Dozvoliti ovaj TV?",
+    "Allow": "Dozvoli",
+    "%1 at %2 wants to play torrents through this computer. Allow only TVs in your home: what they download is your responsibility, as if you watched it here.": "%1 na adresi %2 želi da pušta torente preko ovog računara. Dozvoli samo televizore u svom domu: ono što preuzmu je tvoja odgovornost, kao da gledaš ovde.",
     "Port 11470 is in use: Stremio Service may already be running here": "Port 11470 je zauzet: Stremio Service možda već radi ovde",
     # ---- 0.4.1: search pill, low memory mode
     "All": "Sve",

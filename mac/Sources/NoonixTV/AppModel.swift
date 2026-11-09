@@ -191,7 +191,9 @@ final class AppModel {
     var navIndex = 1
     /// the exit prompt is up: 0 = exit, 1 = stay (focused first)
     var exitChoice: Int?
-    var confirm: ConfirmModel?
+    var confirm: ConfirmModel? {
+        didSet { if let old = oldValue, old !== confirm, !old.answered { old.answered = true; old.no?() } }
+    }
     /// torrents / a debrid service explained (or the torrents question), over setup or settings
     var help: SourcesHelpModel?
     /// an addon or extension: what it brings, before it's added or once it's in
@@ -283,6 +285,16 @@ final class AppModel {
         Core.shared.on("notice", key: "app") { [weak self] d in
             guard let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any], let m = o["message"] as? String, !m.isEmpty else { return }
             self?.notify(UILang.shared.core(m))
+        }
+        // a tv wants this device's torrents: allowed once, by address
+        Core.shared.on("tvServer.ask", key: "app") { [weak self] d in
+            guard let self, let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any], let ip = o["ip"] as? String else { return }
+            let who = o["device"] as? String == "lg" ? L("An LG TV") : o["device"] as? String == "samsung" ? L("A Samsung TV") : L("A device")
+            confirm = ConfirmModel(title: L("Allow this TV?"),
+                detail: L("%1 at %2 wants to play torrents through this computer. Allow only TVs in your home: what they download is your responsibility, as if you watched it here.", who, ip),
+                ok: L("Allow"),
+                yes: { Task { _ = try? await Core.shared.raw("tvServer.allow", ["ip": ip, "allow": true]) } },
+                no: { Task { _ = try? await Core.shared.raw("tvServer.allow", ["ip": ip, "allow": false]) } })
         }
         // a new release: one quiet line after launch, never over a video (ios: the app store's job)
         if !Platform.ios { Task { [weak self] in

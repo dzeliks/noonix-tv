@@ -137,7 +137,7 @@ languages. Excluded patterns hide a release. The user's own patterns in Settings
 
 ## Make any addon work well
 
-Noonix TV asks an addon for streams the way Stremio does: `/stream/movie/<imdb id>.json` for a movie
+Noonix TV asks an addon for streams with Stremio's addon protocol: `/stream/movie/<imdb id>.json` for a movie
 and `/stream/series/<imdb id>:<season>:<episode>.json` for an episode. Any addon that answers those
 works. What it reads from each stream decides how well it's ranked:
 

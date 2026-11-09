@@ -104,6 +104,11 @@ pub async fn dispatch(method: &str, args: Value) -> Result<Value> {
         // this computer as the tvs' streaming server (torrents for lg / samsung)
         "tvServer.state" => Ok(crate::tvserver::state().await),
         "tvServer.set" => crate::tvserver::set(args.get("on").and_then(Value::as_bool).unwrap_or(false)).await,
+        "tvServer.allow" => {
+            let ip = args.get("ip").and_then(Value::as_str).unwrap_or("").to_owned();
+            crate::tvserver::allow(ip, args.get("allow").and_then(Value::as_bool).unwrap_or(false)).await
+        }
+        "tvServer.forget" => crate::tvserver::forget().await,
         "setup.torrents" => {
             setup::set_torrents(args.get("on").and_then(Value::as_bool).unwrap_or(false)).await?;
             Ok(setup::accounts())

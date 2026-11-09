@@ -9,19 +9,20 @@ FocusScope {
     property string detail: ""
     property string okText: ""
     property var onYes: null
+    property var onNo: null              // cancel, back or a click outside
     property int choice: 1               // 0 yes, 1 cancel
     signal closed()
     visible: opacity > 0
     opacity: 0
     Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
     function open(o) {
-        title = o.title || ""; detail = o.detail || ""; okText = o.ok || ""; onYes = o.yes || null
+        title = o.title || ""; detail = o.detail || ""; okText = o.ok || ""; onYes = o.yes || null; onNo = o.no || null
         choice = 1
         opacity = 1
         forceActiveFocus()
     }
-    function close() { opacity = 0; closed() }
-    function yes() { var f = onYes; onYes = null; close(); if (f) f() }
+    function close() { var n = onNo; onNo = null; opacity = 0; closed(); if (n) n() }
+    function yes() { var f = onYes; onYes = null; onNo = null; close(); if (f) f() }
 
     Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: Theme.veil }
     Shield { onOutside: cf.close() }

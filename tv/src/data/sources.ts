@@ -198,7 +198,8 @@ function normalize(addon: string, s: any): Stream | "torrent" | null {
 
 /** a streaming server answers there (stremio's server has /settings, as stremio web asks it) */
 export function checkServer(url: string): Promise<void> {
-    return json({ url: url + "/settings", timeout: 8, retries: 0 }).then(function (v: any) {
+    // noonix tv on a computer holds a new tv's first request while it asks there (a minute)
+    return json({ url: url + "/settings", timeout: 65, retries: 0 }).then(function (v: any) {
         if (!v || typeof v !== "object") throw new Error("not a streaming server")
     })
 }

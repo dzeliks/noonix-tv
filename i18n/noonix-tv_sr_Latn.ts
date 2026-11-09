@@ -815,6 +815,30 @@
         <translation>Dodato: %1</translation>
     </message>
     <message>
+        <source>An LG TV</source>
+        <translation>LG TV</translation>
+    </message>
+    <message>
+        <source>A Samsung TV</source>
+        <translation>Samsung TV</translation>
+    </message>
+    <message>
+        <source>A device</source>
+        <translation>Uređaj</translation>
+    </message>
+    <message>
+        <source>Allow this TV?</source>
+        <translation>Dozvoliti ovaj TV?</translation>
+    </message>
+    <message>
+        <source>Allow</source>
+        <translation>Dozvoli</translation>
+    </message>
+    <message>
+        <source>%1 at %2 wants to play torrents through this computer. Allow only TVs in your home: what they download is your responsibility, as if you watched it here.</source>
+        <translation>%1 na adresi %2 želi da pušta torente preko ovog računara. Dozvoli samo televizore u svom domu: ono što preuzmu je tvoja odgovornost, kao da gledaš ovde.</translation>
+    </message>
+    <message>
         <source>Sign in to Trakt once more: Settings › Accounts</source>
         <translation>Prijavi se na Trakt još jednom: Podešavanja › Nalozi</translation>
     </message>
@@ -2664,12 +2688,20 @@ Ono što ne valja sređuje se na licu mesta.</translation>
         <translation>Strimuj torente na TV-e</translation>
     </message>
     <message>
-        <source>Noonix TV on an LG or Samsung TV plays torrent sources through this device</source>
-        <translation>Noonix TV na LG ili Samsung TV-u pušta torent izvore preko ovog uređaja</translation>
+        <source>Noonix TV on an LG or Samsung TV plays torrent sources through this device. Each TV asks here first</source>
+        <translation>Noonix TV na LG ili Samsung TV-u pušta torent izvore preko ovog uređaja. Svaki TV prvo pita ovde</translation>
     </message>
     <message>
-        <source>On the TV: Settings › Streaming server › %1, while Noonix TV is open here</source>
-        <translation>Na TV-u: Podešavanja › Server za strimovanje › %1, dok je Noonix TV ovde otvoren</translation>
+        <source>On the TV: Settings › Streaming server › %1, while Noonix TV is open here. Only on a home network you trust</source>
+        <translation>Na TV-u: Podešavanja › Server za strimovanje › %1, dok je Noonix TV ovde otvoren. Samo na kućnoj mreži kojoj veruješ</translation>
+    </message>
+    <message>
+        <source>Forget allowed TVs</source>
+        <translation>Zaboravi dozvoljene TV-e</translation>
+    </message>
+    <message>
+        <source>Each TV asks again before it can use this device</source>
+        <translation>Svaki TV ponovo pita pre nego što može da koristi ovaj uređaj</translation>
     </message>
     <message>
         <source>Addon or extension address</source>

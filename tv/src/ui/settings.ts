@@ -242,8 +242,11 @@ function torrentLines(): string[] {
     return [
         tr("A source of yours can answer with torrents: the video comes straight from other people who have it. Noonix TV only downloads, it never shares pieces back, and deletes the file when you stop."),
         tr("It can be slower to start, and videos few people have may not play. Others in the swarm can see your IP address."),
+    ].concat(engine.onTv() && !settings.all().server ? [
+        tr("On this TV they play through a small engine inside Noonix TV: it only downloads, keeps the video in the TV's memory and saves nothing. The TV's IP address is the one others see."),
+    ] : [], [
         tr("Downloading videos you have no right to is illegal in many countries. Use it at your own risk, and only for what you're allowed to watch."),
-    ]
+    ])
 }
 
 /** the streaming server's address, checked before it's kept */
@@ -258,12 +261,13 @@ function serverScreen(app: App): Screen {
                 app.toast(engine.onTv() ? tr("Torrents play on this TV") : tr("Torrent sources are off"))
                 return
             }
-            app.toast(tr("Checking %1…", url.replace(/^https?:\/\//, "")))
+            app.toast(tr("Checking %1… If it's Noonix TV, allow this TV there", url.replace(/^https?:\/\//, "")))
             sources.checkServer(url).then(function () {
                 settings.put("server", url)
                 app.toast(tr("Streaming server saved: torrent sources play through it"))
-            }, function () {
-                app.toast(tr("No streaming server answered at %1", url.replace(/^https?:\/\//, "")))
+            }, function (e: { status?: number }) {
+                app.toast(e && e.status === 403 ? tr("The computer didn't allow this TV. Turn its Stream torrents to TVs off and on to ask again")
+                    : tr("No streaming server answered at %1", url.replace(/^https?:\/\//, "")))
             })
         }, app.pop)
 }

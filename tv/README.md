@@ -28,8 +28,9 @@ for a plain file), not yet seen on a real LG TV.
 ## Torrents
 
 Torrent sources stay hidden until they're allowed in Settings (a prompt says what they are). Then
-they play the way Stremio's TV apps play them: through a streaming server at
-`http://127.0.0.1:11470` on the TV itself, with Stremio's API (`/<info hash>/<file index>`, ranges).
+they play through a streaming server at `http://127.0.0.1:11470` on the TV itself that speaks the
+same public HTTP API as Stremio's streaming server (`/<info hash>/<file index>`, ranges), so a
+Stremio Service on a computer works too. Noonix TV isn't affiliated with Stremio.
 `engine/` is that server, our own: [torrent-stream](https://github.com/mafintosh/torrent-stream)
 (MIT) and a small HTTP front. It runs beside the app as a webOS JS service
 (`io.github.dzeliks.noonixtv.engine`) or a Tizen web service (`<package>.Engine`), started when a
@@ -39,7 +40,8 @@ where you are) and writes nothing to disk: seeking back further fetches those pi
 torrent at a time.
 
 Settings › Streaming server can point the TV at a computer instead (Noonix TV with Stream torrents
-to TVs on, or Stremio Service), which has more memory and a disk.
+to TVs on, or Stremio Service), which has more memory and a disk. Noonix TV on the computer asks
+there before a new TV can use it (Allow / Cancel), and keeps the TVs you allowed by address.
 
 `engine/NOTICES.txt` in each package holds the licenses of everything the engine bundles; the build
 stops if one isn't MIT or ISC.

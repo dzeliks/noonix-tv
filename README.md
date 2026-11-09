@@ -122,9 +122,9 @@ or newer (2018 on), `Noonix-TV-<version>-tizen-unsigned-preview.wgt` for Samsung
 or newer. Both install through the TV's Developer Mode; [tv/README.md](tv/README.md#install) has the
 steps. This is a web app of its own: home, details, search, sources from your addons, Trakt and
 profiles, played by the TV's own player. Torrent sources, once you allow them in Settings, play
-through a small engine that runs on the TV itself, as Stremio's TV apps do: download only, kept in
-memory, nothing saved. A computer running Noonix TV (Settings › Sources › Stream torrents to TVs)
-or Stremio Service can do that for the TV instead. Tested in LG's and Samsung's TV simulators, not
+through a small engine that runs on the TV itself: download only, kept in memory, nothing saved. A
+computer running Noonix TV (Settings › Sources › Stream torrents to TVs, where each TV asks on the
+computer before it can use it) or Stremio Service can do that for the TV instead. Tested in LG's and Samsung's TV simulators, not
 yet on many real TVs: reports are welcome.
 
 ## Build from source
@@ -176,7 +176,8 @@ This product uses TMDB and the TMDB APIs but is not endorsed, certified, or othe
 TMDB. Watch history comes from [Trakt](https://trakt.tv), extra subtitles from
 [OpenSubtitles.com](https://www.opensubtitles.com) and the OpenSubtitles addon run by Stremio, and
 skip times from IntroDB. Addons use Stremio's addon format. Noonix TV isn't affiliated with any of
-them or with Stremio. Other names shown in the app, such as streaming services, belong to their
-owners and only describe where a title is available.
+them or with Stremio. LG, webOS, Samsung, Tizen and the other platform names are trademarks of their
+owners; Noonix TV isn't made or endorsed by them. Other names shown in the app, such as streaming
+services, belong to their owners and only describe where a title is available.
 
 Made with ❤️ by [aleksa.sh](https://aleksa.sh).

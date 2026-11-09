@@ -98,9 +98,12 @@ Item {
         // lg and samsung tvs stream torrents themselves; this computer can do it for them (more memory, a disk)
         if (t.allowed === true)
             out.push({ label: qsTr("Stream torrents to TVs"), checkable: true, checked: tvs.on === true, act: "tvserver",
-                       detail: !tvs.on ? qsTr("Noonix TV on an LG or Samsung TV plays torrent sources through this device")
+                       detail: !tvs.on ? qsTr("Noonix TV on an LG or Samsung TV plays torrent sources through this device. Each TV asks here first")
                              : tvs.error ? qsTranslate("core", tvs.error)
-                             : qsTr("On the TV: Settings › Streaming server › %1, while Noonix TV is open here").arg(tvs.address || "") })
+                             : qsTr("On the TV: Settings › Streaming server › %1, while Noonix TV is open here. Only on a home network you trust").arg(tvs.address || "") })
+        if (t.allowed === true && tvs.on === true && tvs.allowed > 0)
+            out.push({ label: qsTr("Forget allowed TVs"), value: String(tvs.allowed), act: "tvforget",
+                       detail: qsTr("Each TV asks again before it can use this device") })
         return out
     }
 
@@ -141,6 +144,8 @@ Item {
             help.open("debrid")
         } else if (a === "help:torrent") {
             help.open("torrent")
+        } else if (a === "tvforget") {
+            Api.call("tvServer.forget", {}, function (ok, d) { if (ok) flow.tvs = d; flow.changed() })
         } else if (a === "tvserver") {
             Api.call("tvServer.set", { on: tvs.on !== true }, function (ok, d) { if (ok) flow.tvs = d; flow.changed() })
         } else if (a === "torrents") {

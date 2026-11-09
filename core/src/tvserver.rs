@@ -30,6 +30,12 @@ static TORRENTS: Lazy<Mutex<HashMap<String, Served>>> = Lazy::new(|| Mutex::new(
 static RUNNING: Lazy<Mutex<Option<JoinHandle<()>>>> = Lazy::new(|| Mutex::new(None));
 /// why it isn't running although it's on (the port is taken: stremio service already is one)
 static ERROR: Lazy<Mutex<Option<String>>> = Lazy::new(|| Mutex::new(None));
+/// tvs asked about (not asked again for a while) and the ones told "not now"
+static ASKED: Lazy<Mutex<HashMap<String, Instant>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+static REFUSED: Lazy<Mutex<HashMap<String, Instant>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+/// how long a "not now" holds, and how long a tv's request waits for the answer
+const REFUSED_FOR: Duration = Duration::from_secs(10 * 60);
+const ASK_WAIT: Duration = Duration::from_secs(60);
 
 fn wanted(c: &rusqlite::Connection) -> bool {
     crate::addons::torrents(c) == Some(true)
@@ -41,7 +47,100 @@ pub async fn state() -> Value {
     let on = store::with(|c| Ok(store::get_setting(c, "app", "tvServer")?.and_then(|v| v.as_bool()) == Some(true))).await.unwrap_or(false);
     let running = RUNNING.lock().map(|r| r.is_some()).unwrap_or(false);
     let error = ERROR.lock().ok().and_then(|e| e.clone());
-    json!({ "on": on, "running": running, "address": address().map(|a| format!("{a}:{PORT}")), "error": error })
+    let allowed = store::with(|c| Ok(allowed(c).len())).await.unwrap_or(0);
+    json!({ "on": on, "running": running, "address": address().map(|a| format!("{a}:{PORT}")), "error": error, "allowed": allowed })
+}
+
+/// the tvs the user allowed, by address
+fn allowed(c: &rusqlite::Connection) -> Vec<String> {
+    store::get_setting(c, "app", "tvAllowed")
+        .ok()
+        .flatten()
+        .and_then(|v| v.as_array().map(|a| a.iter().filter_map(|x| x.as_str().map(str::to_owned)).collect()))
+        .unwrap_or_default()
+}
+
+/// the answer to "allow this tv?" (kept for yes, ten minutes of quiet for not now)
+pub async fn allow(ip: String, yes: bool) -> Result<Value> {
+    if yes {
+        let ip2 = ip.clone();
+        store::with(move |c| {
+            let mut list = allowed(c);
+            if !list.contains(&ip2) {
+                list.push(ip2);
+            }
+            store::set_setting(c, "app", "tvAllowed", &json!(list))
+        })
+        .await?;
+    } else if let Ok(mut r) = REFUSED.lock() {
+        r.insert(ip.clone(), Instant::now());
+    }
+    if let Ok(mut a) = ASKED.lock() {
+        a.remove(&ip);
+    }
+    Ok(state().await)
+}
+
+/// every tv asks again
+pub async fn forget() -> Result<Value> {
+    store::with(|c| store::set_setting(c, "app", "tvAllowed", &json!([]))).await?;
+    Ok(state().await)
+}
+
+/// this device always; a tv once the user allowed it. a new one asks on the computer and waits a minute
+async fn approved(ip: std::net::IpAddr, head: &str) -> bool {
+    let ip = match ip {
+        std::net::IpAddr::V6(v) => v.to_ipv4_mapped().map(std::net::IpAddr::V4).unwrap_or(ip),
+        v => v,
+    };
+    if ip.is_loopback() {
+        return true;
+    }
+    let key = ip.to_string();
+    let k = key.clone();
+    let known = move || {
+        let k = k.clone();
+        async move { store::with(move |c| Ok(allowed(c).contains(&k))).await.unwrap_or(false) }
+    };
+    if known().await {
+        return true;
+    }
+    let refused = |k: &str| REFUSED.lock().map(|r| r.get(k).is_some_and(|t| t.elapsed() < REFUSED_FOR)).unwrap_or(false);
+    if refused(&key) {
+        return false;
+    }
+    let ask = ASKED
+        .lock()
+        .map(|mut a| {
+            let fresh = a.get(&key).is_none_or(|t| t.elapsed() > ASK_WAIT);
+            if fresh {
+                a.insert(key.clone(), Instant::now());
+            }
+            fresh
+        })
+        .unwrap_or(false);
+    if ask {
+        let ua = head.lines().find(|l| l.to_ascii_lowercase().starts_with("user-agent:")).unwrap_or("").to_ascii_lowercase();
+        let device = if ua.contains("web0s") || ua.contains("webos") {
+            "lg"
+        } else if ua.contains("tizen") {
+            "samsung"
+        } else {
+            ""
+        };
+        crate::app::emit("tvServer.ask", json!({ "ip": key, "device": device }));
+    }
+    let until = Instant::now() + ASK_WAIT;
+    while Instant::now() < until {
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        if known().await {
+            return true;
+        }
+        if refused(&key) {
+            return false;
+        }
+    }
+    false
 }
 
 /// the user turned it on or off
@@ -81,6 +180,12 @@ pub async fn apply() {
     } else if !want && running {
         if let Some(task) = RUNNING.lock().ok().and_then(|mut r| r.take()) {
             task.abort();
+        }
+        // off and on again asks every tv that was told "not now"
+        for m in [&*ASKED, &*REFUSED] {
+            if let Ok(mut m) = m.lock() {
+                m.clear();
+            }
         }
         let all: Vec<_> = TORRENTS.lock().map(|mut m| m.drain().map(|(_, s)| s.handle).collect()).unwrap_or_default();
         for h in all {
@@ -140,7 +245,7 @@ async fn serve_all(listener: TcpListener) {
             continue;
         }
         tokio::spawn(async move {
-            if let Err(e) = serve(sock).await {
+            if let Err(e) = serve(sock, from.ip()).await {
                 tracing::debug!("tv server http: {e:#}");
             }
         });
@@ -170,7 +275,7 @@ async fn reply(sock: &mut TcpStream, status: &str, kind: &str, body: &[u8]) -> R
 }
 
 /// one request per connection
-async fn serve(mut sock: TcpStream) -> Result<()> {
+async fn serve(mut sock: TcpStream, from: std::net::IpAddr) -> Result<()> {
     let mut head = Vec::new();
     let mut buf = [0u8; 4096];
     while !head.windows(4).any(|w| w == b"\r\n\r\n") {
@@ -192,6 +297,10 @@ async fn serve(mut sock: TcpStream) -> Result<()> {
 
     if method == "OPTIONS" {
         return reply(&mut sock, "204 No Content", "text/plain", b"").await;
+    }
+    // a tv the user hasn't allowed gets nothing (the computer asks once)
+    if !approved(from, &text).await {
+        return reply(&mut sock, "403 Forbidden", "text/plain", b"allow this tv in noonix tv on the computer").await;
     }
     // what stremio web and noonix tv ask to see that a server is there
     if path == "/settings" {

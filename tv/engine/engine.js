@@ -1,6 +1,5 @@
-// the torrent engine the lg and samsung apps carry (stremio's tv apps run their streaming server on the
-// tv the same way): a node service on 127.0.0.1:11470 with the streaming server's api, as the desktop
-// core's tvserver.rs: GET /<infohash>/<file index>[?tr=&f=] plays a file of it (-1: the biggest video).
+// the torrent engine the lg and samsung apps carry: a node service on 127.0.0.1:11470 with the
+// streaming server's api, as the desktop core's tvserver.rs: GET /<infohash>/<file index>[?tr=&f=] plays a file of it (-1: the biggest video).
 // download only (no upload slots, no listening port), one torrent at a time, pieces kept in memory
 // (a tv has little flash): the ones far behind what plays are dropped and fetched again if needed.
 "use strict"
