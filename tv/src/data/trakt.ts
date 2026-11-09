@@ -1,5 +1,6 @@
 // trakt (core trakt.rs, cut down): sign-in by device code, scrobbles, and where things were left
 import { json, HttpError } from "./http"
+import * as profiles from "./profiles"
 import * as store from "./store"
 import * as settings from "./settings"
 import * as tmdb from "./tmdb"
@@ -19,14 +20,14 @@ function app(): { id: string; secret: string } {
 
 export function available(): boolean { return !!app().id }
 
-function token(): Token | null { return store.get<Token | null>("trakt", null) }
+function token(): Token | null { return store.get<Token | null>(profiles.key("trakt"), null) }
 
 export function user(): string | null {
     const t = token()
     return t ? t.user || "trakt" : null
 }
 
-export function signOut(): void { store.remove("trakt") }
+export function signOut(): void { store.remove(profiles.key("trakt")) }
 
 function headers(t: Token | null): { [k: string]: string } {
     const h: { [k: string]: string } = { "trakt-api-version": "2", "trakt-api-key": t ? t.client : app().id }
@@ -53,10 +54,10 @@ export function poll(c: Code): Promise<string | null> {
     return json({ url: api + "/oauth/device/token", method: "POST", body: body, headers: headers(null), retries: 0 })
         .then(function (v: any) {
             const t: Token = { access: v.access_token, refresh: v.refresh_token, expires: (v.created_at + v.expires_in) * 1000, user: "", client: a.id }
-            store.set("trakt", t)
+            store.set(profiles.key("trakt"), t)
             return json({ url: api + "/users/settings", headers: headers(t) }).then(function (s: any) {
                 t.user = (s && s.user && (s.user.name || s.user.username)) || "trakt"
-                store.set("trakt", t)
+                store.set(profiles.key("trakt"), t)
                 return t.user
             }, function () { return "trakt" })
         }, function (e: HttpError) {
@@ -78,7 +79,7 @@ function fresh(): Promise<Token | null> {
     if (a.secret && a.id === t.client) body.client_secret = a.secret
     return json({ url: api + "/oauth/token", method: "POST", body: body, headers: headers(null) }).then(function (v: any) {
         const n: Token = { access: v.access_token, refresh: v.refresh_token, expires: (v.created_at + v.expires_in) * 1000, user: t.user, client: t.client }
-        store.set("trakt", n)
+        store.set(profiles.key("trakt"), n)
         return n
     }, function (e: HttpError) {
         // refused for good: signed out

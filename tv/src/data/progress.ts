@@ -1,5 +1,6 @@
 // what was watched and the library, kept on the tv (core library.rs + playback.rs progress, local only).
 // trakt, when signed in, gets the same through scrobbles
+import * as profiles from "./profiles"
 import * as store from "./store"
 import * as tmdb from "./tmdb"
 
@@ -30,7 +31,7 @@ function bare(it: tmdb.Item): tmdb.Item {
         poster: it.poster, backdrop: it.backdrop, rating: it.rating, genres: it.genres }
 }
 
-function all(): { [k: string]: Progress } { return store.get<{ [k: string]: Progress }>("progress", {}) }
+function all(): { [k: string]: Progress } { return store.get<{ [k: string]: Progress }>(profiles.key("progress"), {}) }
 
 /** the place in a title: a movie, or the last episode played of a show */
 export function get(kind: tmdb.Kind, id: number): Progress | null {
@@ -39,16 +40,16 @@ export function get(kind: tmdb.Kind, id: number): Progress | null {
 
 /** the watched episodes of a show: "s:e" -> true */
 export function watched(show: number): { [se: string]: boolean } {
-    return store.get<{ [k: string]: { [se: string]: boolean } }>("watched", {})[show] || {}
+    return store.get<{ [k: string]: { [se: string]: boolean } }>(profiles.key("watched"), {})[show] || {}
 }
 
 function setWatched(show: number, season: number, episode: number, on: boolean): void {
-    const w = store.get<{ [k: string]: { [se: string]: boolean } }>("watched", {})
+    const w = store.get<{ [k: string]: { [se: string]: boolean } }>(profiles.key("watched"), {})
     const s = w[show] || {}
     if (on) s[season + ":" + episode] = true
     else delete s[season + ":" + episode]
     w[show] = s
-    store.set("watched", w)
+    store.set(profiles.key("watched"), w)
 }
 
 /** while playing and at the end; a short look doesn't count */
@@ -63,14 +64,14 @@ export function save(p: Progress): void {
     // the newest are kept
     const keys = Object.keys(list).sort(function (a, b) { return list[b].updated - list[a].updated })
     for (let i = keep; i < keys.length; i++) delete list[keys[i]]
-    store.set("progress", list)
+    store.set(profiles.key("progress"), list)
     if (p.finished && p.item.kind === "show" && p.season !== undefined && p.episode !== undefined) setWatched(p.item.id, p.season, p.episode, true)
 }
 
 export function forget(kind: tmdb.Kind, id: number): void {
     const list = all()
     delete list[key(kind, id)]
-    store.set("progress", list)
+    store.set(profiles.key("progress"), list)
 }
 
 export function markWatched(item: tmdb.Item, season?: number, episode?: number): void {
@@ -114,7 +115,7 @@ export function upNext(): Progress[] {
 
 // ---- library
 
-export function library(): tmdb.Item[] { return store.get<tmdb.Item[]>("library", []) }
+export function library(): tmdb.Item[] { return store.get<tmdb.Item[]>(profiles.key("library"), []) }
 
 export function inLibrary(kind: tmdb.Kind, id: number): boolean {
     return library().some(function (x) { return x.kind === kind && x.id === id })
@@ -125,10 +126,10 @@ export function toggleLibrary(it: tmdb.Item): boolean {
     const list = library()
     const at = list.filter(function (x) { return x.kind === it.kind && x.id === it.id }).length
     if (at) {
-        store.set("library", list.filter(function (x) { return !(x.kind === it.kind && x.id === it.id) }))
+        store.set(profiles.key("library"), list.filter(function (x) { return !(x.kind === it.kind && x.id === it.id) }))
         return false
     }
     list.unshift(bare(it))
-    store.set("library", list)
+    store.set(profiles.key("library"), list)
     return true
 }

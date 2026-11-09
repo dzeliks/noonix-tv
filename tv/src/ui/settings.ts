@@ -6,8 +6,10 @@ import { platform } from "../platform"
 import * as look from "./look"
 import { inputScreen } from "./input"
 import { App, Screen } from "./app"
+import { profileName } from "./profiles"
 import * as settings from "../data/settings"
 import * as sources from "../data/sources"
+import * as profiles from "../data/profiles"
 import * as store from "../data/store"
 import * as trakt from "../data/trakt"
 
@@ -56,6 +58,9 @@ export function settingsScreen(app: App): Screen {
         const s = settings.all()
         const n = sources.addons().length
         return [
+            { label: tr("Profiles"), value: function () { return profileName(profiles.current()) },
+                hint: tr("Each profile keeps its own progress, list and Trakt"),
+                ok: function () { app.push(profilesScreen(app), false) } },
             { label: tr("Language"), value: function () { return language() === "sr" ? "Srpski" : "English" },
                 ok: function () { settings.put("language", s.language === "sr" ? "en" : "sr"); location.reload() } },
             { label: tr("Low memory mode"), value: function () { return lowNames[s.lowMode] + (s.lowMode === "auto" ? " (" + (look.lowMemory ? tr("On") : tr("Off")) + ")" : "") },
@@ -82,7 +87,7 @@ export function settingsScreen(app: App): Screen {
             { label: tr("Clear watch history"), value: function () { return "" },
                 ok: function () {
                     app.menu(tr("Clear watch history?"), [{ label: tr("Clear"), run: function () {
-                        store.remove("progress"); store.remove("watched"); app.toast(tr("Watch history cleared"))
+                        store.remove(profiles.key("progress")); store.remove(profiles.key("watched")); app.toast(tr("Watch history cleared"))
                     } }, { label: tr("Cancel"), run: function () { /* nothing */ } }])
                 } },
             { label: tr("Clear cache"), value: function () { return "" }, hint: tr("Lists and artwork are fetched again"),
@@ -90,6 +95,37 @@ export function settingsScreen(app: App): Screen {
             { label: tr("About"), value: function () { return "Noonix TV " + __VERSION__ + "  ·  " + platform.label + "  ·  Chromium " + platform.chrome },
                 ok: function () { /* nothing */ } },
         ]
+    })
+}
+
+function profilesScreen(app: App): Screen {
+    return listScreen(tr("Profiles"), function (): Row[] {
+        const cur = profiles.current()
+        const rows: Row[] = profiles.list().map(function (p): Row {
+            return {
+                label: profileName(p), value: function () { return p.id === cur.id ? tr("Watching now") : "" },
+                ok: function () {
+                    const entries = []
+                    if (p.id !== cur.id) entries.push({ label: tr("Switch to %1", profileName(p)), run: function () { profiles.use(p.id); location.reload() } })
+                    entries.push({ label: tr("Rename"), run: function () {
+                        app.push(inputScreen(tr("Rename"), profileName(p), p.name, function (v) { profiles.rename(p.id, v) }, app.pop), false)
+                    } })
+                    if (profiles.list().length > 1) entries.push({ label: tr("Remove"), run: function () {
+                        app.menu(tr("Remove %1 and what it watched?", profileName(p)), [
+                            { label: tr("Remove"), run: function () { const was = cur.id === p.id; profiles.remove(p.id); if (was) location.reload() } },
+                            { label: tr("Cancel"), run: function () { /* nothing */ } },
+                        ])
+                    } })
+                    app.menu(profileName(p), entries)
+                },
+            }
+        })
+        rows.push({ label: tr("Add a profile"), value: function () { return "" }, ok: function () {
+            app.push(inputScreen(tr("Add a profile"), tr("A name"), "", function (v) {
+                if (v) { profiles.add(v); app.toast(tr("Added %1", v)) }
+            }, app.pop), false)
+        } })
+        return rows
     })
 }
 

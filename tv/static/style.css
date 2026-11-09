@@ -489,3 +489,17 @@ html, body {
 /* samsung avplay draws under the page */
 .av, .av body, .av .player { background: transparent; }
 .menu .mrow .ico.blank { width: 30px; height: 30px; }
+
+/* ---- who's watching (qml ProfilePicker) */
+.picker { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: #0b0b0d; text-align: center; }
+.picker .ptitle2 { margin-top: 250px; font-size: 64px; font-weight: 700; }
+.picker .pcards { margin-top: 90px; white-space: nowrap; }
+.pcard { display: inline-block; vertical-align: top; width: 220px; margin: 0 30px; transition: -webkit-transform 0.18s ease, transform 0.18s ease; }
+.pcard .face {
+    width: 200px; height: 200px; margin: 0 auto; border-radius: 100px; font-size: 92px; font-weight: 700; line-height: 200px; color: #fff;
+    opacity: 0.7; transition: opacity 0.18s ease;
+}
+.pcard .pname { margin-top: 26px; font-size: 32px; font-weight: 600; color: rgba(255, 255, 255, 0.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pcard.lit { -webkit-transform: scale(1.08); transform: scale(1.08); }
+.pcard.lit .face { opacity: 1; box-shadow: 0 0 0 6px #fff; }
+.pcard.lit .pname { color: #fff; }
