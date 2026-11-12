@@ -14,6 +14,8 @@ export interface Settings {
     hidden: string[]
     /** skip "who's watching?": open on the last profile */
     askProfile: boolean
+    /** the launch lockup only flashes */
+    fastIntro: boolean
     /** torrent sources allowed (asked, as on the other builds): null = never asked, they stay hidden */
     torrents: boolean | null
     /** a stremio-compatible streaming server (stremio service, noonix tv on a computer) that plays torrent
@@ -22,7 +24,7 @@ export interface Settings {
 }
 
 const defaults: Settings = {
-    lowMode: "auto", language: "en", quality: "auto", preferred: [], hidden: [], askProfile: true, torrents: null, server: "",
+    lowMode: "auto", language: "en", quality: "auto", preferred: [], hidden: [], askProfile: true, fastIntro: false, torrents: null, server: "",
 }
 
 /** what the user typed, as a base url: "192.168.1.5" -> "http://192.168.1.5:11470" (stremio's port) */

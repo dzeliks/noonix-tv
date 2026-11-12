@@ -236,6 +236,8 @@ final class SettingsModel {
             }
             out.append(Line(label: L("Find extra subtitles"), detail: L("From OpenSubtitles, for your subtitle languages the file doesn't have"),
                             checkable: true, checked: on("extra_subs"), act: "app:extra_subs"))
+            out.append(Line(label: L("Fast intro"), detail: L("Opens without the launch animation"),
+                            checkable: true, checked: appSettings["fast_intro"] as? Bool == true, act: "fastintro"))
             let hs = appSettings["hdr_screen"] as? String ?? "auto"
             let found = (screen["hdr"] as? Bool).map { $0 ? L("HDR") : L("no HDR") }
             out.append(Line(label: L("HDR on this screen"), detail: L("Picks the sources that suit it best. Set it yourself if the screen is guessed wrong"),
@@ -441,6 +443,11 @@ final class SettingsModel {
             } else if a == "profile-import" {
                 app.importProfile()
                 return
+            } else if a == "fastintro" {
+                let v = appSettings["fast_intro"] as? Bool != true
+                appSettings["fast_intro"] = v
+                SplashModel.fast = v
+                _ = await json("settings.setApp", ["key": "fast_intro", "value": v])
             } else if a == "titlebar" {
                 let v = appSettings["title_bar"] as? Bool != true
                 appSettings["title_bar"] = v

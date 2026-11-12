@@ -162,7 +162,7 @@ function boot(): void {
             pop()
         }), true)
     }
-    showSplash(stage, __VERSION__).then(function () {
+    showSplash(stage, __VERSION__, settings.all().fastIntro).then(function () {
         ready = true
         // a while after start, once: a newer release on github
         setTimeout(function () { updates.announce(function (v) { app.toast(tr("%1 is out", "Noonix TV " + v)) }) }, 15000)

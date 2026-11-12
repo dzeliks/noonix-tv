@@ -1384,6 +1384,7 @@ Window {
         z: 30
         anchors.fill: parent
         visible: Desktop.splash
+        fast: Core.appFlag("fast_intro")
         ui: win.launchPicker ? profilePicker : browse
         ready: win.homeReady || setupView.visible
         onFinished: {
@@ -1451,6 +1452,6 @@ Window {
     // no launch card on a desk monitor or with the intro; with the fast splash on the tv the
     // overlay says when its card is gone, else (started some other way) go anyway
     onVisibleChanged: if (visible && splash.visible) revealLater.start()
-    Timer { id: revealLater; interval: win.onTv && !splash.intro ? 2000 : 0; onTriggered: { splash.revealed = true; readyLater.start() } }
+    Timer { id: revealLater; interval: win.onTv && Desktop.splashFast ? 2000 : 0; onTriggered: { splash.revealed = true; readyLater.start() } }
     Timer { id: readyLater; interval: 3000; onTriggered: splash.ready = true }
 }

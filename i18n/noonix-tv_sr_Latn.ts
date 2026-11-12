@@ -956,8 +956,8 @@
         <translation>Ima problema?</translation>
     </message>
     <message>
-        <source>Press Menu while watching to say if the source and subtitles fit.</source>
-        <translation>Tokom gledanja pritisni Meni i reci da li su izvor i titlovi dobri.</translation>
+        <source>While watching: say if the source and subtitles fit</source>
+        <translation>Tokom gledanja: reci da li su izvor i titlovi dobri</translation>
     </message>
     <message>
         <source>Tap the screen while watching, then the speech bubble, to say if the source and subtitles fit.</source>
@@ -1725,6 +1725,14 @@ Ono što ne valja sređuje se automatski.</translation>
     <message>
         <source>From OpenSubtitles, for your subtitle languages the file doesn&apos;t have</source>
         <translation>Sa OpenSubtitles-a, za tvoje jezike koje fajl nema</translation>
+    </message>
+    <message>
+        <source>Fast intro</source>
+        <translation>Brz uvod</translation>
+    </message>
+    <message>
+        <source>Opens without the launch animation</source>
+        <translation>Otvara se bez uvodne animacije</translation>
     </message>
     <message>
         <source>HDR</source>

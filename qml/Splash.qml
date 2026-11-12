@@ -6,16 +6,18 @@ import QtQuick
 // it unseen. then the kitty glides to the middle while the
 // name slides in behind it, its antennas sway from the move, it smiles, leans in and shrinks
 // away to the middle as the pink fades off the ui. everything runs on animators (render
-// thread): the ui is busy building itself underneath meanwhile.
+// thread): the ui is busy building itself underneath meanwhile. a key, a button, a click or a tap
+// takes the quick way out; settings › fast intro does that every time, from the card.
 FocusScope {
     id: splash
     property Item ui: null              // eases into place as the pink goes
     property bool revealed: false       // the launch card is gone (or there was none)
     property bool ready: false          // what's underneath has its content
     property string phase: "waiting"    // waiting, playing, done
-    readonly property bool intro: Desktop.splashFast !== true
+    property bool fast: false           // settings › fast intro
+    readonly property bool intro: Desktop.splashFast !== true && !fast
     property bool introDone: !intro
-    property bool skipped: false        // a key during the intro: the quick way out after it
+    property bool skipped: fast         // asked before it played: the quick way out once it's ready
     signal starting()                   // put the right page under it now
     signal finished()
 
@@ -46,9 +48,9 @@ FocusScope {
     }
     onReadyChanged: if (revealed && ready) play()
     onIntroDoneChanged: if (revealed && ready) play()
-    // any key: straight to the way out
+    // any key or press: straight to the way out
     function skip() {
-        if (phase === "waiting" && introAnim.running) skipped = true
+        if (phase === "waiting") skipped = true
         if (phase !== "playing" || out.running) return
         show.stop()
         out.start()
@@ -93,7 +95,7 @@ FocusScope {
     readonly property var brand: ({ c1: "#D93D8A", c2: "#4A0E2F", glow: Qt.vector4d(1.0, 0.761, 0.882, 0.14) })   // the overlay brands.js "noonix-tv"
 
     // what the pink blooms out of (and the ui shows through once it's gone)
-    Shield {}
+    Shield { onPressed: splash.skip() }
     Rectangle {
         id: dark
         anchors.fill: parent

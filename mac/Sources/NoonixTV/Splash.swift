@@ -8,7 +8,8 @@ import SwiftUI
 /// launch splash (qml Splash): the pink blooms out of the black window while the lockup rises
 /// into place (NOONIX_SPLASH_FAST=1: starts there at once), then the kitty glides to the middle while the name slides in behind
 /// it, its antennas sway from the move, it smiles, leans in and shrinks away to the middle as
-/// the pink fades off the ui. any key: the quick way out
+/// the pink fades off the ui. a key, a button, a click or a tap: the quick way out (settings › fast
+/// intro: every time, from the card)
 @MainActor @Observable
 final class SplashModel {
     /// the intro since (pink in, lockup up); nil before the window shows it
@@ -22,10 +23,15 @@ final class SplashModel {
     var uiScale: CGFloat = 1.05
     @ObservationIgnored var onDone: () -> Void = {}
     @ObservationIgnored private var playAsked = false
-    @ObservationIgnored private var skipAsked = false
+    @ObservationIgnored private var skipAsked = SplashModel.fast
 
     static var enabled: Bool { ProcessInfo.processInfo.environment["NOONIX_SPLASH"] != "0" }
-    static let intro = ProcessInfo.processInfo.environment["NOONIX_SPLASH_FAST"] != "1"
+    /// settings › fast intro, kept beside the app's settings too: the splash is up before the core answers
+    static var fast: Bool {
+        get { UserDefaults.standard.bool(forKey: "fast_intro") }
+        set { UserDefaults.standard.set(newValue, forKey: "fast_intro") }
+    }
+    static let intro = ProcessInfo.processInfo.environment["NOONIX_SPLASH_FAST"] != "1" && !fast
     /// pink in + the rise, then a breath
     static let introMs = 1100.0
     /// dev: NOONIX_SPLASH_SLOW=4 for recordings (the main run)
@@ -59,7 +65,7 @@ final class SplashModel {
     }
 
     func skip() {
-        if start == nil, introRunning { skipAsked = true; return }
+        if start == nil { skipAsked = true; return }
         guard start != nil, skipAt == nil else { return }
         skipAt = Date()
         withAnimation(.timingCurve(0.33, 1, 0.68, 1, duration: 0.3)) { uiScale = 1 }
@@ -95,6 +101,8 @@ struct SplashView: View {
         TimelineView(.animation(paused: model.start == nil && !model.introRunning)) { ctx in
             frame(Self.values(model, now: ctx.date))
         }
+        .contentShape(.rect)
+        .onTapGesture { model.skip() }
         .onAppear { model.beginIntro() }
     }
 

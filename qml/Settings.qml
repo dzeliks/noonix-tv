@@ -215,6 +215,7 @@ FocusScope {
             if (!Theme.android || Desktop.tv)
                 out.push({ label: qsTr("Match the TV's refresh rate"), detail: qsTr("Switches the TV to 24 / 25 / 50 / 60 Hz for each video (never the resolution or HDR)"), checkable: true, checked: app.refresh_match === true, act: "app:refresh_match" })
             out.push({ label: qsTr("Find extra subtitles"), detail: qsTr("From OpenSubtitles, for your subtitle languages the file doesn't have"), checkable: true, checked: appOn("extra_subs"), act: "app:extra_subs" })
+            out.push({ label: qsTr("Fast intro"), detail: qsTr("Opens without the launch animation"), checkable: true, checked: app.fast_intro === true, act: "fastintro" })
             var hs = app.hdr_screen || "auto"
             var found = screen.hdr === true ? qsTr("HDR") : screen.hdr === false ? qsTr("no HDR") : ""
             out.push({ label: qsTr("HDR on this screen"), detail: qsTr("Picks the sources that suit it best. Set it yourself if the screen is guessed wrong"), checkable: false,
@@ -350,6 +351,8 @@ FocusScope {
             else toggleLang(parts[1], parts[2])
         } else if (a.indexOf("app:") === 0) {
             var k = a.slice(4); setApp(k, !appOn(k))
+        } else if (a === "fastintro") {
+            setApp("fast_intro", app.fast_intro !== true)
         } else if (a === "titlebar") {
             setApp("title_bar", app.title_bar !== true)
             Remote.setTitleBar(app.title_bar === true)
