@@ -199,7 +199,7 @@ pub fn host(template: &str) -> String {
 }
 
 pub fn parse(text: &str) -> Result<Manifest> {
-    let m: Manifest = serde_json::from_str(text).context("This isn't a Noonix TV extension")?;
+    let mut m: Manifest = serde_json::from_str(text).context("This isn't a Noonix TV extension")?;
     if m.noonix != FORMAT {
         bail!("This extension needs a newer Noonix TV");
     }
@@ -219,7 +219,9 @@ pub fn parse(text: &str) -> Result<Manifest> {
         stremio::check_url(&probe)?;
     }
     let needs = m.needs();
-    if m.keys.iter().any(|(id, v)| !needs.contains(&id.as_str()) || v.trim().is_empty()) {
+    // a blank key is a shared file's empty slot: the user is asked for theirs like with no key at all
+    m.keys.retain(|_, v| !v.trim().is_empty());
+    if m.keys.keys().any(|id| !needs.contains(&id.as_str())) {
         bail!("The extension has a key none of its addresses use");
     }
     for p in m.patterns.preferred.iter().chain(&m.patterns.excluded) {
@@ -618,7 +620,8 @@ mod tests {
         let keyed = |k: &str| SAMPLE.replace("\"noonix\": 1,", &format!("\"noonix\": 1, \"keys\": {{{k}}},"));
         assert_eq!(parse(&keyed("\"torbox\": \"abc\"")).unwrap().keys["torbox"], "abc");
         assert!(parse(&keyed("\"alldebrid\": \"abc\"")).is_err());
-        assert!(parse(&keyed("\"torbox\": \" \"")).is_err());
+        assert!(parse(&keyed("\"torbox\": \" \"")).unwrap().keys.is_empty());
+        assert!(parse(&keyed("\"torbox\": \"\"")).unwrap().keys.is_empty());
     }
 
     #[test]

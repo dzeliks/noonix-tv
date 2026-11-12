@@ -101,7 +101,8 @@ preview.
 - Before anything is added, the preview names every host that gets a key. The key goes only to
   those addresses.
 - An extension may bring the key itself in `keys`. Noonix TV uses it only when it has no key for
-  that service yet, checks it with the service first, and asks for one if it's refused. The key
+  that service yet, checks it with the service first, and asks for one if it's refused. An empty one
+  (`"torbox": ""`) is a slot to fill: the user is asked for their key, like with no `keys` at all. The key
   isn't kept in the extension. Anyone with such a file can use the key, so never share it.
 - If the user changes or removes the key later, the addons that use it follow. An address whose key
   is gone is taken out until the key is back.
