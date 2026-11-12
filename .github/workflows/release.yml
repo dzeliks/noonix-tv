@@ -309,7 +309,7 @@ jobs:
       - name: onto the draft
         run: gh release upload "${{ needs.draft.outputs.tag }}" tv/dist/*.ipk tv/dist/*.wgt tv/dist/*.sha256 --clobber
 
-  # waits for every build; the mac, android and tv ones may fail without holding the release back
+  # waits for every build; the android and tv ones may fail without holding the release back
   publish:
     needs: [draft, appimage, windows, windows-smoke, macos, android, tv]
     if: ${{ !cancelled() && needs.appimage.result == 'success' && (needs.draft.outputs.linux == 'true' || (needs.windows-smoke.result == 'success' && needs.macos.result == 'success')) }}
