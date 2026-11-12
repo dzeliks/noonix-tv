@@ -5,7 +5,7 @@
   "license": "GPL-3.0-or-later",
   "scripts": {
     "check": "tsc --noEmit -p .",
-    "test": "node --test test/",
+    "test": "node --test test/*.test.mjs",
     "build": "node tools/build.mjs",
     "package": "node tools/build.mjs --package"
   },
