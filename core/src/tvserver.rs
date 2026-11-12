@@ -291,7 +291,7 @@ fn from_a_web_page(head: &str) -> bool {
     !(name.eq_ignore_ascii_case("localhost") || name.parse::<std::net::IpAddr>().is_ok())
 }
 
-const CORS: &str ="Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Headers: Range\r\nAccess-Control-Expose-Headers: Content-Range, Content-Length, Accept-Ranges\r\n";
+const CORS: &str = "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Headers: Range\r\nAccess-Control-Expose-Headers: Content-Range, Content-Length, Accept-Ranges\r\n";
 
 async fn reply(sock: &mut TcpStream, status: &str, kind: &str, body: &[u8]) -> Result<()> {
     let h = format!("HTTP/1.1 {status}\r\nContent-Type: {kind}\r\nContent-Length: {}\r\n{CORS}Connection: close\r\n\r\n", body.len());
