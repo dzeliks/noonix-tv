@@ -195,7 +195,7 @@ jobs:
           gh release download "${{ needs.draft.outputs.tag }}" --pattern '*-setup.exe' --dir dist
           powershell -ExecutionPolicy Bypass -File tools\windows\smoke.ps1 (Get-Item dist\*-setup.exe).FullName
 
-  # the mac preview: the release doesn't wait for it and the updater doesn't know it
+  # the mac app: the release waits for it (its updater opens the release page, it doesn't install)
   macos:
     needs: draft
     if: needs.draft.outputs.linux != 'true'

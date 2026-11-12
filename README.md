@@ -78,59 +78,20 @@ well, and how to write your own.
 
 Get the latest build from [Releases](https://github.com/dzeliks/noonix-tv/releases/latest).
 
-**Linux**: `Noonix-TV-<version>-x86_64.AppImage` (or `-aarch64` for ARM) runs on Ubuntu 22.04,
-Debian 12, Fedora 36 and newer. It is self-contained.
+- **Linux**: `Noonix-TV-<version>-x86_64.AppImage` (`-aarch64` for ARM), Ubuntu 22.04, Debian 12, Fedora 36
+  or newer. `chmod +x` it and run it.
+- **Windows** 10 and 11: `Noonix-TV-<version>-windows-x64-setup.exe`, installs per user without admin rights.
+- **macOS** 26 or newer: `noonix-tv-<version>-macos-arm64.zip` (Apple silicon) or `-macos-x86_64.zip` (Intel).
+  Not notarised yet: on the first launch click Done, then System Settings › Privacy & Security › Open Anyway.
+- **Android** 9 or newer, preview: `Noonix-TV-<version>-android-arm64-preview.apk` for TVs, tablets and phones;
+  `-armv7-` for 32-bit TV boxes, `-x86_64-` for Chromebooks.
+- **iPhone, iPad and Apple TV** 26 or newer, preview: `-ios.ipa` and `-tvos.ipa`, unsigned: install them with a
+  sideloading tool such as AltStore or Sideloadly.
+- **LG and Samsung TVs**, preview: `-webos-preview.ipk` (webOS 4.0 or newer) and `-tizen-unsigned-preview.wgt`
+  (Tizen 4.0 or newer), installed through the TV's Developer Mode: [tv/README.md](tv/README.md#install).
 
-```sh
-chmod +x Noonix-TV-*.AppImage
-./Noonix-TV-*.AppImage
-```
-
-**Windows**: `Noonix-TV-<version>-windows-x64-setup.exe` runs on Windows 10 and 11. It
-installs per user without admin rights and is self-contained.
-
-Both update themselves from Settings › About. From 0.6.0 they only install an update whose
-checksums carry the project's signature (`SHA256SUMS.minisig` on each release, made with
-[minisign](https://jedisct1.github.io/minisign/)). To check a download yourself:
-`minisign -Vm SHA256SUMS -P RWTxrm/6vwTDc8vqK2CrSQ1YXbYOr8hE2Y6LBYJNkqZjWg0X5eC2l+59`, then
-`sha256sum -c SHA256SUMS --ignore-missing`.
-
-**macOS** (preview): `noonix-tv-<version>-macos-arm64.zip` for Apple silicon or
-`-macos-x86_64.zip` for Intel, on macOS 26 or newer. Not notarised yet, so the first launch says
-Apple could not verify it: click Done, then System Settings › Privacy & Security › Open Anyway.
-Or once in Terminal: `xattr -dr com.apple.quarantine "/Applications/Noonix TV.app"`.
-
-**Android** (preview build): `Noonix-TV-<version>-android-arm64-preview.apk`
-for Android TV, Google TV, tablets and phones (in landscape), Android 9 or newer on a 64-bit ARM device.
-`-android-armv7-preview.apk` is for 32-bit TV boxes (playback only keeps working there, no HDR planned), and
-`-android-x86_64-preview.apk` for Chromebooks and PC boxes.
-Install it from the file
-(allow your file manager or browser to install apps), or on a TV with `adb install`. It plays your
-library from the device's storage, a USB drive or a network share, and the sources you add; a remote, a game
-controller and touch all work. HDR10 plays in HDR where the screen supports it, and Android TV can match the
-TV's refresh rate to each video.
-
-**iPhone and iPad** (preview): `Noonix-TV-<version>-ios.ipa`, on iOS and iPadOS 26 or newer. It
-isn't on the App Store and isn't signed: install it with a sideloading tool such as AltStore or
-Sideloadly, which signs it with your own Apple ID (with a free one, again every 7 days). Copy your
-videos into Files › Noonix TV, add a network share, or add your sources.
-
-**Apple TV** (preview): `Noonix-TV-<version>-tvos.ipa`, on tvOS 26 or newer. Unsigned like the
-iPhone one: install it with a sideloading tool that supports Apple TV, such as Sideloadly, which
-signs it with your Apple ID. The Siri Remote works like a TV remote (click the ring or swipe for the
-arrows, hold the middle for options), and so do game controllers. Your library comes from network
-shares, since an Apple TV has no folders of its own; it matches the TV's frame rate and HDR to each
-video.
-
-**LG and Samsung TVs** (preview): `Noonix-TV-<version>-webos-preview.ipk` for LG TVs with webOS 4.0
-or newer (2018 on), `Noonix-TV-<version>-tizen-unsigned-preview.wgt` for Samsung TVs with Tizen 4.0
-or newer. Both install through the TV's Developer Mode; [tv/README.md](tv/README.md#install) has the
-steps. This is a web app of its own: home, details, search, sources from your addons, Trakt and
-profiles, played by the TV's own player. Torrent sources, once you allow them in Settings, play
-through a small engine that runs on the TV itself: download only, kept in memory, nothing saved. A
-computer running Noonix TV (Settings › Sources › Stream torrents to TVs, where each TV asks on the
-computer before it can use it) or Stremio Service can do that for the TV instead. Tested in LG's and Samsung's TV simulators, not
-yet on many real TVs: reports are welcome.
+Linux and Windows update themselves from Settings › About and only install updates signed by the project:
+`minisign -Vm SHA256SUMS -P RWTxrm/6vwTDc8vqK2CrSQ1YXbYOr8hE2Y6LBYJNkqZjWg0X5eC2l+59` checks a download by hand.
 
 ## Build from source
 
