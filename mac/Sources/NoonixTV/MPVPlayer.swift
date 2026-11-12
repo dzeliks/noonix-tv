@@ -132,9 +132,10 @@ final class MPVPlayer {
     /// small in a corner, a smaller window cut it off)
     @ObservationIgnored private var sizing: Task<Void, Never>?
     func surface(_ size: CGSize) {
+        // back at the size it has: a change still waiting is dropped with it
+        sizing?.cancel()
         guard size.width > 1, size.height > 1, size != layer.drawableSize else { return }
         guard mpv != nil, session != 0 else { layer.drawableSize = size; return }
-        sizing?.cancel()
         sizing = Task {
             try? await Task.sleep(for: .milliseconds(120))
             guard !Task.isCancelled else { return }
