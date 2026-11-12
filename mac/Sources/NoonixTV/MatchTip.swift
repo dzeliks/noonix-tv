@@ -22,12 +22,20 @@ struct MatchTipView: View {
                 Text(L("How's this one?"))
                     .font(Theme.display(46 * u, .bold)).foregroundStyle(Theme.fg)
                     .padding(.top, 30 * u)
-                // the siri remote has no menu key: its click, held
-                Text(Theme.say(Platform.tv ? L("Hold OK while watching to say if the source and subtitles fit.") : L("Press Menu while watching to say if the source and subtitles fit."),
-                               L("Tap the screen while watching, then the speech bubble, to say if the source and subtitles fit.")))
-                    .font(Theme.text(27 * u, .medium)).foregroundStyle(Theme.fg2)
-                    .multilineTextAlignment(.center)
-                    .padding(.top, 14 * u)
+                // the pointer: where to tap or click. keys: the key itself, as the keyboard, pad or remote has it
+                // (the siri remote has no menu key: its hint says the click, held)
+                if Theme.mouse || (Platform.ios && (PointerMode.shared.on || Platform.phone)) {
+                    Balanced(slack: 40 * u) {
+                        Text(Theme.mouse ? L("Click the speech bubble while watching to say if the source and subtitles fit.")
+                                         : L("Tap the screen while watching, then the speech bubble, to say if the source and subtitles fit."))
+                            .font(Theme.text(27 * u, .medium)).foregroundStyle(Theme.fg2)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.top, 26 * u)
+                } else {
+                    KeyHint(key: "MENU", label: L("While watching: say if the source and subtitles fit"), u: u, labelSize: 27, labelColor: Theme.fg2)
+                        .padding(.top, 26 * u)
+                }
                 HStack(spacing: 12 * u) {
                     ForEach([("checkmark.circle", L("Good match")), ("arrow.triangle.2.circlepath", L("Out of sync")),
                              ("captions.bubble", L("Wrong subtitles")), ("film", L("Picture or sound"))], id: \.1) { icon, label in
@@ -42,8 +50,8 @@ struct MatchTipView: View {
                         .overlay { Capsule().stroke(Color.white.opacity(0.1), lineWidth: 1) }
                     }
                 }
-                .padding(.top, 34 * u)
-                Text(L("What works is remembered for the next episodes.\nWhat doesn't gets fixed where you are.").replacingOccurrences(of: "\n", with: " "))
+                .padding(.top, 46 * u)
+                Text(L("What works is remembered for the next episodes.\nWhat doesn't gets fixed where you are."))
                     .font(Theme.text(22 * u)).foregroundStyle(Theme.fg3)
                     .multilineTextAlignment(.center)
                     .padding(.top, 26 * u)
@@ -101,5 +109,26 @@ extension AppModel {
         case .back: closeTip(forever: false)
         default: break
         }
+    }
+}
+
+/// one text in two even lines rather than a long one and a stub (qml MatchTip does the same)
+struct Balanced: Layout {
+    let slack: CGFloat
+
+    private func width(_ s: LayoutSubview, _ room: CGFloat?) -> CGFloat {
+        let full = s.sizeThatFits(.unspecified).width
+        guard let room, full > room else { return full }
+        return full < 2 * room ? min(room, (full / 2).rounded(.up) + slack) : room
+    }
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let s = subviews.first else { return .zero }
+        let size = s.sizeThatFits(ProposedViewSize(width: width(s, proposal.width), height: nil))
+        return CGSize(width: proposal.width ?? size.width, height: size.height)
+    }
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard let s = subviews.first else { return }
+        s.place(at: CGPoint(x: bounds.midX, y: bounds.midY), anchor: .center,
+                proposal: ProposedViewSize(width: width(s, bounds.width), height: nil))
     }
 }

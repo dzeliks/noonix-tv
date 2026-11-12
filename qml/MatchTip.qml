@@ -54,19 +54,35 @@ FocusScope {
                 color: Theme.fg
                 font { family: Theme.display; pixelSize: 46 * tip.u; weight: Font.Bold }
             }
-            Item { width: 1; height: 14 * tip.u }
+            Item { width: 1; height: 26 * tip.u }
+            // the pointer: where to tap or click. keys: the key itself, as the remote, keyboard or pad has it
+            TextMetrics { id: hintM; font: hintText.font; text: hintText.text }
             Text {
-                width: parent.width
+                id: hintText
+                visible: hint.pointed
+                anchors.horizontalCenter: parent.horizontalCenter
+                // two even lines, not a long one and a stub
+                width: hintM.advanceWidth > parent.width && hintM.advanceWidth < 2 * parent.width
+                       ? Math.ceil(hintM.advanceWidth / 2) + 40 * tip.u : parent.width
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
                 lineHeight: 1.12
-                text: Theme.say(qsTr("Press Menu while watching to say if the source and subtitles fit."),
-                               qsTr("Tap the screen while watching, then the speech bubble, to say if the source and subtitles fit."),
-                               qsTr("Click the speech bubble while watching to say if the source and subtitles fit."))
+                text: Theme.mouse ? qsTr("Click the speech bubble while watching to say if the source and subtitles fit.")
+                                  : qsTr("Tap the screen while watching, then the speech bubble, to say if the source and subtitles fit.")
                 color: Theme.fg2
                 font { family: Theme.text; pixelSize: 27 * tip.u; weight: Font.Medium }
             }
-            Item { width: 1; height: 34 * tip.u }
+            KeyHint {
+                id: hint
+                visible: !pointed
+                anchors.horizontalCenter: parent.horizontalCenter
+                u: tip.u
+                key: "MENU"
+                label: qsTr("While watching: say if the source and subtitles fit")
+                labelSize: 27 * tip.u
+                labelColor: Theme.fg2
+            }
+            Item { width: 1; height: 46 * tip.u }
             Row {
                 anchors.horizontalCenter: parent.horizontalCenter
                 spacing: 12 * tip.u
