@@ -182,6 +182,12 @@ pub async fn open(profile: i64, args: &Value) -> Result<Value> {
     let prefs = addons::prefs(profile).await;
     let original = item.original_language.as_deref();
     let headers: Vec<String> = stream.headers.iter().map(|(k, v)| format!("{k}: {v}")).collect();
+    // the mac: https through the core's own tls (relay.rs), which then sends the stream's headers itself
+    let relayed = if crate::relay::wanted() { crate::relay::url_for(&url, &stream.headers).await } else { None };
+    let (url, headers) = match relayed {
+        Some(local) => (local, Vec::new()),
+        None => (url, headers),
+    };
 
     let id = IDS.fetch_add(1, Ordering::Relaxed);
     *SESSION.lock().await = Some(Session {
@@ -624,6 +630,7 @@ async fn find_next(profile: i64, show: i64, season: i64, episode: i64) -> Option
 pub async fn stop(args: &Value) -> Result<Value> {
     let Some(mut s) = SESSION.lock().await.take() else { return Ok(json!({ "session": null })) };
     crate::torrent::stop().await;
+    crate::relay::clear();
     if let Some(p) = args.get("position").and_then(Value::as_f64) {
         s.position = p;
     }

@@ -23,6 +23,7 @@ pub mod probe;
 pub mod profile_file;
 pub mod quality;
 pub mod ranking;
+pub mod relay;
 pub mod rpc;
 pub mod setup;
 pub mod shares;
