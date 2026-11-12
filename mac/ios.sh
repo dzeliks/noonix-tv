@@ -24,7 +24,8 @@ conf=${CONF:-Release}
 
 if [[ ${CORE:-1} != 0 ]]; then
     rustup target add "$t" >/dev/null 2>&1 || true
-    cargo build --release --no-default-features --target "$t" --manifest-path "$repo/core/Cargo.toml" \
+    # panic messages carry source paths: the builder's home folder stays out of the app
+    RUSTFLAGS="${RUSTFLAGS:-} --remap-path-prefix=$HOME=~" cargo build --release --no-default-features --target "$t" --manifest-path "$repo/core/Cargo.toml" \
         --target-dir "${CARGO_TARGET_DIR:-$here/.build/cargo}"
 fi
 mkdir -p "$here/.build/$core"
