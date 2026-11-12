@@ -58,11 +58,22 @@ final class WindowState {
     static let shared = WindowState()
     var titleBar = false
     var fullScreen = false
+    /// the window's own buttons (close, minimise, zoom) over the page's top left corner
+    var lights: Bool {
+        #if os(macOS)
+        !titleBar && !fullScreen
+        #else
+        false
+        #endif
+    }
+    /// a top left control's y, below those buttons while they show
+    func belowLights(_ y: CGFloat) -> CGFloat { lights ? max(y, 40) : y }
     #if os(macOS)
     @ObservationIgnored private var watching = false
     func watch() {
         guard !watching else { return }
         watching = true
+        fullScreen = NSApp.windows.contains { $0.styleMask.contains(.fullScreen) }
         for n in [NSWindow.didEnterFullScreenNotification, NSWindow.didExitFullScreenNotification] {
             NotificationCenter.default.addObserver(forName: n, object: nil, queue: .main) { _ in
                 MainActor.assumeIsolated { WindowState.shared.fullScreen = NSApp.keyWindow?.styleMask.contains(.fullScreen) ?? false }

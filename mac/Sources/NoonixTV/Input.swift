@@ -139,6 +139,9 @@ enum Input {
     private static var lastMove = Date.distantPast
     private static var accY: CGFloat = 0
     private static var accX: CGFloat = 0
+    /// a trackpad gesture's axis, kept through its coasting: two fingers never go straight, and
+    /// event by event the drift kept handing a sideways swipe to the page and back
+    private static var axis: (x: Bool, decided: Bool, gx: CGFloat, gy: CGFloat) = (false, false, 0, 0)
     /// holding back leaves from anywhere (input.cpp holdMs)
     static let holdBack = 0.65
     private static var escDown = Date.distantFuture
@@ -224,10 +227,20 @@ enum Input {
             var dx = e.scrollingDeltaX * scale, dy = e.scrollingDeltaY * scale
             if e.modifierFlags.contains(.shift) { dx = dy; dy = 0 }
             if PointerMode.shared.on == false { PointerMode.shared.on = true }
+            if e.hasPreciseScrollingDeltas {
+                if e.phase == .began || e.phase == .mayBegin { axis = (false, false, 0, 0) }
+                if !axis.decided {
+                    // the first few points of the swipe pick the way
+                    axis.gx += dx; axis.gy += dy
+                    if max(abs(axis.gx), abs(axis.gy)) < 3 { return nil }
+                    axis = (abs(axis.gx) > abs(axis.gy), true, 0, 0)
+                }
+                if axis.x { dy = 0 } else { dx = 0 }
+            }
             if dy != 0, abs(dy) >= abs(dx), wheel?(e) == true { rehover(); return nil }
             if dx != 0, abs(dx) > abs(dy), let r = row {
-                r.wheel(e.scrollingDeltaX != 0 ? e.scrollingDeltaX : e.scrollingDeltaY, precise: e.hasPreciseScrollingDeltas, u: AppModel.current?.u ?? 1,
-                        coasting: !e.momentumPhase.isEmpty)
+                r.wheel(e.hasPreciseScrollingDeltas || e.scrollingDeltaX != 0 ? e.scrollingDeltaX : e.scrollingDeltaY,
+                        precise: e.hasPreciseScrollingDeltas, u: AppModel.current?.u ?? 1, coasting: !e.momentumPhase.isEmpty)
                 rehover()
                 return nil
             }

@@ -103,7 +103,7 @@ final class Osd {
 
     let player: MPVPlayer
     weak var app: AppModel?
-    var shown = true
+    var shown = true { didSet { player.positionShown = shown } }
     var zone: Zone = .bar
     var rowIndex = 4
     var picker: String?          // "sub" | "audio"
@@ -135,6 +135,8 @@ final class Osd {
         self.player = player
         self.app = app
         Osd.shared = self
+        player.positionShown = true
+        player.onTime = { [weak self] in self?.pillCheck() }
         show()
     }
 
@@ -198,8 +200,8 @@ final class Osd {
     func scrubPress(_ dir: Int) {
         if scrubLevel == 0 {
             scrubDir = dir; scrubLevel = 1
-            scrubT = player.position; scrubStart = scrubT; scrubShown = -1
-            scrubCacheEnd = player.position + player.cacheAhead
+            scrubT = player.exactPosition; scrubStart = scrubT; scrubShown = -1
+            scrubCacheEnd = player.exactPosition + player.cacheAhead
             scrubWasPaused = player.paused
             player.setPaused(true)
             show(0, .bar)
@@ -385,15 +387,20 @@ final class Osd {
 
     /// the segment we're in (intro / recap / outro)
     var segment: MPVPlayer.Segment? {
-        player.segments.first { player.position >= $0.start && player.position < $0.end - 1 }
+        player.segments.first { player.exactPosition >= $0.start && player.exactPosition < $0.end - 1 }
     }
     /// the next episode card: the outro, or the last 50 s when the outro starts later (or isn't known)
     var nextUp: Bool {
         guard player.next != nil else { return false }
-        return player.state == .ended || (player.duration > 300 && player.position >= player.duration - 50)
+        return player.state == .ended || (player.duration > 300 && player.exactPosition >= player.duration - 50)
             || segment?.kind == "outro"
     }
-    var pillShown: Bool { (segment != nil && player.state == .playing) || nextUp }
+    /// kept, not worked out by its readers: they'd follow the position with the controls down
+    private(set) var pillShown = false
+    func pillCheck() {
+        let on = (segment != nil && player.state == .playing) || nextUp
+        if on != pillShown { pillShown = on }
+    }
 
     func skipAction() {
         if nextUp { app?.playNext(); return }
@@ -598,7 +605,7 @@ extension Osd {
     /// another source at the same spot; none left = the sources sheet
     private func nextSource() async {
         app?.toast(L("Switching source…"))
-        guard let data = try? await Core.shared.raw("match.nextSource", ["position": player.position, "addon": ""]),
+        guard let data = try? await Core.shared.raw("match.nextSource", ["position": player.exactPosition, "addon": ""]),
               let d = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             app?.toast(L("No other source left"))
             return
@@ -613,7 +620,7 @@ extension Osd {
                                 tmdb: (t["tmdb"] as? NSNumber)?.intValue ?? cur?.tmdb ?? 0,
                                 season: (t["season"] as? NSNumber)?.intValue, episode: (t["episode"] as? NSNumber)?.intValue,
                                 title: cur?.title ?? "", episodeTitle: cur?.episodeTitle,
-                                start: (d["start"] as? NSNumber)?.doubleValue ?? player.position)
+                                start: (d["start"] as? NSNumber)?.doubleValue ?? player.exactPosition)
         app.playTarget = target
         await player.play(target, stream: stream)
     }
@@ -809,10 +816,13 @@ struct PlayerView: View {
                 }
             }
             if let osd {
-                OsdView(osd: osd, u: app.u, size: app.size)
-                    .opacity(osd.shown || player.state == .ended ? 1 : 0)
-                    .animation(.easeOut(duration: 0.26), value: osd.shown)
-                SkipPill(osd: osd, u: app.u, size: app.size)
+                // gone, not just see-through, while hidden: glass over a moving picture is redrawn by the
+                // system every frame (cpu, battery) even at opacity 0, and nothing follows the position
+                if osd.shown || player.state == .ended {
+                    OsdView(osd: osd, u: app.u, size: app.size)
+                        .transition(.opacity.animation(.easeOut(duration: 0.26)))
+                }
+                PillHost(osd: osd, u: app.u, size: app.size)
                 // the timing capsule stays up with the controls down
                 if osd.timing != nil {
                     Color.clear.contentShape(.rect).onTapGesture { osd.closeTiming(save: true) }
@@ -864,6 +874,7 @@ struct PlayerView: View {
         .onChange(of: player.state) {
             // a new title: its subtitles haven't been looked for yet
             if player.state == .opening { osd?.subSearch = "" }
+            osd?.pillCheck()
             if player.state == .playing { osd?.show(5); app.scheduleTip(); player.setSubtitleLift(true) }
             guard player.state == .ended else { return }
             if player.next != nil { osd?.show(); osd?.zone = .skip } else { app.stopPlayback() }
@@ -904,8 +915,10 @@ struct OsdView: View {
             // clock + ends at, top right
             VStack(alignment: .trailing, spacing: 2 * u) {
                 TimelineView(.everyMinute) { ctx in
+                    // sf rounded's tabular digits stop short of their advance: the ink lines up with "ends at" under it
                     Text(Theme.clock(ctx.date))
                         .font(Theme.rounded(46 * u, .bold)).foregroundStyle(Theme.fg).monospacedDigit()
+                        .offset(x: 12 * u)
                     if dur - pos > 1 {
                         Text(L("Ends at %1", Theme.endsAt(dur - pos))).font(Theme.text(25 * u, .medium)).foregroundStyle(Theme.fg2)
                     }
@@ -918,7 +931,7 @@ struct OsdView: View {
             RoundButton(icon: "chevron.left", u: u, size: 76, lit: osd.exitArmed || (osd.zone == .back && !Input.pointing)) {
                 osd.app?.stopPlayback()
             }
-            .offset(x: margin, y: 56 * u)
+            .offset(x: margin, y: WindowState.shared.belowLights(56 * u))
 
             // logo / title in a fixed box, bottom edge at H-336, the episode line under it
             LogoBox(url: p.logo, title: p.title, titleSize: 54 * u, leading: true)
@@ -1066,7 +1079,7 @@ private struct TransportKey: View {
         let d = (small ? (b == .play ? 64 : 58) : (b == .play ? 84 : 76)) * u
         Image(systemName: b == .play ? (osd.player.paused ? "play.fill" : "pause.fill") : b == .rew ? "arrow.counterclockwise" : "arrow.clockwise")
             .font(.system(size: (b == .play ? 34 : 28) * (small ? 0.76 : 1) * u, weight: .semibold))
-            .contentTransition(.symbolEffect(.replace))
+            .contentTransition(.symbolEffect(.replace, options: .speed(2.5)))
             .foregroundStyle(foc ? Theme.focusFg : Theme.fg)
             .frame(width: d, height: d)
             .background { Circle().fill(foc ? Color.white : .clear).scaleEffect(foc ? 1.1 : 1) }
@@ -1087,6 +1100,20 @@ private struct TransportKey: View {
 
 /// skip intro / recap / credits, or the next episode card near the end (no countdown, house
 /// rule); white while it has the focus, which it has whenever the controls are down
+/// the pill only while it shows
+struct PillHost: View {
+    let osd: Osd
+    let u: CGFloat
+    let size: CGSize
+
+    var body: some View {
+        if osd.pillShown {
+            SkipPill(osd: osd, u: u, size: size)
+                .transition(.opacity.animation(.easeOut(duration: 0.3)))
+        }
+    }
+}
+
 struct SkipPill: View {
     let osd: Osd
     let u: CGFloat
@@ -1136,9 +1163,6 @@ struct SkipPill: View {
         .padding(.trailing, Theme.margin(u))
         .padding(.bottom, (osd.shown ? 300 : 150) * u)
         .animation(.easeOut(duration: 0.26), value: osd.shown)
-        .opacity(osd.pillShown ? 1 : 0)
-        .animation(.easeOut(duration: 0.3), value: osd.pillShown)
-        .allowsHitTesting(osd.pillShown)
     }
 }
 

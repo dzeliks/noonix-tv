@@ -45,7 +45,17 @@ final class MPVPlayer {
     var state: State = .idle { didSet { keepAwake() } }
     var title = ""
     var subtitle: String?
+    /// four times a second like qml's, and only while the controls show it: mpv says it every frame, and a
+    /// write lays the whole window out again (keys and the mouse waited behind it). a jump shows at once
     var position: Double = 0
+    /// mpv's own, every frame: not observed
+    @ObservationIgnored private(set) var exactPosition: Double = 0
+    @ObservationIgnored private var shownAt = Date.distantPast
+    @ObservationIgnored private var shownPos: Double = 0
+    /// something on screen reads the position (the controls are up)
+    @ObservationIgnored var positionShown = true { didSet { if positionShown { position = exactPosition } } }
+    /// four times a second with the controls down too (the skip pill's check): not observed
+    @ObservationIgnored var onTime: (() -> Void)?
     var duration: Double = 0
     var paused = false { didSet { keepAwake() } }
     var logo: String?
@@ -124,6 +134,12 @@ final class MPVPlayer {
             ("target-colorspace-hint", "yes"), ("ytdl", "no"), ("keep-open", "yes"), ("input-default-bindings", "no"),
             // mpv keeps its packets for reuse after a stop: the cache size is also what stays
             ("cache", "yes"), ("demuxer-max-bytes", Platform.ios ? "128MiB" : "200MiB"), ("demuxer-max-back-bytes", "32MiB"), ("sub-auto", "fuzzy"),
+            // never the user's own mpv config or scripts (a second scrobbler), nor mpv's built-in lua
+            // ones (stats, console, menus): a thread and memory each, none is used
+            ("config", "no"), ("load-scripts", "no"), ("osc", "no"), ("input-vo-keyboard", "no"),
+            ("load-stats-overlay", "no"), ("load-console", "no"), ("load-osd-console", "no"), ("load-select", "no"),
+            ("load-positioning", "no"), ("load-commands", "no"), ("load-context-menu", "no"), ("load-auto-profiles", "no"),
+            ("volume", String(Int(volume))), ("mute", muted ? "yes" : "no"),
             ("osd-level", "0"), ("ao", ProcessInfo.processInfo.environment["NOONIX_MUTE"] == "1" ? "null" : Platform.ios ? "audiounit" : "coreaudio"),
         ] {
             mpv_set_option_string(m, k, v)
@@ -170,6 +186,7 @@ final class MPVPlayer {
     }
 
     func play(_ target: PlayTarget, stream: [String: Any]) async {
+        release?.cancel()
         guard create() else { state = .failed(L("The player could not start.")); return }
         stopTicks()
         state = .opening
@@ -183,6 +200,7 @@ final class MPVPlayer {
         subSig = ""
         subDelay = 0
         position = 0
+        exactPosition = 0
         duration = 0
         var args: [String: Any] = ["kind": target.kind, "tmdb": target.tmdb, "stream": stream]
         if let s = target.season, let e = target.episode { args["season"] = s; args["episode"] = e }
@@ -215,7 +233,8 @@ final class MPVPlayer {
         set("sub-delay", String(s))
     }
 
-    func togglePause() { set("pause", paused ? "no" : "yes") }
+    // the button flips at once, mpv's own report follows
+    func togglePause() { paused.toggle(); set("pause", paused ? "yes" : "no") }
     func setVolume(_ v: Double) {
         let v = min(100, max(0, v.rounded()))
         set("volume", String(Int(v)))
@@ -236,7 +255,7 @@ final class MPVPlayer {
             if let d = r["sync"] as? String { set("video-sync", d) }
         }
     }
-    func setPaused(_ on: Bool) { set("pause", on ? "yes" : "no") }
+    func setPaused(_ on: Bool) { paused = on; set("pause", on ? "yes" : "no") }
     /// subtitles above the osd while it's up (qml Osd chromeShown)
     func setSubtitleLift(_ on: Bool) { set("sub-pos", on ? "77" : "100") }
     /// a quick look while scrubbing: the nearest keyframe
@@ -251,13 +270,33 @@ final class MPVPlayer {
         TVDisplay.reset()
         #endif
         command(["stop"])
+        releaseLater()
         if session != 0 {
-            let args: [String: Any] = ["position": position, "duration": duration, "reason": reason]
+            let args: [String: Any] = ["position": exactPosition, "duration": duration, "reason": reason]
             session = 0
             // detached: on quit the main thread waits and a main-actor task would never run
             Task.detached { _ = try? await Core.shared.raw("playback.stop", args) }
         }
         state = .idle
+    }
+
+    /// mpv goes a minute after the last video: its packet pool, the decoder's frames and the gpu's
+    /// textures stay with it otherwise (some 700 mb after a 4k film). the next play makes a new one
+    @ObservationIgnored private var release: Task<Void, Never>?
+    private func releaseLater() {
+        release?.cancel()
+        release = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(60))
+            guard let self, !Task.isCancelled, self.state == .idle, let m = self.mpv else { return }
+            self.mpv = nil
+            mpv_set_wakeup_callback(m, nil, nil)
+            // waits for mpv's own threads: not on the main one. then the allocator hands back what
+            // mpv freed (it keeps freed pages otherwise, like glibc on linux: player.cpp's malloc_trim)
+            Thread.detachNewThread {
+                mpv_terminate_destroy(m)
+                malloc_zone_pressure_relief(nil, 0)
+            }
+        }
     }
 
     // ---- mpv side
@@ -287,7 +326,11 @@ final class MPVPlayer {
 
     private func set(_ name: String, _ value: String) {
         guard let mpv else { return }
-        mpv_set_property_string(mpv, name, value)
+        // async like the commands: a busy core (a seek, a slow stream) never holds up the ui
+        value.withCString { v in
+            var p: UnsafePointer<CChar>? = v
+            _ = mpv_set_property_async(mpv, 0, name, MPV_FORMAT_STRING, &p)
+        }
     }
 
     private func command(_ args: [String]) {
@@ -313,14 +356,24 @@ final class MPVPlayer {
                 }
                 guard let data = p.data else { break }
                 switch (String(cString: p.name), p.format) {
-                case ("time-pos", MPV_FORMAT_DOUBLE): position = data.assumingMemoryBound(to: Double.self).pointee
+                case ("time-pos", MPV_FORMAT_DOUBLE):
+                    let t = data.assumingMemoryBound(to: Double.self).pointee
+                    exactPosition = t
+                    if abs(t - shownPos) > 1 || Date().timeIntervalSince(shownAt) >= 0.25 {
+                        shownAt = Date(); shownPos = t
+                        if positionShown { position = t }
+                        onTime?()
+                    }
                 case ("duration", MPV_FORMAT_DOUBLE): duration = data.assumingMemoryBound(to: Double.self).pointee
                 case ("pause", MPV_FORMAT_FLAG): paused = data.assumingMemoryBound(to: Int32.self).pointee != 0
-                case ("demuxer-cache-duration", MPV_FORMAT_DOUBLE): cacheAhead = data.assumingMemoryBound(to: Double.self).pointee
+                case ("demuxer-cache-duration", MPV_FORMAT_DOUBLE):
+                    let c = data.assumingMemoryBound(to: Double.self).pointee
+                    if abs(c - cacheAhead) >= 1 { cacheAhead = c }
                 case ("volume", MPV_FORMAT_DOUBLE): volume = data.assumingMemoryBound(to: Double.self).pointee
                 case ("mute", MPV_FORMAT_FLAG): muted = data.assumingMemoryBound(to: Int32.self).pointee != 0
                 case ("eof-reached", MPV_FORMAT_FLAG):
                     if data.assumingMemoryBound(to: Int32.self).pointee != 0, state == .playing {
+                        position = exactPosition
                         state = .ended
                         stop(reason: "eof")
                         state = .ended
@@ -484,7 +537,7 @@ final class MPVPlayer {
 
     private func tick(_ reason: String) {
         guard session != 0 else { return }
-        let args: [String: Any] = ["position": position, "duration": duration, "paused": paused, "reason": reason]
+        let args: [String: Any] = ["position": exactPosition, "duration": duration, "paused": paused, "reason": reason]
         Task { _ = try? await Core.shared.raw("playback.tick", args) }
     }
 

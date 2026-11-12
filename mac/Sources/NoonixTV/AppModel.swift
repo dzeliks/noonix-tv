@@ -244,7 +244,16 @@ final class AppModel {
     /// a website as a qr code (settings › about)
     var site: SiteCardModel?
     let player = MPVPlayer()
-    var playing = false { didSet { MediaKeys.playing(playing); if !playing { tipChoice = nil } } }
+    var playing = false {
+        didSet {
+            MediaKeys.playing(playing)
+            if !playing { tipChoice = nil; covered = false }
+            else if !oldValue { Task { try? await Task.sleep(for: .milliseconds(500)); if playing { covered = true } } }
+        }
+    }
+    /// the player has faded in over the pages: they come down until it leaves. every change in the player
+    /// (the time, four times a second) laid them all out again under it
+    private(set) var covered = false
     let library = GridModel()
     let search = SearchModel()
     let settings = SettingsModel()

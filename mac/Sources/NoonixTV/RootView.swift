@@ -47,7 +47,9 @@ struct RootView: View {
 
     @ViewBuilder private var content: some View {
         ZStack(alignment: .topLeading) {
-            // the app itself; under setup it's a blurred window in the middle (qml Setup frame)
+            // the app itself; under setup it's a blurred window in the middle (qml Setup frame).
+            // not under the player: the pages keep their place in their models
+            if !app.covered {
             ZStack(alignment: .topLeading) {
                 // a page stays built once shown or warmed, a switch only shows another one
                 // (settings is made each time: it starts over on its first section)
@@ -79,6 +81,7 @@ struct RootView: View {
                 }
             }
             .modifier(SetupWindow(reveal: app.setup?.reveal, u: app.u))
+            }
 
             if let s = app.sources {
                 SourcesView(model: s).transition(.opacity).zIndex(2)
@@ -217,6 +220,8 @@ struct TopNav: View {
     var body: some View {
         let u = app.u
         let margin = Theme.margin(u)
+        // a small window: the avatar clears the window's own buttons
+        let top = WindowState.shared.lights ? max(44 * u, 34 - 7 * u) : 44 * u
         ZStack(alignment: .top) {
             HStack {
                 if let p = app.currentProfile {
@@ -241,10 +246,10 @@ struct TopNav: View {
             }
             .padding(.horizontal, margin)
             .frame(height: 78 * u)
-            .padding(.top, 44 * u)
+            .padding(.top, top)
 
             pill(u)
-                .padding(.top, 44 * u)
+                .padding(.top, top)
         }
         .frame(maxWidth: .infinity)
         .frame(height: 150 * u, alignment: .top)

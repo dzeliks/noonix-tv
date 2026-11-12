@@ -142,6 +142,11 @@ Player::Player(bool nativeVideo, QObject *parent)
     opt("input-default-bindings", "no");
     opt("input-vo-keyboard", "no");
     opt("load-scripts", "no");   // never the user's mpv scripts (no second scrobbler)
+    // nor mpv's built-in lua ones (stats, console, menus): a thread and memory each, none is used.
+    // an older libmpv without some of them just refuses the name
+    for (const char *s : { "load-stats-overlay", "load-console", "load-osd-console", "load-select", "load-positioning",
+                           "load-commands", "load-context-menu", "load-auto-profiles" })
+        opt(s, "no");
     opt("config", "no");
     opt("sub-auto", "fuzzy");
     opt("cache", "yes");

@@ -328,7 +328,7 @@ struct DetailsView: View {
             RoundButton(icon: "chevron.left", u: u, size: 72, lit: app.sources == nil && model.zone == .back && !Input.pointing) {
                 _ = app.key(.back)
             }
-                .offset(x: margin, y: 40 * u)
+                .offset(x: margin, y: WindowState.shared.belowLights(40 * u))
                 .transition(.opacity)
         }
         .onChange(of: model.zone) { old, _ in heldY = Input.pointerHolds ? heldY ?? yFor(old) : nil }
@@ -362,7 +362,7 @@ struct DetailsView: View {
         let logoPad = (tight ? 8 : 16) * u
         // the back button top left would sit on the logo: it steps right of the button
         let logoTop = top + infoH - (logoH + idSpacing + metaH)
-        let backOver = logoTop < (40 + 72) * u
+        let backOver = logoTop < WindowState.shared.belowLights(40 * u) + 72 * u
         // tight with episodes: as many plot lines as fit above them (two at least)
         let fixedH = (34 + 14 + 26 + 14 + 26 + 14) * u
         let room = H - edge - headroom - underInfo + lend - fixedH
