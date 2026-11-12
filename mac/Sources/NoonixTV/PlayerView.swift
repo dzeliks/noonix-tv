@@ -146,8 +146,8 @@ final class Osd {
         if !shown {
             zone = z ?? .row
             rowIndex = buttons.firstIndex(of: .play) ?? 4
+            shown = true
         }
-        shown = true
         hide?.cancel()
         guard !player.paused, picker == nil else { return }
         hide = Task {
@@ -156,7 +156,20 @@ final class Osd {
         }
     }
 
-    func hideNow() { shown = false; zone = .bar; exitArmed = false }
+    /// the mouse on a row button: the focus goes there
+    func point(_ b: Button) {
+        let i = buttons.firstIndex(of: b) ?? 0
+        if zone != .row { zone = .row }
+        if rowIndex != i { rowIndex = i }
+        show()
+    }
+
+    // only what changes is written: the mouse calls show() with every move, and a write is a layout
+    func hideNow() {
+        if shown { shown = false }
+        if zone != .bar { zone = .bar }
+        if exitArmed { exitArmed = false }
+    }
 
     /// left / right: 10 s a tap, held = faster and faster (gamepad.lua's curve)
     func heldSeek(_ dir: Int) {
@@ -731,7 +744,7 @@ struct MatchSheet: View {
                 .frame(maxWidth: .infinity, minHeight: (Theme.touch ? 90 : 108) * u, alignment: .leading)
                 .background { RoundedRectangle(cornerRadius: 24 * u).fill(foc ? Color.white : .clear) }
                 .contentShape(.rect)
-                .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.index = i } }
+                .onContinuousHover { phase in if case .active = phase, Input.pointerLive, model.index != i { model.index = i } }
                 .onTapGesture { osd.choose(l.id) }
                 #if os(iOS)
                 .simultaneousGesture(DragGesture(minimumDistance: 0).updating($downAt) { _, d, _ in d = i })
@@ -1056,7 +1069,7 @@ struct OsdView: View {
             .onContinuousHover { phase in
                 if case .active = phase {
                     if osd.hover != b { osd.hover = b }
-                    if Input.pointerLive { osd.zone = .row; osd.rowIndex = osd.buttons.firstIndex(of: b) ?? 0; osd.show() }
+                    if Input.pointerLive { osd.point(b) }
                 } else if osd.hover == b { osd.hover = nil }
             }
             .onTapGesture { osd.act(b) }
@@ -1088,7 +1101,7 @@ private struct TransportKey: View {
             .onContinuousHover { phase in
                 if case .active = phase {
                     if osd.hover != b { osd.hover = b }
-                    if Input.pointerLive { osd.zone = .row; osd.rowIndex = osd.buttons.firstIndex(of: b) ?? 0; osd.show() }
+                    if Input.pointerLive { osd.point(b) }
                 } else if osd.hover == b { osd.hover = nil }
             }
             .onTapGesture { osd.act(b) }
@@ -1266,7 +1279,7 @@ struct TrackPicker: View {
                             SettingsRow(line: SettingsModel.Line(label: l.label, detail: l.detail, value: value, dim: l.dim),
                                         focused: osd.pickerIndex == i, u: u, grow: 1)
                                 .id(i)
-                                .onContinuousHover { phase in if case .active = phase, Input.pointerLive { osd.pickerIndex = i } }
+                                .onContinuousHover { phase in if case .active = phase, Input.pointerLive, osd.pickerIndex != i { osd.pickerIndex = i } }
                                 .onTapGesture { osd.pickerIndex = i; osd.pick(i) }
                         }
                     }

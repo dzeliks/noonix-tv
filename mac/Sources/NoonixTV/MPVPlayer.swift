@@ -53,7 +53,7 @@ final class MPVPlayer {
     @ObservationIgnored private var shownAt = Date.distantPast
     @ObservationIgnored private var shownPos: Double = 0
     /// something on screen reads the position (the controls are up)
-    @ObservationIgnored var positionShown = true { didSet { if positionShown { position = exactPosition } } }
+    @ObservationIgnored var positionShown = true { didSet { if positionShown, !oldValue { position = exactPosition } } }
     /// four times a second with the controls down too (the skip pill's check): not observed
     @ObservationIgnored var onTime: (() -> Void)?
     var duration: Double = 0
@@ -144,6 +144,8 @@ final class MPVPlayer {
         ] {
             mpv_set_option_string(m, k, v)
         }
+        // dev: NOONIX_HWDEC=no starts in software (the retry in loaded() is then seen working)
+        if let h = ProcessInfo.processInfo.environment["NOONIX_HWDEC"] { mpv_set_option_string(m, "hwdec", h) }
         // NOONIX_MPV_LOG=<file>: mpv's own log (dev)
         if let f = ProcessInfo.processInfo.environment["NOONIX_MPV_LOG"] { mpv_set_option_string(m, "log-file", f) }
         guard mpv_initialize(m) >= 0 else { mpv_terminate_destroy(m); return false }
@@ -432,12 +434,31 @@ final class MPVPlayer {
             #endif
             set("pause", "no")
             state = .playing
+            hardwareAgain(mine)
             tick("start")
             readTracks()
             subChanged()
             ticker = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.tick("tick") }
             }
+        }
+    }
+
+    /// videotoolbox wasn't there when the decoder opened (seen once: a 4k hevc film on every core
+    /// instead, with nothing in the log): asked once more a few seconds in
+    private func hardwareAgain(_ mine: Int64) {
+        Task {
+            try? await Task.sleep(for: .seconds(4))
+            guard mine == session, state == .playing, let mpv else { return }
+            let text = { (n: String) -> String in
+                guard let c = mpv_get_property_string(mpv, n) else { return "" }
+                defer { mpv_free(c) }
+                return String(cString: c)
+            }
+            guard text("hwdec-current") == "no", ["hevc", "h264"].contains(text("video-format")) else { return }
+            // the same value again changes nothing: off, then on
+            set("hwdec", "no")
+            set("hwdec", "videotoolbox")
         }
     }
 
