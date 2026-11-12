@@ -87,10 +87,10 @@ final class Osd {
     enum Zone { case bar, row, skip, back }
     enum Button: String { case subs, audio, match, rew, play, fwd, next, vol, full }
     /// the way out is the back button top left for everyone (keys reach it going up, back arms it).
-    /// the mouse also gets volume + full screen bottom right (refresh matching lives in settings)
+    /// the mouse also gets volume bottom right (refresh matching lives in settings)
     var mouse: Bool { Theme.mouse }
-    /// full screen only where the window has no title bar of its own (its green button does it there)
-    var fullButton: Bool { mouse && !WindowState.shared.titleBar }
+    /// full screen bottom right wherever the window can be something else: the mac, any input, title bar or not
+    var fullButton: Bool { !Platform.ios }
     var buttons: [Button] {
         // phones: play and the jumps lead the row on the left, the rest follow
         (Platform.phone ? [.rew, .play, .fwd, .subs, .audio, .match] : [.subs, .audio, .match, .rew, .play, .fwd])

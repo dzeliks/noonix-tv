@@ -17,10 +17,10 @@ FocusScope {
     property string exitArmed: ""        // back once more exits
     readonly property bool nextButton: nextReady && Player.state !== "ended"
     // the way out is the back button top left for everyone (a remote reaches it going up, its back
-    // key arms it). the mouse also gets volume + fullscreen bottom right (refresh matching lives in settings)
+    // key arms it). the mouse also gets volume bottom right (refresh matching lives in settings)
     readonly property bool mouse: Theme.mouse
-    // fullscreen only where the window can be something else and has no title bar of its own
-    readonly property bool fullButton: mouse && !Theme.android && !Remote.titleBar
+    // fullscreen bottom right wherever the window can be something else (any input, title bar or not)
+    readonly property bool fullButton: !Theme.android
     // phones: play and the jumps lead the row on the left, the rest follow
     readonly property bool phone: Desktop.phone
     readonly property var buttons: (phone ? ["rew", "play", "fwd", "subs", "audio", "match"] : ["subs", "audio", "match", "rew", "play", "fwd"])

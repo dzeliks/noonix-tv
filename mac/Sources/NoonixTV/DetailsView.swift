@@ -3,7 +3,7 @@ import SwiftUI
 /// a details page (qml Details): its data and where the focus is
 @MainActor @Observable
 final class DetailsModel: Identifiable {
-    enum Zone { case actions, seasons, episodes, more }
+    enum Zone { case back, actions, seasons, episodes, more }
 
     let item: Item
     @ObservationIgnored weak var app: AppModel?
@@ -25,7 +25,7 @@ final class DetailsModel: Identifiable {
         return !keep
     }
     var zone: Zone = .actions
-    /// the focus starts on play (the way back is the round button top left, or the back key)
+    /// the focus starts on play (the way back is the round button top left: up from the buttons, or the back key)
     var action = 0
     var seasonIndex = 0
     var episodeIndex = 0
@@ -171,8 +171,15 @@ final class DetailsModel: Identifiable {
 
     func key(_ k: Key) {
         switch zone {
+        case .back:
+            switch k {
+            case .ok: app?.back()
+            case .down, .right: zone = .actions
+            default: break
+            }
         case .actions:
             switch k {
+            case .up: zone = .back
             case .left: action = max(0, action - 1)
             case .right: action = min(actions.count - 1, action + 1)
             case .ok: act(actions[min(action, actions.count - 1)])
@@ -266,7 +273,7 @@ struct DetailsView: View {
         let yFor = { (z: DetailsModel.Zone) -> CGFloat in
             switch z {
             // buttons, seasons and episodes keep the page as it opened: episodes the bottom row, the whole story above
-            case .actions, .seasons, .episodes: 0
+            case .back, .actions, .seasons, .episodes: 0
             case .more: max(0, yMore - H * 0.3)
             }
         }
@@ -310,19 +317,19 @@ struct DetailsView: View {
             .offset(y: -contentY)
             .animation(model.scroll.y == nil ? Theme.slide : nil, value: contentY)
 
-            // the pointer's way back (a mouse, a finger): top left in line with play, wherever the page is
-            // scrolled (keys have their own back). scrolled, the page slides under a shade like under a toolbar
-            if Theme.mouse || Theme.touch {
-                LinearGradient(stops: [.init(color: .black.opacity(0.92), location: 0), .init(color: .black.opacity(0.7), location: 0.6),
-                                       .init(color: .black.opacity(0), location: 1)], startPoint: .top, endPoint: .bottom)
-                    .frame(width: W, height: 190 * u)
-                    .opacity(contentY > 20 * u ? 1 : 0)
-                    .animation(.easeOut(duration: 0.18), value: contentY > 20 * u)
-                    .allowsHitTesting(false)
-                RoundButton(icon: "chevron.left", u: u, size: 72) { _ = app.key(.back) }
-                    .offset(x: margin, y: 40 * u)
-                    .transition(.opacity)
+            // the way back, top left in line with play wherever the page is scrolled (keys reach it going up
+            // from the buttons, like the player's). scrolled, the page slides under a shade like under a toolbar
+            LinearGradient(stops: [.init(color: .black.opacity(0.92), location: 0), .init(color: .black.opacity(0.7), location: 0.6),
+                                   .init(color: .black.opacity(0), location: 1)], startPoint: .top, endPoint: .bottom)
+                .frame(width: W, height: 190 * u)
+                .opacity(contentY > 20 * u ? 1 : 0)
+                .animation(.easeOut(duration: 0.18), value: contentY > 20 * u)
+                .allowsHitTesting(false)
+            RoundButton(icon: "chevron.left", u: u, size: 72, lit: app.sources == nil && model.zone == .back && !Input.pointing) {
+                _ = app.key(.back)
             }
+                .offset(x: margin, y: 40 * u)
+                .transition(.opacity)
         }
         .onChange(of: model.zone) { old, _ in heldY = Input.pointerHolds ? heldY ?? yFor(old) : nil }
         .onChange(of: PointerMode.shared.on) { _, on in if !on { heldY = nil } }
@@ -355,7 +362,7 @@ struct DetailsView: View {
         let logoPad = (tight ? 8 : 16) * u
         // the back button top left would sit on the logo: it steps right of the button
         let logoTop = top + infoH - (logoH + idSpacing + metaH)
-        let backOver = (Theme.mouse || Theme.touch) && logoTop < (40 + 72) * u
+        let backOver = logoTop < (40 + 72) * u
         // tight with episodes: as many plot lines as fit above them (two at least)
         let fixedH = (34 + 14 + 26 + 14 + 26 + 14) * u
         let room = H - edge - headroom - underInfo + lend - fixedH

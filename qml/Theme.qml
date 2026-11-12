@@ -32,7 +32,7 @@ QtObject {
     // a finger on a phone or tablet: no focus marks, taps instead
     readonly property bool touch: android && pointing && !mouseMode
     // a mouse is in use (a keyboard beside it keeps it, a remote or pad key ends it): the pointer's
-    // own controls show (back top left, fullscreen, volume). a remote never sees them
+    // own controls show (the volume slider, row arrows). a remote never sees them
     property bool mouseMode: false
     // counts up every 30 s (main's timer): artwork off screen for a few of these lets go of its pixels
     property int nap: 0

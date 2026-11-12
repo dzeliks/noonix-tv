@@ -99,7 +99,8 @@ FocusScope {
     }
 
     function playTarget() {
-        if (isMovie) return { kind: "movie", tmdb: tmdbId }
+        // !item: the page going away (its bindings run once more)
+        if (isMovie || !item) return { kind: "movie", tmdb: tmdbId }
         var n = item.kind === "episode" ? item : next
         // the episode we came for got watched meanwhile: go on from it
         var eps = season ? season.episodes || [] : []
@@ -299,7 +300,7 @@ FocusScope {
                     // tight: as tall as what's left over the episode row (never under 90)
                     Logo {
                         // the back button top left would sit on it: it steps right of the button
-                        x: backButton.visible && topRoom.height + info.height - identity.height < backButton.y + backButton.height
+                        x: topRoom.height + info.height - identity.height < backButton.y + backButton.height
                            ? backButton.width + 20 * page.u : 0
                         width: (page.tight ? 460 : 600) * page.u
                         height: !page.tight ? 226 * page.u : !seasonsRow.visible ? 170 * page.u
@@ -524,6 +525,7 @@ FocusScope {
                     }
                 }
                 Keys.onDownPressed: (seasonsRow.visible ? seasonsRow : more).forceActiveFocus()
+                Keys.onUpPressed: backButton.forceActiveFocus()
             }
 
             // seasons: text pills
@@ -660,13 +662,13 @@ FocusScope {
             artH: page.cardW * 9 / 16
         }
     }
-    // the pointer's way back (the mouse, a finger): top left, wherever the page is scrolled (a remote has
-    // its key). scrolled, the page slides under a shade like under a toolbar
+    // the way back: top left, wherever the page is scrolled (keys reach it going up from the buttons, like
+    // the player's). scrolled, the page slides under a shade like under a toolbar
     Rectangle {
         width: page.width
         height: 190 * page.u
         visible: opacity > 0
-        opacity: backButton.visible && scroller.contentY > 20 * page.u ? 1 : 0
+        opacity: scroller.contentY > 20 * page.u ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 180 } }
         gradient: Gradient {
             GradientStop { position: 0.0; color: Qt.rgba(0, 0, 0, 0.92) }
@@ -676,12 +678,16 @@ FocusScope {
     }
     RoundButton {
         id: backButton
-        visible: Theme.mouse || Theme.touch
         // in line with play under it
         x: Theme.margin
         y: 40 * page.u
         size: 72
         icon: "chevronleft"
+        lit: activeFocus && !Theme.pointing
         onClicked: page.back()
+        Keys.onReturnPressed: page.back()
+        Keys.onEnterPressed: page.back()
+        Keys.onDownPressed: actions.forceActiveFocus()
+        Keys.onRightPressed: actions.forceActiveFocus()
     }
 }
