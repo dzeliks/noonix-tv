@@ -6,6 +6,8 @@
 #include <QDBusConnectionInterface>
 #include <QDBusServiceWatcher>
 #endif
+#include <QCursor>
+#include <QGuiApplication>
 #include <QKeyEvent>
 #include <QKeySequence>
 #include <QMouseEvent>
@@ -269,6 +271,9 @@ void Input::setWindow(QWindow *w)
 {
     m_window = w;
     w->installEventFilter(this);
+    // no cursor until the mouse is the one in use (setPointing)
+    if (!m_pointing)
+        QGuiApplication::setOverrideCursor(Qt::BlankCursor);
 }
 
 QVariantMap Input::defaults() const
@@ -370,6 +375,11 @@ void Input::setPointing(bool on)
     if (on == m_pointing)
         return;
     m_pointing = on;
+    // keys, a pad or the remote in use: the cursor goes until the mouse moves again
+    if (on)
+        QGuiApplication::restoreOverrideCursor();
+    else
+        QGuiApplication::setOverrideCursor(Qt::BlankCursor);
     emit pointingChanged();
 }
 
