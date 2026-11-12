@@ -330,7 +330,7 @@ struct SourcesView: View {
             }
             .scrollIndicators(.hidden)
             .onChange(of: model.index) { _, i in
-                guard let id = model.shown[safe: i]?.id else { return }
+                guard !Input.pointerHolds, let id = model.shown[safe: i]?.id else { return }
                 withAnimation(.easeOut(duration: 0.26)) { proxy.scrollTo(id, anchor: UnitPoint(x: 0, y: 0.4)) }
             }
             // a list of its own per tab: rows added above would keep the old scroll position

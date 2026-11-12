@@ -272,7 +272,7 @@ struct ProfileEditView: View {
                 }
                 .scrollIndicators(.never)
                 .frame(width: min(inner, count * 90 * u - 18 * u + 20 * u), height: 92 * u)
-                .onChange(of: model.choice) { withAnimation(.easeOut(duration: 0.22)) { proxy.scrollTo(model.choice, anchor: .center) } }
+                .onChange(of: model.choice) { if !Input.pointerHolds { withAnimation(.easeOut(duration: 0.22)) { proxy.scrollTo(model.choice, anchor: .center) } } }
             }
             EntryField(text: model.name, placeholder: L("Name"), active: true, size: 28 * u, u: u,
                        ime: touch ? ImeField(text: model.name, limit: 20, open: open, words: true, shown: true, size: 28 * u, placeholder: L("Name"),

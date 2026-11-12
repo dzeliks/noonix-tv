@@ -181,6 +181,10 @@ enum Input {
     static var pointerHolds: Bool { pointing && pointerLive }
     /// true: this first key after the mouse only brought the selection back
     static func keyed() -> Bool {
+        #if os(macOS)
+        // keys in use: the cursor goes until the mouse moves again
+        NSCursor.setHiddenUntilMouseMoves(true)
+        #endif
         guard PointerMode.shared.on else { return false }
         PointerMode.shared.on = false
         return AppModel.current?.leaveMouse() ?? false

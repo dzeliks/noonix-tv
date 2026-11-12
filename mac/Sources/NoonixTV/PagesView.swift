@@ -351,7 +351,7 @@ struct SearchPage: View {
                         .padding(.horizontal, margin)
                         .padding(.vertical, 10 * u)
                     }
-                    .onChange(of: s.grid.index) { _, i in withAnimation(Theme.slide) { proxy.scrollTo(i, anchor: .center) } }
+                    .onChange(of: s.grid.index) { _, i in if !Input.pointerHolds { withAnimation(Theme.slide) { proxy.scrollTo(i, anchor: .center) } } }
                 }
                 .frame(width: W, height: posterW * 1.5 + 24 * u)
                 .offset(y: listTop - 8 * u)
@@ -442,7 +442,7 @@ struct SearchPage: View {
                         }
                         .padding(.horizontal, margin)
                     }
-                    .onChange(of: s.chip) { _, i in withAnimation(Theme.slide) { proxy.scrollTo(i, anchor: .center) } }
+                    .onChange(of: s.chip) { _, i in if !Input.pointerHolds { withAnimation(Theme.slide) { proxy.scrollTo(i, anchor: .center) } } }
                 }
                 .frame(width: W, height: chipsH + 16 * u)
                 .offset(y: chipsY - 8 * u)

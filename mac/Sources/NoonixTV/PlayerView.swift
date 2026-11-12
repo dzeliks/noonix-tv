@@ -12,7 +12,7 @@ struct VideoSurface: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSView {
         let v = Surface()
-        v.video = player.layer
+        v.player = player
         v.layer = player.layer
         v.wantsLayer = true
         return v
@@ -21,7 +21,7 @@ struct VideoSurface: NSViewRepresentable {
     func updateNSView(_ v: NSView, context: Context) {}
 
     final class Surface: NSView {
-        var video: CAMetalLayer?
+        weak var player: MPVPlayer?
 
         // a resize (full screen, dragging the window) doesn't always lay out a view without subviews
         override func setFrameSize(_ newSize: NSSize) {
@@ -40,10 +40,10 @@ struct VideoSurface: NSViewRepresentable {
         }
 
         private func fit() {
-            guard let video else { return }
+            guard let player else { return }
             let scale = window?.backingScaleFactor ?? 2
-            video.contentsScale = scale
-            video.drawableSize = CGSize(width: bounds.width * scale, height: bounds.height * scale)
+            player.layer.contentsScale = scale
+            player.surface(CGSize(width: bounds.width * scale, height: bounds.height * scale))
         }
     }
 }
@@ -54,6 +54,7 @@ struct VideoSurface: UIViewRepresentable {
     func makeUIView(context: Context) -> UIView {
         let v = Surface()
         v.video = player.layer
+        v.player = player
         v.layer.addSublayer(player.layer)
         v.backgroundColor = .black
         return v
@@ -63,6 +64,7 @@ struct VideoSurface: UIViewRepresentable {
 
     final class Surface: UIView {
         var video: CAMetalLayer?
+        weak var player: MPVPlayer?
 
         override func layoutSubviews() {
             super.layoutSubviews()
@@ -72,8 +74,8 @@ struct VideoSurface: UIViewRepresentable {
             CATransaction.setDisableActions(true)
             video.frame = bounds
             video.contentsScale = scale
-            video.drawableSize = CGSize(width: bounds.width * scale, height: bounds.height * scale)
             CATransaction.commit()
+            player?.surface(CGSize(width: bounds.width * scale, height: bounds.height * scale))
         }
     }
 }
@@ -851,9 +853,6 @@ struct PlayerView: View {
         }
         .contentShape(.rect)
         .onContinuousHover { _ in if Input.pointerLive { osd?.show() } }
-        #if os(macOS)
-        .onTapGesture(count: 2) { NSApp.keyWindow?.toggleFullScreen(nil) }
-        #endif
         #if os(iOS)
         // a finger: a tap shows or hides them (like phone players), a double tap on a side jumps 10 s
         .onTapGesture(coordinateSpace: .local) { at in
@@ -873,6 +872,18 @@ struct PlayerView: View {
         }
         #else
         .onTapGesture {
+            #if os(macOS)
+            // the second click of a pair: full screen, and the first one's pause taken back. counted here, not
+            // with a count: 2 gesture: swiftui then holds every click, the buttons' too, until a second can't come
+            if let last = lastTap, Date().timeIntervalSince(last.at) < NSEvent.doubleClickInterval {
+                lastTap = nil
+                if last.side == 1 { player.togglePause() }
+                NSApp.keyWindow?.toggleFullScreen(nil)
+                return
+            }
+            let pauses = osd?.picker == nil && osd?.match == nil && osd?.shown == true
+            lastTap = (Date(), pauses ? 1 : 0)
+            #endif
             if osd?.picker != nil || osd?.match != nil { osd?.closePickers() }
             else if osd?.shown == true { player.togglePause() } else { osd?.show() }
         }
@@ -894,7 +905,9 @@ struct PlayerView: View {
         }
         .onChange(of: (osd?.shown ?? true) || player.state == .ended, initial: true) { _, up in player.setSubtitleLift(up) }
         #if os(macOS)
+        // the cursor goes with the controls, until the mouse moves again
         .onHover { inside in NSCursor.setHiddenUntilMouseMoves(inside && !(osd?.shown ?? true)) }
+        .onChange(of: osd?.shown ?? true) { _, up in if !up { NSCursor.setHiddenUntilMouseMoves(true) } }
         #endif
     }
 }
@@ -1287,7 +1300,8 @@ struct TrackPicker: View {
             }
             .scrollIndicators(.hidden)
             .scrollDisabled(linesH + 32 * u <= h)
-            .onChange(of: osd.pickerIndex) { _, i in withAnimation(.easeOut(duration: 0.16)) { proxy.scrollTo(i) } }
+            // keys only: under the mouse a list stays where it is (the wheel moves it)
+            .onChange(of: osd.pickerIndex) { _, i in if !Input.pointerHolds { withAnimation(.easeOut(duration: 0.16)) { proxy.scrollTo(i) } } }
         }
         // 16 all round: the rows' 24 radius + 16 = the panel's 40, corners stay concentric
         .padding(16 * u)

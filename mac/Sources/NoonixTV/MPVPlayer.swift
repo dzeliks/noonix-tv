@@ -122,6 +122,25 @@ final class MPVPlayer {
     init() {
         layer.framebufferOnly = true
         layer.backgroundColor = CGColor(gray: 0, alpha: 1)
+        // the moment between a new window size and mpv's picture for it: the old one, in proportion
+        layer.contentsGravity = .resizeAspect
+    }
+
+    /// the view's size in pixels. mpvkit's context reads the layer's size only when a video is configured
+    /// (no resize event), so with one on screen it's asked to configure again a moment after the last change:
+    /// a format filter that changes nothing, on and off in turn (the full screen switch left the picture
+    /// small in a corner, a smaller window cut it off)
+    @ObservationIgnored private var sizing: Task<Void, Never>?
+    func surface(_ size: CGSize) {
+        guard size.width > 1, size.height > 1, size != layer.drawableSize else { return }
+        guard mpv != nil, session != 0 else { layer.drawableSize = size; return }
+        sizing?.cancel()
+        sizing = Task {
+            try? await Task.sleep(for: .milliseconds(120))
+            guard !Task.isCancelled else { return }
+            layer.drawableSize = size
+            command(["vf", "toggle", "@size:format:stereo-in=sbs2l"])
+        }
     }
 
     private func create() -> Bool {
