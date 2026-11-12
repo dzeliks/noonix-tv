@@ -114,7 +114,8 @@ final class SourcesFlow {
         out.append(Line(label: L("Add an addon or extension"), detail: L("Its address: a Stremio addon (…/manifest.json) or a Noonix TV extension. Optional"), value: "+", act: "src:url"))
         // apple tv has no files to open
         if !Platform.tv {
-            out.append(Line(label: L("Open an extension file"), detail: L("A .noonix file on this Mac"), value: "+", act: "src:file"))
+            out.append(Line(label: L("Open an extension file"), detail: Platform.ios ? L("A .noonix file on this device") : L("A .noonix file on this Mac"),
+                            value: "+", act: "src:file"))
         }
         return out
     }
@@ -279,18 +280,31 @@ final class SourcesFlow {
 
     // ---- an extension file: the same picker, listing the files (the system's panel wants a mouse)
     private func pickFile(app: AppModel) {
+        if SystemFile.available {
+            app.systemFile = SystemFile(tag: "extension", max: 256 * 1024) { [weak self, weak app] r in   // the core's own limit
+                guard let self, let app else { return }
+                switch r {
+                case .file(let path): Task { await self.preview(path, app: app) }
+                case .tooBig: app.toast(L("That file is too big"))
+                case .unreadable: app.toast(L("Couldn't read that file"))
+                case .none: break
+                }
+            }
+            return
+        }
         let p = FolderPickerModel()
         p.files = ["noonix", "json"]
         p.caption = L("Open an extension file")
         p.picked = { [weak self, weak app] path in
             guard let self, let app else { return }
-            Task {
-                let (d, err) = await self.answer("extensions.preview", ["path": path])
-                if let d = d as? [String: Any] { self.sheet(d, "preview", app: app) } else { app.toast(err ?? L("Couldn't read that file")) }
-            }
+            Task { await self.preview(path, app: app) }
         }
         app.folderPicker = p
         p.go("", app: app)
+    }
+    private func preview(_ path: String, app: AppModel) async {
+        let (d, err) = await answer("extensions.preview", ["path": path])
+        if let d = d as? [String: Any] { sheet(d, "preview", app: app) } else { app.toast(err ?? L("Couldn't read that file")) }
     }
 }
 

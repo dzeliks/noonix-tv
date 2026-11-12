@@ -28,7 +28,7 @@ FocusScope {
     readonly property real iconX: bx + 91 * k
     readonly property real shift: width / 2 - (bx + 175 * k)   // the icon's way to the middle
     readonly property real slow: Desktop.splashSlow   // dev: NOONIX_SPLASH_SLOW=4 for recordings
-    readonly property real res: Math.max(0.25, iconSize * 1.25 / 1024)   // svg px per icon unit
+    readonly property real res: Math.max(0.25, iconSize * 1.25 * Theme.dpr / 1024)   // svg px per icon unit
 
     function play() {
         if (phase !== "waiting" || !introDone) return

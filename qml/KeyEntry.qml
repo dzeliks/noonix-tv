@@ -69,12 +69,13 @@ FocusScope {
         anchors.centerIn: parent
         width: 900 * ke.u
         height: col.height + 2 * 48 * ke.u
+        Resize on height {}
         radius: 56 * ke.u
         kind: "panel"
     }
     Column {
         id: col
-        anchors.centerIn: card
+        anchors { horizontalCenter: card.horizontalCenter; top: card.top; topMargin: 48 * ke.u }
         width: card.width - 2 * 48 * ke.u
         spacing: 22 * ke.u
         Text {
@@ -110,7 +111,7 @@ FocusScope {
             ImeInput {
                 id: ime
                 value: ke.text
-                maximumLength: 400
+                maximumLength: 4096
                 inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText | (ke.secret ? Qt.ImhSensitiveData : 0)
                 onEdited: function (t) { ke.text = t; ke.status = "" }
                 onDone: ke.submit()
@@ -118,8 +119,13 @@ FocusScope {
             Pointer { okKey: false; takesFocus: false; cursorShape: Qt.IBeamCursor; onTapped: if (ime.on) ime.open(); else keys.forceActiveFocus() }
         }
         Text {
-            anchors.horizontalCenter: parent.horizontalCenter
+            id: statusLine
+            // a fixed row even while empty: the column skips a zero-width item and the card jumps
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
             height: 30 * ke.u
+            Appear { target: statusLine; key: statusLine.text }
             text: ke.status
             color: ke.ok ? "#30D158" : ke.busy ? Theme.fg2 : "#FF9F0A"
             font { family: Theme.text; pixelSize: 24 * ke.u; weight: Font.Medium }
@@ -153,7 +159,7 @@ FocusScope {
                 enterLabel: qsTr("done")
                 active: keys.activeFocus
                 onPointed: keys.forceActiveFocus()
-                onTyped: function (t) { if (ke.text.length < 400) { ke.text += t; ke.status = "" } }
+                onTyped: function (t) { if (ke.text.length < 4096) { ke.text += t; ke.status = "" } }
                 onSpecial: function (n) {
                     if (n === "backspace") ke.text = ke.text.slice(0, -1)
                     else if (n === "clear") ke.text = ""

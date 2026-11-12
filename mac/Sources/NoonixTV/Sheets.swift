@@ -387,13 +387,21 @@ final class SpeedCheckModel {
         Task { _ = await json("bench.skipInternet") }
     }
 
-    func left() { if net == .running { skip() } else { run() } }
+    /// skipping asks first: a guess at what plays here can pick a quality that doesn't
+    func left(app: AppModel) {
+        guard net == .running else { run(); return }
+        app.confirm = ConfirmModel(
+            title: L("Skip the internet check?"),
+            detail: L("Without it the picture quality follows this device alone, so some videos may stutter or not play at all. You can set it yourself any time in Settings › Sources › Picture quality."),
+            ok: L("Skip Anyway"), cancel: L("Keep Measuring"),
+            yes: { [weak self] in self?.skip() })
+    }
 
     func key(_ k: Key, app: AppModel) {
         switch k {
         case .left: choice = 0
         case .right: choice = 1
-        case .ok: if choice == 0 { left() } else { app.speed = nil }
+        case .ok: if choice == 0 { left(app: app) } else { app.speed = nil }
         case .back: app.speed = nil
         default: break
         }
@@ -522,6 +530,7 @@ struct SpeedCheckView: View {
                     Text(model.headline.isEmpty ? " " : L("You can watch up to %1", model.headline))
                         .font(Theme.display(30 * u, .bold)).foregroundStyle(Theme.fg)
                     Text(model.why.isEmpty ? L("You can change the picture quality any time in Settings › Sources")
+                         : model.net == .skipped ? L("Without the internet check it follows the device. Change it any time in Settings › Sources")
                          : L("No internet, so it follows the device. Change it any time in Settings › Sources"))
                         .font(Theme.text(19 * u)).foregroundStyle(Theme.fg3)
                         .multilineTextAlignment(.center)
@@ -537,7 +546,7 @@ struct SpeedCheckView: View {
                         .contentShape(.capsule)
                         .opacity(model.running && !live ? 0.45 : 1)
                         .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.choice = 0 } }
-                        .onTapGesture { model.left() }
+                        .onTapGesture { model.left(app: app) }
                     GlassButton(text: L("Done"), primary: true, focused: model.choice == 1, u: u, flat: true)
                         .contentShape(.capsule)
                         .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.choice = 1 } }

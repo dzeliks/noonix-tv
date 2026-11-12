@@ -4,6 +4,17 @@ import QtQuick
 // design tokens: a 1920x1080 grid scaled to the screen (u = 2 on the 4k tv)
 QtObject {
     property real u: 1
+    // device pixels per point (phones ~2.6, scaled desktops): images and backdrop copies are sized in these
+    property real dpr: 1
+    // a backdrop copy for glass, ~1000 device px across whatever the screen: a quarter at 4k, half on
+    // a phone or at 1080p (a quarter of a phone's points was ~220 px: the frost came out in blocks)
+    function copySize(w, h) {
+        var k = Math.min(0.5, Math.max(0.25, 1000 / Math.max(1, w * dpr)))
+        return Qt.size(Math.max(1, Math.round(w * dpr * k)), Math.max(1, Math.round(h * dpr * k)))
+    }
+    // the frost's two blur passes: their taps are one texel of this, so they render at exactly this
+    // size (at the screen's density they skipped texels of the big copy and the frost streaked)
+    readonly property size frostSize: Qt.size(240, 135)
     // the window in grid units (1920x1080 on a 16:9 screen, ~1630x770 on a phone): layouts that
     // run short of room ask these instead of assuming the tv's page
     property real gw: 1920
@@ -30,6 +41,8 @@ QtObject {
     property string lowMode: "auto"
     readonly property bool lowMemory: lowMode === "on" || (lowMode !== "off" && Desktop.lowRam)
     readonly property real backdropScale: lowMemory ? 0.75 : 1
+    // posters and stills, many at once: low memory decodes them a little under the screen's density
+    readonly property real artDpr: lowMemory ? Math.min(dpr, 1.5) : dpr
     readonly property bool mouse: mouseMode
     // the focus look of something under a Pointer: a finger only while it's down, the mouse only
     // while it's on it (the focus stays where the mouse left it, unlit), keys always

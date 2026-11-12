@@ -41,7 +41,7 @@ Item {
         anchors { left: parent.left; leftMargin: 30 * t.u; verticalCenter: parent.verticalCenter }
         height: 30 * t.u
         width: visible ? Math.round(height * (implicitWidth > 0 && implicitHeight > 0 ? implicitWidth / implicitHeight : 1)) : 0
-        sourceSize.height: Math.round(height)
+        sourceSize.height: Math.round(height * Theme.dpr)
         fillMode: Image.PreserveAspectFit
         smooth: true
     }
@@ -80,6 +80,7 @@ Item {
         Text {
             id: val
             visible: !t.checkable && t.value !== ""
+            Appear { target: val; key: val.text }
             anchors { right: parent.right; verticalCenter: parent.verticalCenter }
             text: t.value
             color: t.lit ? Theme.focusFg : Theme.fg2

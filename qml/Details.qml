@@ -227,7 +227,7 @@ FocusScope {
             anchors.fill: parent
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
-            sourceSize.width: Math.round(width * Theme.backdropScale)
+            sourceSize.width: Math.round(width * Theme.dpr * Theme.backdropScale)
             source: page.details && page.details.backdrop ? page.details.backdrop : (page.item ? page.item.backdrop || "" : "")
             opacity: status === Image.Ready ? 1 : 0
             Behavior on opacity { NumberAnimation { duration: 400 } }
@@ -257,8 +257,12 @@ FocusScope {
         id: scroller
         anchors.fill: parent
         contentHeight: body.height
-        interactive: false
-        Behavior on contentY { enabled: !page.snap && !wheel.running; NumberAnimation { duration: 420; easing.type: Easing.OutCubic } }
+        // a finger drags the page (the rows in it still swipe sideways); keys and the wheel move it themselves
+        interactive: Theme.touch
+        flickableDirection: Flickable.VerticalFlick
+        boundsBehavior: Flickable.StopAtBounds
+        onMovementStarted: page.wheeled = true
+        Behavior on contentY { enabled: !page.snap && !wheel.running && !scroller.moving; NumberAnimation { duration: 420; easing.type: Easing.OutCubic } }
 
         Column {
             id: body
@@ -271,7 +275,9 @@ FocusScope {
             Item {
                 id: topRoom
                 width: 1
-                height: !seasonsRow.visible ? page.height * 0.2
+                // a movie: a story taller than the logo side takes its extra from up here, so the rows
+                // below stay where they are
+                height: !seasonsRow.visible ? Math.max(body.headroom, page.height * 0.2 - Math.max(0, info.height - identity.height))
                         : Math.max(body.headroom, page.height - page.edge - (info.height + body.underInfo))
             }
 
@@ -346,7 +352,7 @@ FocusScope {
                         color: Theme.fg
                         font { family: Theme.display; pixelSize: 26 * page.u; weight: Font.DemiBold }
                     }
-                    // the plot sits on the starring line and grows up; past seven lines (fewer on a phone) it
+                    // the plot sits on the starring line and grows up; past seven lines (fewer on a phone with episodes) it
                     // scrolls slowly inside its box and comes back
                     Item {
                         id: plot
@@ -356,8 +362,9 @@ FocusScope {
                         readonly property real pad: 14 * page.u
                         // tight with episodes: as many lines as fit above them (two at least)
                         readonly property real room: page.height - page.edge - body.headroom - body.underInfo + info.lend - story.fixedH
+                        // tight movie: four lines and as many more as the room over the page gives (seven at most)
                         readonly property real full: !page.tight ? 7 * line + 2 * pad
-                                                     : !seasonsRow.visible ? 4 * line + 2 * pad
+                                                     : !seasonsRow.visible ? Math.min(7, 4 + Math.max(0, Math.floor((page.height * 0.2 - body.headroom) / line))) * line + 2 * pad
                                                      : Math.max(2 * line, Math.min(7 * line, Math.floor((room - 2 * pad) / line) * line)) + 2 * pad
                         readonly property real tall: plotText.implicitHeight + 2 * pad
                         height: Math.min(tall, full)

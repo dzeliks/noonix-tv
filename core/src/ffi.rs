@@ -51,10 +51,12 @@ pub extern "C" fn noonix_start(ctx: *mut c_void, on_result: ResultFn, on_push: P
 }
 
 /// one rpc call; the answer comes to on_result with the id returned here
+///
+/// # Safety
+/// `method` and `args` are nul-terminated strings that stay valid for the call, or null
 #[no_mangle]
-pub extern "C" fn noonix_call(method: *const c_char, args: *const c_char) -> u64 {
+pub unsafe extern "C" fn noonix_call(method: *const c_char, args: *const c_char) -> u64 {
     let id = NEXT.fetch_add(1, Ordering::Relaxed);
-    // safety: the caller passes nul-terminated utf-8 (or null for no arguments)
     let method = if method.is_null() { String::new() } else { unsafe { CStr::from_ptr(method) }.to_string_lossy().into_owned() };
     let args = if args.is_null() {
         serde_json::Value::Null

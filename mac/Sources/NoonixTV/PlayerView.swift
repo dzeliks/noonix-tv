@@ -320,17 +320,48 @@ final class Osd {
     func addFile() {
         guard let app else { return }
         picker = nil
+        hold()
+        if SystemFile.available {
+            app.systemFile = SystemFile(tag: "sub", max: 8 << 20) { [weak self] r in   // the core's own limit
+                guard let self else { return }
+                switch r {
+                case .file(let path): importSub(path)
+                case .tooBig: self.app?.toast(L("That file is too big"))
+                case .unreadable: self.app?.toast(L("Couldn't read that file"))
+                case .none: break
+                }
+                release()
+                show()
+            }
+            return
+        }
         let p = FolderPickerModel()
         p.files = ["srt", "ass", "ssa", "vtt", "sub"]
         p.caption = L("Add a subtitle file")
-        p.picked = { [weak app] path in
-            Task {
-                if (try? await Core.shared.raw("playback.importSub", ["path": path])) == nil { app?.toast(L("Couldn't read that file")) }
-            }
-        }
+        p.picked = { [weak self] path in self?.importSub(path) }
+        p.closed = { [weak self] in self?.release() }
         app.folderPicker = p
         p.go("", app: app)
         show()
+    }
+    private func importSub(_ path: String) {
+        Task { [weak app = self.app] in
+            if (try? await Core.shared.raw("playback.importSub", ["path": path])) == nil { app?.toast(L("Couldn't read that file")) }
+        }
+    }
+
+    /// a subtitle search or file pick holds the picture, and plays on after if it was playing
+    @ObservationIgnored private var holds = 0
+    @ObservationIgnored private var held = false
+    private func hold() {
+        holds += 1
+        if holds == 1 && !player.paused { player.setPaused(true); held = true }
+    }
+    private func release() {
+        guard holds > 0 else { return }
+        holds -= 1
+        if holds == 0 && held && player.paused && player.state != .ended { player.setPaused(false) }
+        if holds == 0 { held = false }
     }
 
     func searchSubs() {
@@ -338,7 +369,9 @@ final class Osd {
         // already asked: nothing new until the next title
         if subSearch == "none" { app?.toast(L("No subtitles in your languages for this one"), secs: 5); return }
         subSearch = "searching"
+        hold()
         Task {
+            defer { release() }
             if let data = try? await Core.shared.raw("playback.searchSubs"),
                let d = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 subSearch = ((d["count"] as? NSNumber)?.intValue ?? 0) > 0 ? "added" : "none"
@@ -703,22 +736,31 @@ struct MatchSheet: View {
     }
 }
 
-/// the subtitle timing, big in the middle of the bottom (qml Timing)
+/// the subtitle timing, big in the middle of the bottom (qml Timing). the mouse or a finger: the arrows
+/// and keep / undo are buttons, a tap outside keeps it
 struct TimingSheet: View {
-    let player: MPVPlayer
+    let osd: Osd
     let u: CGFloat
 
     var body: some View {
+        let player = osd.player
         let d = player.subDelay
+        let pointing = Theme.mouse || Theme.touch
         ZStack(alignment: .top) {
             HStack {
-                Image(systemName: "chevron.left")
-                Spacer()
-                Image(systemName: "chevron.right")
+                if pointing {
+                    RoundButton(icon: "chevron.left", u: u) { osd.nudge(-0.1) }
+                    Spacer()
+                    RoundButton(icon: "chevron.right", u: u) { osd.nudge(0.1) }
+                } else {
+                    Image(systemName: "chevron.left").frame(width: 64 * u)
+                    Spacer()
+                    Image(systemName: "chevron.right").frame(width: 64 * u)
+                }
             }
             .font(.system(size: 30 * u, weight: .semibold)).foregroundStyle(Theme.fg2)
-            .frame(height: 40 * u)
-            .padding(.horizontal, 40 * u).padding(.top, 40 * u)
+            .frame(height: 64 * u)
+            .padding(.horizontal, 28 * u).padding(.top, 28 * u)
             VStack(spacing: 2 * u) {
                 Text((d > 0 ? "+" : d < 0 ? "−" : "") + String(format: "%.1f s", abs(d)))
                     .font(Theme.rounded(50 * u, .bold)).monospacedDigit().foregroundStyle(Theme.fg)
@@ -726,12 +768,23 @@ struct TimingSheet: View {
                     .font(Theme.text(23 * u, .medium)).foregroundStyle(Theme.fg2)
             }
             .padding(.top, 22 * u)
-            Text("◀ ▶  0.1 s     ▲ ▼  1 s     Return  keep     Esc  undo")
-                .font(Theme.text(19 * u, .medium)).foregroundStyle(Theme.fg3)
+            if pointing {
+                HStack(spacing: 20 * u) {
+                    GlassButton(text: L("Undo"), focused: false, u: u * 0.85, flat: true)
+                        .onTapGesture { osd.closeTiming(save: false) }
+                    GlassButton(text: L("Keep"), primary: true, focused: false, u: u * 0.85, flat: true)
+                        .onTapGesture { osd.closeTiming(save: true) }
+                }
                 .frame(maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 20 * u)
+                .padding(.bottom, 28 * u)
+            } else {
+                Text("◀ ▶  0.1 s     ▲ ▼  1 s     Return  keep     Esc  undo")
+                    .font(Theme.text(19 * u, .medium)).foregroundStyle(Theme.fg3)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+                    .padding(.bottom, 20 * u)
+            }
         }
-        .frame(width: 720 * u, height: 168 * u)
+        .frame(width: 720 * u, height: (pointing ? 262 : 168) * u)
         .panelGlass(44 * u, u: u, lift: -0.25)
     }
 }
@@ -762,7 +815,8 @@ struct PlayerView: View {
                 SkipPill(osd: osd, u: app.u, size: app.size)
                 // the timing capsule stays up with the controls down
                 if osd.timing != nil {
-                    TimingSheet(player: player, u: app.u)
+                    Color.clear.contentShape(.rect).onTapGesture { osd.closeTiming(save: true) }
+                    TimingSheet(osd: osd, u: app.u)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                         .padding(.top, 64 * app.u)
                 }

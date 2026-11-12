@@ -672,6 +672,16 @@ mod tests {
         assert!(!pattern("hc").unwrap().is_match("hchc"));
     }
 
+    /// the cases the tv app's port (tv/src/data/release.ts) has to pass too
+    #[test]
+    fn patterns_fixture() {
+        let all: serde_json::Value = serde_json::from_str(include_str!("../fixtures/release-names.json")).unwrap();
+        for c in all["patterns"].as_array().unwrap() {
+            let (p, text) = (c["pattern"].as_str().unwrap(), c["text"].as_str().unwrap());
+            assert_eq!(pattern(p).is_some_and(|r| r.is_match(text)), c["match"].as_bool().unwrap(), "{p:?} on {text:?}");
+        }
+    }
+
     #[test]
     fn memory_and_language() {
         let p = Prefs::default();

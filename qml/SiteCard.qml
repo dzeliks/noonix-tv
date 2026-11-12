@@ -30,6 +30,7 @@ FocusScope {
         anchors.horizontalCenterOffset: -btns.shift
         width: 760 * sc.u
         height: body.height + 120 * sc.u
+        Resize on height {}
         scale: sc.opacity > 0.5 ? 1 : 0.96
         Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
         Glass { anchors.fill: parent; kind: "panel"; radius: 52 * sc.u }
@@ -47,7 +48,7 @@ FocusScope {
                 Image {
                     anchors { fill: parent; margins: 18 * sc.u }
                     source: sc.svg ? "data:image/svg+xml;base64," + Qt.btoa(sc.svg) : ""
-                    sourceSize: Qt.size(width, height)
+                    sourceSize: Qt.size(width * Theme.dpr, height * Theme.dpr)
                     smooth: false
                 }
                 Spinner { anchors.centerIn: parent; width: 44 * sc.u; height: width; running: !sc.svg && sc.visible; visible: !sc.svg }

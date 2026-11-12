@@ -19,6 +19,8 @@ final class FolderPickerModel {
     /// the share just added: opened once its login works
     @ObservationIgnored private var added = ""
     @ObservationIgnored var picked: (String) -> Void = { _ in }
+    /// gone, picked or not (AppModel calls it)
+    @ObservationIgnored var closed: () -> Void = {}
 
     var path: String { view["path"] as? String ?? "" }
 

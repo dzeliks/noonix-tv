@@ -23,6 +23,7 @@ FocusScope {
         anchors.horizontalCenterOffset: -btns.shift
         width: 1040 * tip.u
         height: body.height + 112 * tip.u
+        Resize on height {}
         scale: tip.opacity > 0.5 ? 1 : 0.96
         Behavior on scale { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
         Glass { anchors.fill: parent; kind: "panel"; radius: 52 * tip.u }

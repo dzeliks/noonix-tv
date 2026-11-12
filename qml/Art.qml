@@ -52,8 +52,8 @@ Item {
         asynchronous: true
         cache: true
         // decode at the size it is shown, never the full original
-        sourceSize.width: Math.ceil(art.width)
-        sourceSize.height: Math.ceil(art.height)
+        sourceSize.width: Math.ceil(art.width * Theme.artDpr)
+        sourceSize.height: Math.ceil(art.height * Theme.artDpr)
         fillMode: Image.PreserveAspectCrop
     }
     ShaderEffect {

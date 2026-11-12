@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -12,6 +13,7 @@ import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.OpenableColumns;
 import android.system.Os;
 import android.view.Display;
 import android.view.WindowManager;
@@ -178,8 +180,88 @@ public class NoonixActivity extends QtActivity {
         });
     }
 
+    // a file from the phone (an extension, subtitles): android hands out only a stream, so it's copied
+    // into the app's cache. "" = none picked, "!big" = over max bytes, "!fail" = couldn't be read
+    private static native void filePicked(String tag, String path);
+    private static final int PICK_FILE = 8;
+    private String pickTag = "";
+    private long pickMax;
+
+    private Intent fileIntent() {
+        return new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);
+    }
+
+    public boolean canPickFile() {
+        return fileIntent().resolveActivity(getPackageManager()) != null;
+    }
+
+    public void pickFile(final String tag, final long max) {
+        runOnUiThread(() -> {
+            pickTag = tag;
+            pickMax = max;
+            try {
+                startActivityForResult(fileIntent(), PICK_FILE);
+            } catch (Exception e) {
+                filePicked(tag, "");
+            }
+        });
+    }
+
+    private String copyPicked(Uri uri, String tag, long max) {
+        String name = null;
+        try (Cursor c = getContentResolver().query(uri, new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null)) {
+            if (c != null && c.moveToFirst())
+                name = c.getString(0);
+        } catch (Exception ignored) {
+        }
+        // the name is kept for its extension and the subtitle list: no folders, no hidden files
+        name = name == null ? "" : name.replaceAll("[/\\\\:\\x00-\\x1f]", "_").replaceAll("^\\.+", "");
+        if (name.isEmpty())
+            name = "file";
+        if (name.length() > 120)
+            name = name.substring(name.length() - 120);
+        // one folder per kind, only its latest pick kept
+        File dir = new File(new File(getCacheDir(), "picked"), tag.replaceAll("[^a-z]", ""));
+        File[] old = dir.listFiles();
+        if (old != null)
+            for (File f : old)
+                f.delete();
+        dir.mkdirs();
+        File out = new File(dir, name);
+        String err = null;
+        try (InputStream in = getContentResolver().openInputStream(uri); FileOutputStream f = new FileOutputStream(out)) {
+            if (in == null)
+                err = "!fail";
+            byte[] b = new byte[65536];
+            long n = 0;
+            for (int r; err == null && (r = in.read(b)) > 0; ) {
+                n += r;
+                if (n > max)
+                    err = "!big";
+                else
+                    f.write(b, 0, r);
+            }
+        } catch (Exception e) {
+            err = "!fail";
+        }
+        if (err == null)
+            return out.getAbsolutePath();
+        out.delete();
+        return err;
+    }
+
     @Override
     protected void onActivityResult(int request, int result, Intent data) {
+        if (request == PICK_FILE) {
+            final String tag = pickTag;
+            final long max = pickMax;
+            final Uri uri = result == RESULT_OK && data != null ? data.getData() : null;
+            if (uri == null)
+                filePicked(tag, "");
+            else
+                new Thread(() -> filePicked(tag, copyPicked(uri, tag, max))).start();
+            return;
+        }
         if (request != PICK_PICTURE) {
             super.onActivityResult(request, result, data);
             return;
@@ -271,8 +353,9 @@ public class NoonixActivity extends QtActivity {
     }
 
     // tests: am start ... --es noonixEnv "NOONIX_HIDE=1,2 NOONIX_MUTE=1". qt takes no launch arguments
-    // in a release build, and there only these harmless few are let in (a debuggable build takes any)
-    private static final String[] TEST_ENV = {"NOONIX_HIDE", "NOONIX_MUTE", "NOONIX_KEYLOG", "NOONIX_MPVLOG", "NOONIX_MPV_OPTS", "NOONIX_PHONE", "NOONIX_SCALE", "NOONIX_GRIDW", "QT_LOGGING_RULES"};
+    // in a release build, and there only these harmless few are let in (a debuggable build takes any).
+    // any app can send this extra: nothing here may reach mpv's options or write a file
+    private static final String[] TEST_ENV = {"NOONIX_HIDE", "NOONIX_MUTE", "NOONIX_KEYLOG", "NOONIX_PHONE", "NOONIX_SCALE", "NOONIX_GRIDW", "QT_LOGGING_RULES"};
 
     @Override
     public void onCreate(Bundle state) {

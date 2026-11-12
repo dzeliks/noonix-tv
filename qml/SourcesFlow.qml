@@ -66,9 +66,10 @@ Item {
                        detail: a.address + (a.formatting === "unsupported" ? "  ·  " + qsTr("Unsupported formatting") : "") + (a.lastError ? "  ·  " + qsTr("Didn't answer last time") : "") })
         })
         out.push({ label: qsTr("Add an addon or extension"), detail: qsTr("Its address: a Stremio addon (…/manifest.json) or a Noonix TV extension. Optional"), value: "+", act: "src:url" })
-        // android lets an app read only media files on shared storage: extensions come by address there
-        if (!Theme.android)
-            out.push({ label: qsTr("Open an extension file"), detail: qsTr("A .noonix file on this PC"), value: "+", act: "src:file" })
+        // android: only through the system's picker (an app can't browse files outside media folders)
+        if (!Theme.android || flow.systemFiles)
+            out.push({ label: qsTr("Open an extension file"), value: "+", act: "src:file",
+                       detail: Theme.android ? qsTr("A .noonix file on this device") : qsTr("A .noonix file on this PC") })
         return out
     }
 
@@ -139,7 +140,8 @@ Item {
             // after the entry sheet is gone (it hands the focus back first)
             entry.after = function () { Qt.callLater(function () { if (flow.pending) sheet.preview(flow.pending); flow.pending = null }) }
         } else if (a === "src:file") {
-            filePick.open()
+            if (systemFiles) Input.pickFile("extension", 256 * 1024)   // the core's own limit
+            else filePick.open()
         } else if (a === "help:debrid") {
             help.open("debrid")
         } else if (a === "help:torrent") {
@@ -187,17 +189,29 @@ Item {
         }
         onClosed: flow.back()
     }
+    function previewFile(path) {
+        Api.call("extensions.preview", { path: path }, function (ok, d) {
+            if (ok) sheet.preview(d)
+            else { toast.show((d && d.error) ? qsTranslate("core", d.error) : qsTr("Couldn't read that file")); flow.back() }
+        })
+    }
+    readonly property bool systemFiles: Theme.android && Input.canPickFile()
+    Connections {
+        target: Input
+        enabled: flow.visible
+        function onFilePicked(tag, path) {
+            if (tag !== "extension") return
+            if (path && path[0] !== "!") { flow.previewFile(path); return }
+            if (path) toast.show(path === "!big" ? qsTr("That file is too big") : qsTr("Couldn't read that file"))
+            flow.back()
+        }
+    }
     FolderPicker {
         id: filePick
         anchors.fill: parent
         files: ["noonix", "json"]
         caption: qsTr("Open an extension file")
-        onPicked: function (path) {
-            Api.call("extensions.preview", { path: path }, function (ok, d) {
-                if (ok) sheet.preview(d)
-                else { toast.show((d && d.error) ? qsTranslate("core", d.error) : qsTr("Couldn't read that file")); flow.back() }
-            })
-        }
+        onPicked: function (path) { flow.previewFile(path) }
         onClosed: if (!sheet.visible) flow.back()
     }
     ExtensionSheet {

@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 #if !os(macOS)
 import UIKit
 #endif
@@ -14,6 +15,7 @@ struct RootView: View {
                 if g.size.width > 0 {
                     content.coordinateSpace(.named("root")).scaleEffect(app.splash?.uiScale ?? 1)
                     if let s = app.splash { SplashView(model: s, size: g.size).zIndex(30) }
+                    if let e = app.dataError { DataErrorView(error: e).zIndex(31) }
                 }
             }
             .onChange(of: g.size, initial: true) {
@@ -120,7 +122,7 @@ struct RootView: View {
                 ExitPromptView(choice: c).transition(.opacity).zIndex(9)
             }
             if let c = app.confirm {
-                ConfirmView(model: c).transition(.opacity).zIndex(9)
+                ConfirmView(model: c).transition(.opacity).zIndex(9.4)
             }
             if let e = app.extSheet {
                 ExtensionSheetView(model: e).transition(.opacity).zIndex(8.8)
@@ -175,6 +177,12 @@ struct RootView: View {
         .animation(.easeOut(duration: 0.18), value: app.profileSheet == nil)
         .animation(.timingCurve(0.33, 1, 0.68, 1, duration: 0.18), value: app.exitChoice == nil)
         .animation(.timingCurve(0.33, 1, 0.68, 1, duration: 0.18), value: app.confirm == nil)
+        #if os(iOS)
+        .fileImporter(isPresented: Binding(get: { app.systemFile != nil }, set: { _ in }), allowedContentTypes: [.item],
+                      allowsMultipleSelection: false,
+                      onCompletion: { r in let f = app.systemFile; app.systemFile = nil; f?.finish((try? r.get())?.first) },
+                      onCancellation: { let f = app.systemFile; app.systemFile = nil; f?.finish(nil) })
+        #endif
     }
 }
 

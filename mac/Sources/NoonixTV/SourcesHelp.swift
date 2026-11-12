@@ -60,7 +60,8 @@ struct SourcesHelpView: View {
         ZStack {
             Rectangle().fill(.ultraThinMaterial).overlay { Color.black.opacity(0.6) }
                 .ignoresSafeArea()
-                .onTapGesture { if !model.asking { app.help = nil } }
+                // outside the card while asking means no, like back
+                .onTapGesture { if model.asking { model.answer(false, app: app) } else { app.help = nil } }
             VStack(alignment: .leading, spacing: 34 * u) {
                 Text(model.title).font(Theme.display(60 * u, .bold)).foregroundStyle(Theme.fg)
                 ForEach(Array(model.texts.enumerated()), id: \.offset) { _, t in

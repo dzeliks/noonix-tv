@@ -44,7 +44,7 @@ PY
 
 [[ $ui == 1 ]] || exit 0
 echo "== ui (headless weston)"
-export XDG_RUNTIME_DIR="$tmp/run"; mkdir -m 700 -p "$XDG_RUNTIME_DIR"
+export XDG_RUNTIME_DIR="$tmp/run"; mkdir -m 700 "$XDG_RUNTIME_DIR"
 # weston < 10 (ubuntu 22.04) names its backends by module file
 backend=headless; weston --help 2>&1 | grep -q 'headless-backend.so' && backend=headless-backend.so
 weston --backend=$backend --socket=wl-smoke --width=1920 --height=1080 --idle-time=0 > "$tmp/weston.log" 2>&1 &

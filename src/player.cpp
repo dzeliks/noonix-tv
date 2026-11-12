@@ -91,6 +91,8 @@ Player::Player(bool nativeVideo, QObject *parent)
     connect(this, &Player::stateChanged, this, awake);
     connect(this, &Player::pausedChanged, this, awake);
     m_mpv = mpv_create();
+    if (!m_mpv)
+        qFatal("mpv: no player (mpv_create)");
     auto opt = [this](const char *k, const char *v) { mpv_set_option_string(m_mpv, k, v); };
 #ifdef Q_OS_WIN
     if (nativeVideo) {
@@ -144,14 +146,15 @@ Player::Player(bool nativeVideo, QObject *parent)
     opt("sub-auto", "fuzzy");
     opt("cache", "yes");
     // ~20 s of a 4k remux ahead (minutes of anything smaller), a little behind for a quick rewind.
-    // mpv keeps its packets for reuse, so this is also about what stays after a stop
+    // mpv keeps its packets for reuse, so this is also about what stays after a stop.
+    // setLowMemory shortens all three
 #ifdef Q_OS_ANDROID
-    opt("demuxer-max-bytes", m_lowMemory ? "48MiB" : "128MiB");
+    opt("demuxer-max-bytes", "128MiB");
 #else
-    opt("demuxer-max-bytes", m_lowMemory ? "48MiB" : "200MiB");
+    opt("demuxer-max-bytes", "200MiB");
 #endif
-    opt("demuxer-max-back-bytes", m_lowMemory ? "8MiB" : "32MiB");
-    opt("demuxer-readahead-secs", m_lowMemory ? "20" : "60");
+    opt("demuxer-max-back-bytes", "32MiB");
+    opt("demuxer-readahead-secs", "60");
     opt("network-timeout", "30");
     opt("terminal", "yes");
     opt("msg-level", "all=warn");
@@ -180,7 +183,8 @@ Player::Player(bool nativeVideo, QObject *parent)
         if (eq > 0)
             mpv_set_option_string(m_mpv, kv.left(eq).toUtf8().constData(), kv.mid(eq + 1).toUtf8().constData());
     }
-    mpv_initialize(m_mpv);
+    if (const int err = mpv_initialize(m_mpv); err < 0)
+        qFatal("mpv: %s (mpv_initialize)", mpv_error_string(err));
     mpv_observe_property(m_mpv, TimePos, "time-pos", MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, Duration, "duration", MPV_FORMAT_DOUBLE);
     mpv_observe_property(m_mpv, Pause, "pause", MPV_FORMAT_FLAG);

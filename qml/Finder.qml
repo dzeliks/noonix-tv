@@ -63,6 +63,7 @@ FocusScope {
         anchors.centerIn: parent
         width: 760 * f.u
         height: col.height + 2 * 56 * f.u
+        Resize on height {}
         radius: 56 * f.u
         kind: "panel"
         scale: f.opacity > 0.5 ? 1 : 0.94
@@ -70,7 +71,7 @@ FocusScope {
     }
     Column {
         id: col
-        anchors.centerIn: card
+        anchors { horizontalCenter: card.horizontalCenter; top: card.top; topMargin: 56 * f.u }
         width: card.width - 2 * 64 * f.u
         spacing: 18 * f.u
         scale: card.scale
@@ -102,8 +103,10 @@ FocusScope {
         }
         Item { width: 1; height: 6 * f.u }
         Text {
+            id: statusLine
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
+            Appear { target: statusLine; key: statusLine.text }
             text: f.status
             color: Theme.fg
             font { family: Theme.display; pixelSize: 29 * f.u; weight: Font.DemiBold }
@@ -112,7 +115,9 @@ FocusScope {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideRight
+            id: detailLine
             visible: text !== ""
+            Appear { target: detailLine; key: detailLine.text }
             text: f.detail
             color: Theme.fg2
             font { family: Theme.text; pixelSize: 23 * f.u; weight: Font.Medium }

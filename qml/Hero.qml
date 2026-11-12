@@ -95,7 +95,7 @@ Item {
             anchors.fill: parent
             fillMode: Image.PreserveAspectCrop
             asynchronous: true
-            sourceSize.width: Math.round(hero.width * Theme.backdropScale)
+            sourceSize.width: Math.round(hero.width * Theme.dpr * Theme.backdropScale)
             opacity: front ? 1 : 0
             Behavior on opacity { enabled: !hero.snap; NumberAnimation { duration: 520; easing.type: Easing.InOutQuad } }
             onStatusChanged: if (status === Image.Ready && !front && source == hero.wanted) hero.show(index)

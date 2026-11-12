@@ -18,6 +18,20 @@ const REPO: &str = match option_env!("NOONIX_UPDATE_REPO") {
     Some(r) => r,
     None => "dzeliks/noonix-tv",
 };
+// SHA256SUMS comes signed (minisign, SHA256SUMS.minisig): the sums alone only catch a damaged
+// download, not a swapped release. a build following a repo of its own brings its own key or none
+const SIGNING_KEY: Option<&str> = match (option_env!("NOONIX_UPDATE_KEY"), option_env!("NOONIX_UPDATE_REPO")) {
+    (Some(k), _) => Some(k),
+    (None, None) => Some("RWTxrm/6vwTDc8vqK2CrSQ1YXbYOr8hE2Y6LBYJNkqZjWg0X5eC2l+59"),
+    (None, Some(_)) => None,
+};
+
+/// the sums file as signed by the release key
+fn signed(sums: &str, sig: &str, key: &str) -> Result<()> {
+    let key = minisign_verify::PublicKey::from_base64(key).map_err(|e| anyhow::anyhow!("release key: {e}"))?;
+    let sig = minisign_verify::Signature::decode(sig).map_err(|e| anyhow::anyhow!("SHA256SUMS.minisig: {e}"))?;
+    key.verify(sums.as_bytes(), &sig, false).map_err(|_| anyhow::anyhow!("SHA256SUMS isn't signed by the Noonix TV release key"))
+}
 #[cfg(all(unix, target_arch = "aarch64"))]
 const ARCH_SUFFIX: &str = "-aarch64.AppImage";
 #[cfg(all(unix, not(target_arch = "aarch64")))]
@@ -135,6 +149,7 @@ async fn latest() -> Result<Value> {
         "url": rel["html_url"],
         "appimage": find(&|n| n.ends_with(ARCH_SUFFIX)),
         "sums": find(&|n| n == "SHA256SUMS"),
+        "sig": find(&|n| n == "SHA256SUMS.minisig"),
     }))
 }
 
@@ -207,6 +222,17 @@ async fn install_inner() -> Result<Value> {
         .error_for_status()?
         .text()
         .await?;
+    if let Some(key) = SIGNING_KEY {
+        let sig = rel["sig"].as_object().context("This release isn't signed: update it from the releases page")?;
+        let sig_text = api(&asset_url(&sig["id"]), "application/octet-stream", &token)
+            .timeout(Duration::from_secs(30))
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+        signed(&sums_text, &sig_text, key)?;
+    }
     let want = sum_for(&sums_text, &name).with_context(|| format!("SHA256SUMS has no line for {name}"))?;
 
     #[cfg(unix)]
@@ -339,5 +365,16 @@ mod tests {
         assert_eq!(sum_for(&text, "other.tar"), Some("b".repeat(64)));
         assert_eq!(sum_for(&text, "missing"), None);
         assert_eq!(sum_for("short  x\n", "x"), None);
+    }
+
+    #[test]
+    fn signature() {
+        // signed with the release key (rsign sign -t "noonix-tv test"), as the release workflow does
+        let sums = "abc  Noonix-TV-x86_64.AppImage\n";
+        let sig = "untrusted comment: signature from rsign secret key\nRUTxrm/6vwTDc56ZHJjvwW6U6W2KJXg0SO9Qr7vO/Pn1b7gJiEtd5CaY+LBK8yz38KptFClMxlggTP2DyOCzBmYh8BoruO5jnQw=\ntrusted comment: noonix-tv test\njyI09nGyJ5py5+oeEuzwYHtF1V7wHw09P3LiJTNgfHbFqOt2eJkG1xgItYMggO0g++tfV8oqgz3yWxqGpaeOCA==\n";
+        let key = SIGNING_KEY.unwrap();
+        assert!(signed(sums, sig, key).is_ok());
+        assert!(signed("abd  Noonix-TV-x86_64.AppImage\n", sig, key).is_err());
+        assert!(signed(sums, "not a signature", key).is_err());
     }
 }

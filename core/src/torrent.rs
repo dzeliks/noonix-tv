@@ -16,7 +16,8 @@ use tokio::sync::{Mutex, OnceCell};
 static SESSION: OnceCell<Arc<Session>> = OnceCell::const_new();
 static PORT: OnceCell<u16> = OnceCell::const_new();
 /// the torrent playing now: (info hash, handle, file)
-static CURRENT: Lazy<Mutex<Option<(String, Arc<ManagedTorrent>, usize)>>> = Lazy::new(|| Mutex::new(None));
+type Playing = (String, Arc<ManagedTorrent>, usize);
+static CURRENT: Lazy<Mutex<Option<Playing>>> = Lazy::new(|| Mutex::new(None));
 
 fn dir() -> std::path::PathBuf {
     PATHS.cache.join("torrents")

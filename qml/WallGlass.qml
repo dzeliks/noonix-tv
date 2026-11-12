@@ -14,11 +14,22 @@ Item {
     readonly property bool ready: wall.ready
     onReadyChanged: if (Desktop.debug) console.log("wallglass ready", ready, wallId)
     onWallIdChanged: if (Desktop.debug) console.log("wallglass id", wallId)
+    // asked often at first (the daemon starts with us), then rarely: no tv wallpaper on this desktop
+    property int asks: 0
     Timer {
-        interval: 200
+        interval: wg.asks < 25 ? 200 : 2000
         running: wg.running && wg.wallId === "" && Qt.platform.os === "linux"
         repeat: true
-        onTriggered: wg.wallId = Remote.wallpaperId()
+        triggeredOnStart: true
+        onTriggered: {
+            if (Remote.wallpaperId !== "") { wg.wallId = Remote.wallpaperId; return }
+            wg.asks++
+            Remote.askWallpaper()
+        }
+    }
+    Connections {
+        target: Remote
+        function onWallpaperIdChanged() { if (wg.wallId === "") wg.wallId = Remote.wallpaperId }
     }
     // no wallpaper (another desktop, or not yet): a quiet gradient
     Rectangle {
@@ -44,7 +55,7 @@ Item {
         visible: false
         source: wg.running ? wg.stillUrl : ""
         fillMode: Image.PreserveAspectCrop
-        sourceSize: Qt.size(Math.max(1, Math.round(wg.width / 2)), Math.max(1, Math.round(wg.height / 2)))
+        sourceSize: Qt.size(Math.max(1, Math.round(wg.width * Theme.dpr / 2)), Math.max(1, Math.round(wg.height * Theme.dpr / 2)))
         asynchronous: true
     }
     GlassSource {

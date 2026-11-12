@@ -141,6 +141,7 @@ FocusScope {
         anchors.horizontalCenterOffset: -btns.shift
         width: 880 * sc.u
         height: body.height + 2 * 44 * sc.u
+        Resize on height {}
         scale: sc.opacity > 0.5 ? 1 : 0.96
         Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
         Glass { anchors.fill: parent; kind: "panel"; radius: 52 * sc.u }
@@ -211,7 +212,8 @@ FocusScope {
                         text: sc.suggestLow ? (sc.lowRamPc ? qsTr("This device has little memory: Low Memory Mode helps it run smoothly")
                                                            : qsTr("This device is on the slow side: Low Memory Mode helps it run smoothly"))
                             : Theme.lowMemory && sc.headline && sc.headline !== sc.names.light && sc.headline !== sc.names.hd ? qsTr("Low memory mode plays up to Full HD")
-                            : sc.why ? qsTr("No internet, so it follows the device. Change it any time in Settings › Sources")
+                            : sc.why ? (sc.net.skipped ? qsTr("Without the internet check it follows the device. Change it any time in Settings › Sources")
+                                                       : qsTr("No internet, so it follows the device. Change it any time in Settings › Sources"))
                             : qsTr("You can change the picture quality any time in Settings › Sources")
                         color: Theme.fg3
                         font { family: Theme.text; pixelSize: 19 * sc.u }
@@ -265,7 +267,13 @@ FocusScope {
         }
     }
 
-    function skipOrRun() { if (net && net.running) skip(); else run() }
+    // skipping asks first: a guess at what plays here can pick a quality that doesn't
+    function skipOrRun() {
+        if (!(net && net.running)) { run(); return }
+        skipAsk.open({ title: qsTr("Skip the internet check?"),
+                       detail: qsTr("Without it the picture quality follows this device alone, so some videos may stutter or not play at all. You can set it yourself any time in Settings › Sources › Picture quality."),
+                       ok: qsTr("Skip Anyway"), cancel: qsTr("Keep Measuring"), yes: sc.skip })
+    }
     function act() { if (choice === 0) skipOrRun(); else if (choice === 2) lowOn(); else close() }
     // the offer (2) sits above the two buttons; on the side those are stacked, run again on top
     Keys.onReturnPressed: act()
@@ -283,4 +291,11 @@ FocusScope {
     Keys.onEscapePressed: close()
     Keys.onBackPressed: close()
     Keys.onPressed: function (e) { e.accepted = true }
+
+    Confirm {
+        id: skipAsk
+        anchors.fill: parent
+        z: 2
+        onClosed: if (sc.visible) sc.forceActiveFocus()
+    }
 }

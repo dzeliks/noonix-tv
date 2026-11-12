@@ -31,7 +31,7 @@ Item {
         live: true
         mipmap: true
         smooth: true
-        textureSize: Qt.size(Math.max(1, Math.round(gb.width / 2)), Math.max(1, Math.round(gb.height / 2)))
+        textureSize: Qt.size(Math.max(1, Math.round(gb.width * Theme.dpr / 2)), Math.max(1, Math.round(gb.height * Theme.dpr / 2)))
         visible: false
     }
     ShaderEffect {
@@ -42,7 +42,7 @@ Item {
         property real sigma: 2.8
         fragmentShader: "qrc:/shaders/blur.frag.qsb"
     }
-    ShaderEffectSource { id: blurHTex; sourceItem: blurH; hideSource: true; live: true; smooth: true; visible: false }
+    ShaderEffectSource { id: blurHTex; sourceItem: blurH; hideSource: true; live: true; smooth: true; textureSize: Theme.frostSize; visible: false }
     ShaderEffect {
         id: blurV
         width: 240; height: 135; visible: false
@@ -51,5 +51,5 @@ Item {
         property real sigma: 2.8
         fragmentShader: "qrc:/shaders/blur.frag.qsb"
     }
-    ShaderEffectSource { id: frostV; sourceItem: blurV; hideSource: true; live: true; smooth: true; visible: false }
+    ShaderEffectSource { id: frostV; sourceItem: blurV; hideSource: true; live: true; smooth: true; textureSize: Theme.frostSize; visible: false }
 }

@@ -249,7 +249,7 @@ fn remember(token: String, p: Pending) {
 }
 
 async fn fetch(url: &str) -> Result<String> {
-    let u = stremio::check_url(&url.trim().replace("stremio://", "https://"))?;
+    let u = stremio::check_url(&stremio::address(url))?;
     let quiet = |e: reqwest::Error| {
         tracing::debug!("extension fetch: {}", config::redact(&e.to_string()));
         anyhow::anyhow!("That address didn't answer")
@@ -292,7 +292,7 @@ pub async fn preview(args: &Value) -> Result<Value> {
     let (text, source) = if let Some(p) = args.get("path").and_then(Value::as_str) {
         (read_file(p)?, "file".to_owned())
     } else {
-        let url = args.get("url").and_then(Value::as_str).context("Missing address")?.trim().to_owned();
+        let url = stremio::address(args.get("url").and_then(Value::as_str).context("Missing address")?);
         match fetch(&url).await {
             Ok(t) => (t, url),
             // an addon address without /manifest.json

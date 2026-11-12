@@ -57,8 +57,9 @@
 - **Fixes in one step**: report a source as out of sync, wrong subtitles or a picture problem and
   Noonix TV finds a better one, resuming at the same spot. The choice carries over to the next
   episodes.
-- **Subtitles that just work**: embedded tracks first, then OpenSubtitles, with an option to
-  treat Serbian, Croatian and Bosnian as one language.
+- **Subtitles that just work**: embedded tracks first, then OpenSubtitles or a file of your own,
+  with an option to treat Serbian, Croatian and Bosnian as one language. The video pauses while
+  you look for them.
 - **Any input**: remotes, PlayStation, Xbox and Nintendo controllers with matching button
   glyphs, mouse and keyboard, and touch on phones and tablets. Every button can be remapped.
 - **Search the way you type**: a real text field for a keyboard (select, copy, paste), the
@@ -88,7 +89,11 @@ chmod +x Noonix-TV-*.AppImage
 **Windows**: `Noonix-TV-<version>-windows-x64-setup.exe` runs on Windows 10 and 11. It
 installs per user without admin rights and is self-contained.
 
-Both update themselves from Settings › About.
+Both update themselves from Settings › About. From 0.6.0 they only install an update whose
+checksums carry the project's signature (`SHA256SUMS.minisig` on each release, made with
+[minisign](https://jedisct1.github.io/minisign/)). To check a download yourself:
+`minisign -Vm SHA256SUMS -P RWTxrm/6vwTDc8vqK2CrSQ1YXbYOr8hE2Y6LBYJNkqZjWg0X5eC2l+59`, then
+`sha256sum -c SHA256SUMS --ignore-missing`.
 
 **macOS** (preview): `noonix-tv-<version>-macos-arm64.zip` for Apple silicon or
 `-macos-x86_64.zip` for Intel, on macOS 26 or newer. Not notarised yet, so the first launch says

@@ -191,6 +191,8 @@ final class AppModel {
     var navIndex = 1
     /// the exit prompt is up: 0 = exit, 1 = stay (focused first)
     var exitChoice: Int?
+    /// the db file didn't open (setup.state): that page instead of everything else
+    var dataError: String?
     var confirm: ConfirmModel? {
         didSet { if let old = oldValue, old !== confirm, !old.answered { old.answered = true; old.no?() } }
     }
@@ -199,7 +201,9 @@ final class AppModel {
     /// an addon or extension: what it brings, before it's added or once it's in
     var extSheet: ExtensionSheetModel?
     /// picking a library folder with the remote (FolderPicker)
-    var folderPicker: FolderPickerModel?
+    var folderPicker: FolderPickerModel? { didSet { if oldValue !== folderPicker { oldValue?.closed() } } }
+    /// a file through the system's picker (iphone, ipad)
+    var systemFile: SystemFile?
     /// a profile going to or coming from a .noonix file
     var profileSheet: ProfileSheetModel?
     /// the library and the user's own sources, shared by setup and settings
@@ -383,6 +387,11 @@ final class AppModel {
         if !again, ProcessInfo.processInfo.environment["NOONIX_SETUP"] != "1" {
             guard let d = try? await Core.shared.raw("setup.state"),
                   let st = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { return }
+            // setup on an empty db would only be lost again
+            if let e = st["dataError"] as? String, !e.isEmpty {
+                dataError = e
+                return
+            }
             // set up before but the terms are new: just those
             if st["done"] as? Bool == true {
                 guard st["termsAgreed"] as? Bool != true else { return }
@@ -840,10 +849,19 @@ final class AppModel {
 
     // ---- keys
     func key(_ k: Key) -> Bool {
+        if dataError != nil {
+            if k == .ok || k == .back { Platform.quit() }
+            return true
+        }
         // the splash takes every key: straight to its way out
         if let s = splash { s.skip(); return true }
         // the cards over everything first: a key, a profile, the trakt code
         if entry.isOpen { return entry.key(k) }
+        // a question is over whatever asked it
+        if confirm != nil {
+            confirmKey(k)
+            return true
+        }
         if let b = bindSheet { b.key(k, app: self); return true }
         if let c = choices { c.key(k, app: self); return true }
         if let s = speed { s.key(k, app: self); return true }
@@ -871,10 +889,6 @@ final class AppModel {
         }
         if exitChoice != nil {
             exitKey(k)
-            return true
-        }
-        if confirm != nil {
-            confirmKey(k)
             return true
         }
         // menu = the toast's undo first

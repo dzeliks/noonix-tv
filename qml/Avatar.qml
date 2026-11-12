@@ -28,7 +28,7 @@ Rectangle {
         anchors.fill: parent
         visible: false
         source: av.image ? (av.image.indexOf("/") === 0 ? "file://" + av.image : av.image) : ""
-        sourceSize: Qt.size(Math.ceil(av.size * 1.2), Math.ceil(av.size * 1.2))
+        sourceSize: Qt.size(Math.ceil(av.size * 1.2 * Theme.dpr), Math.ceil(av.size * 1.2 * Theme.dpr))
         fillMode: Image.PreserveAspectCrop
         asynchronous: true
         cache: false

@@ -105,6 +105,7 @@ FocusScope {
         Behavior on anchors.verticalCenterOffset { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
         width: 760 * pa.u
         height: col.height + 2 * 48 * pa.u
+        Resize on height {}
         radius: 56 * pa.u
         kind: "panel"
         dim: Theme.veil
@@ -113,7 +114,7 @@ FocusScope {
     }
     Column {
         id: col
-        anchors.centerIn: card
+        anchors { horizontalCenter: card.horizontalCenter; top: card.top; topMargin: 48 * pa.u }
         width: card.width - 2 * 48 * pa.u
         spacing: 26 * pa.u
         Text {

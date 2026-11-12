@@ -21,7 +21,9 @@ FocusScope {
         // already asked: nothing new until the next title
         if (search === "none") { sayNone(); return }
         search = "searching"
+        win.holdForSubs()
         Api.call("playback.searchSubs", {}, function (ok, d) {
+            win.releaseSubs()
             tr.search = !ok ? "failed" : d.count > 0 ? "added" : "none"
             if (tr.search === "none") tr.sayNone()
             else if (tr.search === "failed") toast.show(qsTr("OpenSubtitles isn't answering, try again in a bit"), "", null, 5)

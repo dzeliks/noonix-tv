@@ -1,6 +1,6 @@
 use crate::config::PATHS;
 use anyhow::{Context, Result};
-use once_cell::sync::Lazy;
+use once_cell::sync::{Lazy, OnceCell};
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -167,10 +167,22 @@ pub static DB: Lazy<Mutex<Connection>> = Lazy::new(|| {
         .unwrap_or_else(|| PATHS.data.join("noonix-tv.db"));
     let conn = open(&path).unwrap_or_else(|e| {
         tracing::error!("db {}: {e:#}, using memory", path.display());
+        // sqlite names the file itself when it can't open it, a failed migration doesn't
+        let (file, why) = (path.display().to_string(), format!("{e:#}"));
+        let _ = OPEN_ERROR.set(if why.contains(&file) { why } else { format!("{file}: {why}") });
         open_memory().expect("in-memory db")
     });
     Mutex::new(conn)
 });
+
+static OPEN_ERROR: OnceCell<String> = OnceCell::new();
+
+/// why the file didn't open. the app then runs on an empty db in memory and keeps nothing: the ui
+/// has to say so, it looks like a first start otherwise
+pub fn open_error() -> Option<&'static str> {
+    Lazy::force(&DB);
+    OPEN_ERROR.get().map(String::as_str)
+}
 
 fn setup(conn: &Connection) -> Result<()> {
     conn.pragma_update(None, "journal_mode", "wal")?;

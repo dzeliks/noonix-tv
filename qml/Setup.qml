@@ -310,6 +310,15 @@ FocusScope {
         }
         if (name === "terms") Api.call("setup.agree", {}, function () { if (setup.termsOnly) finish.start() })
         if (termsOnly) return
+        // on without a reading: say what that risks, once
+        if (name === "benchmark" && !speed.running && !speed.netDone && !speed.devDone && !skipSure) {
+            skipAsk.open({ title: qsTr("Skip the speed check?"),
+                           detail: qsTr("Without it Noonix TV can only guess what this connection and this device can play, so some videos may stutter or not play at all. You can set the picture quality yourself any time in Settings › Sources › Picture quality."),
+                           ok: qsTr("Skip Anyway"), cancel: qsTr("Run It"),
+                           yes: function () { setup.skipSure = true; setup.next() },
+                           no: function () { Qt.callLater(function () { speed.open(true) }) } })
+            return
+        }
         // continuing without a pick keeps the recommended one
         if (name === "quality" && quality && !quality.chosen)
             Api.call("quality.set", { id: quality.recommended }, function (ok, d) { if (ok) setup.quality = d })
@@ -330,6 +339,7 @@ FocusScope {
     // steps slide: out to the side they came from, in from the other
     property int target: 0
     property bool benchAsked: false
+    property bool skipSure: false
     function loadQuality() { Api.call("quality.options", {}, function (ok, d) { if (ok) setup.quality = d }) }
     onNameChanged: {
         scroller.contentY = 0
@@ -381,7 +391,7 @@ FocusScope {
             sourceItem: browse
             live: setup.visible
             hideSource: false
-            textureSize: Qt.size(width / 2, height / 2)
+            textureSize: Qt.size(width * Theme.dpr / 2, height * Theme.dpr / 2)
             visible: false
         }
         Rectangle { id: round; anchors.fill: parent; radius: 60 * setup.u * (1 - frame.reveal); visible: false; layer.enabled: true }
@@ -666,6 +676,12 @@ FocusScope {
         onMeasured: setup.loadQuality()
         onLowMemoryOn: setup.loadQuality()
         onClosed: continueBtn.forceActiveFocus()
+    }
+    Confirm {
+        id: skipAsk
+        anchors.fill: parent
+        z: 11
+        onClosed: if (!speed.visible) continueBtn.forceActiveFocus()
     }
     ProfileAdd {
         id: add

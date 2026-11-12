@@ -5,6 +5,9 @@ import sys
 import xml.etree.ElementTree as ET
 
 T = {
+    # ---- the db file that won't open
+    "Noonix TV can't open its data": "Noonix TV ne može da otvori svoje podatke",
+    "Your profiles and settings are still on this device, they just couldn't be read. Close Noonix TV and open it again. If this comes back, the storage may be full or the file damaged.": "Tvoji profili i podešavanja su i dalje na ovom uređaju, samo nisu mogli da se pročitaju. Zatvori Noonix TV i otvori ga ponovo. Ako se ovo ponovi, možda je memorija puna ili je fajl oštećen.",
     # ---- torrents to lg / samsung tvs
     "Stream torrents to TVs": "Strimuj torente na TV-e",
     "Noonix TV on an LG or Samsung TV plays torrent sources through this device. Each TV asks here first": "Noonix TV na LG ili Samsung TV-u pušta torent izvore preko ovog uređaja. Svaki TV prvo pita ovde",

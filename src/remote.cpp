@@ -27,7 +27,8 @@
 #ifdef NOONIX_DBUS
 #include <QDBusConnection>
 #include <QDBusMessage>
-#include <QDBusReply>
+#include <QDBusPendingCallWatcher>
+#include <QDBusPendingReply>
 #endif
 #include <QJsonDocument>
 #ifdef Q_OS_ANDROID
@@ -134,19 +135,29 @@ bool Remote::registerService()
 #endif
 }
 
-QString Remote::wallpaperId()
+void Remote::askWallpaper()
 {
 #ifdef NOONIX_DESKTOP_LINUX
+    if (m_asking)
+        return;
+    m_asking = true;
     QDBusMessage m = QDBusMessage::createMethodCall(QStringLiteral("local.TvRemote"), QStringLiteral("/"),
                                                     QStringLiteral("local.TvRemote"), QStringLiteral("State"));
-    QDBusReply<QString> r = QDBusConnection::sessionBus().call(m, QDBus::Block, 1500);
-    if (!r.isValid())
-        return {};
-    return QJsonDocument::fromJson(r.value().toUtf8()).object().value(QStringLiteral("bg")).toObject()
-        .value(QStringLiteral("id")).toString();
-#else
-    return {};   // the tv wallpaper comes from the remote daemon, a linux piece
-#endif
+    auto *w = new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(m, 1500), this);
+    connect(w, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *w) {
+        w->deleteLater();
+        m_asking = false;
+        QDBusPendingReply<QString> r = *w;
+        if (r.isError())
+            return;
+        const QString id = QJsonDocument::fromJson(r.value().toUtf8()).object().value(QStringLiteral("bg")).toObject()
+            .value(QStringLiteral("id")).toString();
+        if (id != m_wallId) {
+            m_wallId = id;
+            emit wallpaperIdChanged();
+        }
+    });
+#endif   // elsewhere there is no tv wallpaper (the remote daemon is a linux piece)
 }
 
 void Remote::setCovered(bool covered)

@@ -222,8 +222,8 @@ FocusScope {
         Item {
             required property int index
             readonly property var d: home.aheadDetails[index] || ({})
-            Image { visible: false; asynchronous: true; source: d.logo || ""; sourceSize.height: hero.logoHeight }
-            Image { visible: false; asynchronous: true; source: d.backdrop || ""; sourceSize.width: Math.round(hero.width * Theme.backdropScale) }
+            Image { visible: false; asynchronous: true; source: d.logo || ""; sourceSize.height: Math.ceil(hero.logoHeight * Theme.dpr) }
+            Image { visible: false; asynchronous: true; source: d.backdrop || ""; sourceSize.width: Math.round(hero.width * Theme.dpr * Theme.backdropScale) }
         }
     }
 
@@ -358,6 +358,7 @@ FocusScope {
         property real amount: { var t = Math.min(1, home.heroY / (560 * home.u)); return t * t * (3 - 2 * t) }
         property variant tex: sceneGlass.tex
         property variant frost: sceneGlass.frost
+        vertexShader: "qrc:/shaders/edge.vert.qsb"
         fragmentShader: "qrc:/shaders/edge.frag.qsb"
         MouseArea { width: parent.width; height: parent.height * 0.62; hoverEnabled: true; acceptedButtons: Qt.NoButton; enabled: home.heroY > 120 * home.u }
     }

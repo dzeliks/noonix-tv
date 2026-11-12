@@ -59,6 +59,21 @@
     </message>
 </context>
 <context>
+    <name>DataError</name>
+    <message>
+        <source>Noonix TV can&apos;t open its data</source>
+        <translation>Noonix TV ne može da otvori svoje podatke</translation>
+    </message>
+    <message>
+        <source>Your profiles and settings are still on this device, they just couldn&apos;t be read. Close Noonix TV and open it again. If this comes back, the storage may be full or the file damaged.</source>
+        <translation>Tvoji profili i podešavanja su i dalje na ovom uređaju, samo nisu mogli da se pročitaju. Zatvori Noonix TV i otvori ga ponovo. Ako se ovo ponovi, možda je memorija puna ili je fajl oštećen.</translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation>Zatvori</translation>
+    </message>
+</context>
+<context>
     <name>Details</name>
     <message>
         <source>Couldn&apos;t update Library. Try again.</source>
@@ -813,6 +828,10 @@
     <message>
         <source>Added %1</source>
         <translation>Dodato: %1</translation>
+    </message>
+    <message>
+        <source>That file is too big</source>
+        <translation>Taj fajl je prevelik</translation>
     </message>
     <message>
         <source>An LG TV</source>
@@ -2327,6 +2346,22 @@ Ono što ne valja sređuje se automatski.</translation>
         <translation>Taj kod nije prošao</translation>
     </message>
     <message>
+        <source>Skip the speed check?</source>
+        <translation>Preskočiti proveru brzine?</translation>
+    </message>
+    <message>
+        <source>Without it Noonix TV can only guess what this connection and this device can play, so some videos may stutter or not play at all. You can set the picture quality yourself any time in Settings › Sources › Picture quality.</source>
+        <translation>Bez nje Noonix TV može samo da nagađa šta ova veza i ovaj uređaj mogu da puste, pa neki snimci mogu da seckaju ili da se uopšte ne puste. Kvalitet slike možeš sam da podesiš bilo kad u Podešavanja › Izvori › Kvalitet slike.</translation>
+    </message>
+    <message>
+        <source>Skip Anyway</source>
+        <translation>Ipak preskoči</translation>
+    </message>
+    <message>
+        <source>Run It</source>
+        <translation>Pokreni</translation>
+    </message>
+    <message>
         <source>Step %1 of %2</source>
         <translation>Korak %1 od %2</translation>
     </message>
@@ -2640,6 +2675,10 @@ Ono što ne valja sređuje se automatski.</translation>
         <translation>.noonix fajl na ovom računaru</translation>
     </message>
     <message>
+        <source>A .noonix file on this device</source>
+        <translation>.noonix fajl na ovom uređaju</translation>
+    </message>
+    <message>
         <source>Debrid services</source>
         <translation>Debrid servisi</translation>
     </message>
@@ -2726,6 +2765,10 @@ Ono što ne valja sređuje se automatski.</translation>
     <message>
         <source>Couldn&apos;t read that file</source>
         <translation>Ne mogu da pročitam taj fajl</translation>
+    </message>
+    <message>
+        <source>That file is too big</source>
+        <translation>Taj fajl je prevelik</translation>
     </message>
 </context>
 <context>
@@ -2858,6 +2901,10 @@ Ono što ne valja sređuje se automatski.</translation>
         <translation>Režim male memorije pušta najviše Full HD</translation>
     </message>
     <message>
+        <source>Without the internet check it follows the device. Change it any time in Settings › Sources</source>
+        <translation>Bez provere interneta važi uređaj. Promeni bilo kad u Podešavanja › Izvori</translation>
+    </message>
+    <message>
         <source>No internet, so it follows the device. Change it any time in Settings › Sources</source>
         <translation>Nema interneta, pa važi uređaj. Promeni bilo kad u Podešavanja › Izvori</translation>
     </message>
@@ -2880,6 +2927,22 @@ Ono što ne valja sređuje se automatski.</translation>
     <message>
         <source>Done</source>
         <translation>Gotovo</translation>
+    </message>
+    <message>
+        <source>Skip the internet check?</source>
+        <translation>Preskočiti proveru interneta?</translation>
+    </message>
+    <message>
+        <source>Without it the picture quality follows this device alone, so some videos may stutter or not play at all. You can set it yourself any time in Settings › Sources › Picture quality.</source>
+        <translation>Bez nje kvalitet slike zavisi samo od ovog uređaja, pa neki snimci mogu da seckaju ili da se uopšte ne puste. Možeš sam da ga podesiš bilo kad u Podešavanja › Izvori › Kvalitet slike.</translation>
+    </message>
+    <message>
+        <source>Skip Anyway</source>
+        <translation>Ipak preskoči</translation>
+    </message>
+    <message>
+        <source>Keep Measuring</source>
+        <translation>Nastavi merenje</translation>
     </message>
 </context>
 <context>
@@ -2998,6 +3061,14 @@ Ono što ne valja sređuje se automatski.</translation>
     <message>
         <source>◀ ▶  0.1 s     ▲ ▼  1 s     OK  keep     Back  undo</source>
         <translation>◀ ▶  0,1 s     ▲ ▼  1 s     OK  sačuvaj     Nazad  poništi</translation>
+    </message>
+    <message>
+        <source>Undo</source>
+        <translation>Poništi</translation>
+    </message>
+    <message>
+        <source>Keep</source>
+        <translation>Zadrži</translation>
     </message>
 </context>
 <context>

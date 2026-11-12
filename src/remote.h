@@ -34,8 +34,11 @@ public:
     bool fullScreen() const;
     bool registerService();
     QString inputKind() const { return m_kind; }
-    // kwin id of the tv wallpaper window, from the remote daemon's state ("" when there is none)
-    Q_INVOKABLE QString wallpaperId();
+    // kwin id of the tv wallpaper window, from the remote daemon's state ("" until it answers).
+    // asked without waiting: a blocking call froze the gui thread whenever the daemon was slow
+    Q_PROPERTY(QString wallpaperId READ wallpaperId NOTIFY wallpaperIdChanged)
+    QString wallpaperId() const { return m_wallId; }
+    Q_INVOKABLE void askWallpaper();
     // tell the screensaver whether we hide its wallpaper (paused) or show it through glass
     Q_INVOKABLE void setCovered(bool covered);
     // tell it our glass shows the wallpaper (its clock fades away meanwhile)
@@ -72,6 +75,7 @@ public slots:
 
 signals:
     void inputKindChanged();
+    void wallpaperIdChanged();
     void fullScreenChanged();
     void revealed();
     void padKey(const QString &button);
@@ -84,6 +88,8 @@ private:
     bool m_refull = false;
     bool m_titleBar = false;
     bool m_keyFromPointer = false;
+    bool m_asking = false;
+    QString m_wallId;
     QPointer<QWindow> m_window;
     QString m_kind = QStringLiteral("remote");
 };
@@ -95,6 +101,8 @@ class Desktop : public QObject
     // dev: NOONIX_PLAY='{"kind":"show","tmdb":85552,"season":1,"episode":3}' plays it at start
     // (with "stream": {...} that exact source)
     Q_PROPERTY(QString devPlay READ devPlay CONSTANT)
+    // NOONIX_WALLPAPER_OUTPUT: the screen whose animated wallpaper we pause while we cover it
+    Q_PROPERTY(QString wallpaperOutput READ wallpaperOutput CONSTANT)
     // dev: NOONIX_SPLASH=0 starts without the launch splash
     Q_PROPERTY(bool splash READ splash CONSTANT)
     Q_PROPERTY(double splashSlow READ splashSlow CONSTANT)
@@ -134,6 +142,7 @@ public:
     Q_INVOKABLE void setLanguage(const QString &code);
     bool debug() const { return qEnvironmentVariableIsSet("NOONIX_DEBUG"); }
     QString devPlay() const { return qEnvironmentVariable("NOONIX_PLAY"); }
+    QString wallpaperOutput() const { return qEnvironmentVariable("NOONIX_WALLPAPER_OUTPUT"); }
     bool splash() const { return qEnvironmentVariable("NOONIX_SPLASH") != QLatin1String("0"); }
     bool splashFast() const { return qEnvironmentVariable("NOONIX_SPLASH_FAST") == QLatin1String("1"); }
     double splashSlow() const { return qEnvironmentVariableIsSet("NOONIX_SPLASH_SLOW") ? qEnvironmentVariable("NOONIX_SPLASH_SLOW").toDouble() : 1.0; }

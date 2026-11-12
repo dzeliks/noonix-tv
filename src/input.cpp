@@ -15,6 +15,7 @@
 #include <QCoreApplication>
 #include <QJniEnvironment>
 #include <QJniObject>
+#include <iterator>
 #endif
 
 #ifdef NOONIX_SDL
@@ -123,6 +124,16 @@ void pictureFromJava(JNIEnv *, jclass, jstring path)
             emit padTarget->picturePicked(p);
     }, Qt::QueuedConnection);
 }
+
+void fileFromJava(JNIEnv *, jclass, jstring tag, jstring path)
+{
+    const QString t = QJniObject(tag).toString();
+    const QString p = QJniObject(path).toString();
+    QMetaObject::invokeMethod(padTarget, [t, p] {
+        if (padTarget)
+            emit padTarget->filePicked(t, p);
+    }, Qt::QueuedConnection);
+}
 }
 
 void Input::androidPad(const QString &name, bool down, const QString &kind)
@@ -188,8 +199,9 @@ Input::Input(Remote *remote, QObject *parent)
     padTarget = this;
     const JNINativeMethod methods[] = {
         {"padButton", "(Ljava/lang/String;ZLjava/lang/String;)V", reinterpret_cast<void *>(padFromJava)},
-        {"picturePicked", "(Ljava/lang/String;)V", reinterpret_cast<void *>(pictureFromJava)}};
-    QJniEnvironment().registerNativeMethods("io/github/dzeliks/noonixtv/NoonixActivity", methods, 2);
+        {"picturePicked", "(Ljava/lang/String;)V", reinterpret_cast<void *>(pictureFromJava)},
+        {"filePicked", "(Ljava/lang/String;Ljava/lang/String;)V", reinterpret_cast<void *>(fileFromJava)}};
+    QJniEnvironment().registerNativeMethods("io/github/dzeliks/noonixtv/NoonixActivity", methods, std::size(methods));
     // a phone or tablet starts on touch (no focus marks before the first tap); a tv on the remote
     const QJniObject pm = QJniObject(QNativeInterface::QAndroidApplication::context())
                               .callObjectMethod("getPackageManager", "()Landroid/content/pm/PackageManager;");
@@ -225,6 +237,26 @@ void Input::pickPicture(const QString &dir)
 #else
     Q_UNUSED(dir)
     emit picturePicked(QString());
+#endif
+}
+
+bool Input::canPickFile() const
+{
+#ifdef Q_OS_ANDROID
+    return QJniObject(QNativeInterface::QAndroidApplication::context()).callMethod<jboolean>("canPickFile", "()Z");
+#else
+    return false;
+#endif
+}
+
+void Input::pickFile(const QString &tag, qint64 maxBytes)
+{
+#ifdef Q_OS_ANDROID
+    QJniObject(QNativeInterface::QAndroidApplication::context())
+        .callMethod<void>("pickFile", "(Ljava/lang/String;J)V", QJniObject::fromString(tag).object<jstring>(), jlong(maxBytes));
+#else
+    Q_UNUSED(maxBytes)
+    emit filePicked(tag, QString());
 #endif
 }
 

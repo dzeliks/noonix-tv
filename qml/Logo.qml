@@ -22,7 +22,7 @@ Item {
         horizontalAlignment: box.align === Qt.AlignLeft ? Image.AlignLeft : Image.AlignHCenter
         verticalAlignment: Image.AlignVCenter
         asynchronous: true
-        sourceSize.height: height
+        sourceSize.height: Math.ceil(height * Theme.dpr)
         opacity: box.ready ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 260 } }
     }

@@ -56,6 +56,10 @@ public:
     // android: the app to the background (the system's back at the top)
     Q_INVOKABLE void toBackground();
     Q_INVOKABLE void pickPicture(const QString &dir);
+    // a file through the system's picker, copied into the cache (android; filePicked answers with the
+    // tag: "" = none, "!big" = over maxBytes, "!fail" = unreadable)
+    Q_INVOKABLE bool canPickFile() const;
+    Q_INVOKABLE void pickFile(const QString &tag, qint64 maxBytes);
     // a pad button that the remote daemon forwarded (PAD:<button>): pressed through the bindings
     void padKey(const QString &button);
 #ifdef Q_OS_ANDROID
@@ -73,6 +77,7 @@ signals:
     void mouseModeChanged();
     void captured(const QString &what, const QString &name);
     void picturePicked(const QString &path);
+    void filePicked(const QString &tag, const QString &path);
 
 protected:
     bool eventFilter(QObject *obj, QEvent *ev) override;

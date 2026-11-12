@@ -1,0 +1,29 @@
+name: audit
+
+# known security advisories in the core's crates and the tv app's packages, once a week and when
+# the lock files change
+on:
+  schedule:
+    - cron: "17 5 * * 1"
+  push:
+    branches: [main]
+    paths: [core/Cargo.lock, core/.cargo/audit.toml, tv/package-lock.json, .github/workflows/audit.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: crates
+        # from core/: its .cargo/audit.toml lists the advisories already looked at
+        working-directory: core
+        run: |
+          cargo install cargo-audit --locked --quiet
+          cargo audit
+      - name: tv packages
+        working-directory: tv
+        run: npm audit --audit-level=moderate

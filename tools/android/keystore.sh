@@ -12,7 +12,8 @@ if [[ -e "$ks" ]]; then
     echo "$ks is there already: not making another key" >&2
 else
     mkdir -p "$(dirname "$ks")"
-    export KS_PASS="$(head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)"
+    KS_PASS="$(head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)"
+    export KS_PASS
     (umask 077 && keytool -genkeypair -keystore "$ks" -storetype PKCS12 -storepass:env KS_PASS -keypass:env KS_PASS \
         -alias noonix -keyalg RSA -keysize 4096 -validity 36500 -dname "CN=Noonix TV" > /dev/null)
     printf '%s' "$KS_PASS" | secret-tool store --label "Noonix TV android keystore password" application noonix-tv-build key ANDROID_KEYSTORE_PASS

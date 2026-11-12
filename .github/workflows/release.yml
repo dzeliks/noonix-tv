@@ -69,7 +69,7 @@ jobs:
           df -h / "$GITHUB_WORKSPACE"
       - name: git (for the checkout)
         run: apt-get update -qq && apt-get install -y -qq --no-install-recommends git ca-certificates
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -80,14 +80,14 @@ jobs:
         run: echo "hash=$(grep -Ev '^[[:space:]]*(#|$)' tools/appimage/deps.sh | sha256sum | cut -c1-16)" >> "$GITHUB_OUTPUT"
       # qt, ffmpeg, mpv & co from pinned sources: ~25 min cold. saved right away, so a later
       # failure doesn't throw it away
-      - uses: actions/cache/restore@v6
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: deps-cache
         with:
           path: /opt/noonix
           key: deps-${{ matrix.base }}-${{ matrix.arch }}-${{ steps.deps.outputs.hash }}
       - name: bundled libraries
         run: tools/appimage/deps.sh /opt/noonix
-      - uses: actions/cache/save@v6
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: steps.deps-cache.outputs.cache-hit != 'true'
         with:
           path: /opt/noonix
@@ -98,7 +98,7 @@ jobs:
           v="$(sed -n 's/^version = "\(.*\)"/\1/p' core/Cargo.toml | head -1)"
           [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME but core/Cargo.toml says $v"; exit 1; }
       # the release build of the rust core takes ~15 min cold
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/out/work/cmake
           key: appbuild-${{ matrix.base }}-${{ matrix.arch }}-${{ hashFiles('core/Cargo.lock', 'CMakeLists.txt') }}-${{ steps.deps.outputs.hash }}-${{ github.sha }}
@@ -136,7 +136,7 @@ jobs:
     steps:
       - name: git (for the checkout)
         run: apt-get update -qq && apt-get install -y -qq --no-install-recommends git ca-certificates
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
@@ -148,19 +148,19 @@ jobs:
           v="$(sed -n 's/^version = "\(.*\)"/\1/p' core/Cargo.toml | head -1)"
           [ "v$v" = "$GITHUB_REF_NAME" ] || { echo "tag $GITHUB_REF_NAME but core/Cargo.toml says $v"; exit 1; }
       # qt for windows + the linux host's tools, llvm-mingw, rust, sdl, libmpv
-      - uses: actions/cache/restore@v6
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: deps-cache
         with:
           path: /opt/noonix-win
           key: deps-win-${{ hashFiles('tools/windows/deps.sh', 'tools/windows/qt-win.py', 'tools/windows/env.sh') }}
       - name: toolchain and libraries
         run: tools/windows/deps.sh /opt/noonix-win
-      - uses: actions/cache/save@v6
+      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         if: steps.deps-cache.outputs.cache-hit != 'true'
         with:
           path: /opt/noonix-win
           key: deps-win-${{ hashFiles('tools/windows/deps.sh', 'tools/windows/qt-win.py', 'tools/windows/env.sh') }}
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/win/cmake
           key: appbuild-win-${{ hashFiles('core/Cargo.lock', 'CMakeLists.txt', 'tools/windows/deps.sh') }}-${{ github.sha }}
@@ -189,7 +189,7 @@ jobs:
     needs: [draft, windows]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: smoke test
         run: |
           gh release download "${{ needs.draft.outputs.tag }}" --pattern '*-setup.exe' --dir dist
@@ -231,7 +231,7 @@ jobs:
       NDK_VERSION: 27.2.12479018
       HAS_KEY: ${{ secrets.ANDROID_KEYSTORE != '' }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: tag matches the version
         if: startsWith(github.ref, 'refs/tags/')
         run: |
@@ -242,7 +242,7 @@ jobs:
           sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends ninja-build p7zip-full libegl1 libgl1 libopengl0 libxkbcommon0 libfontconfig1 libglib2.0-0t64 libdbus-1-3 libgssapi-krb5-2
           yes | "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" "build-tools;36.0.0" "ndk;$NDK_VERSION" > /dev/null
           rustup target add ${{ matrix.rust }}
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: qt-cache
         with:
           path: /opt/qt
@@ -252,7 +252,7 @@ jobs:
         run: |
           python3 tools/android/qt-fetch.py host "$QT_VERSION" /opt/qt/host qtshadertools
           python3 tools/android/qt-fetch.py android "$QT_VERSION" ${{ matrix.qt }} /opt/qt/android /opt/qt/host qtimageformats qtshadertools
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: build/android/libmpv
           key: libmpv-android-${{ matrix.abi }}-${{ hashFiles('tools/android/libmpv.sh') }}
@@ -277,7 +277,7 @@ jobs:
         if: env.HAS_KEY == 'true'
         run: gh release upload "${{ needs.draft.outputs.tag }}" build/android/*.apk build/android/*.apk.sha256 --clobber
       - if: env.HAS_KEY != 'true'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: noonix-tv-android-${{ matrix.abi }}-debug-signed
           path: build/android/*.apk
@@ -290,7 +290,7 @@ jobs:
     if: needs.draft.outputs.linux != 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: build
         env:
           NOONIX_TMDB_API_KEY: ${{ secrets.NOONIX_TMDB_API_KEY }}
@@ -303,6 +303,7 @@ jobs:
           # the torrent engine that goes into both packages (tv/engine)
           npm ci --no-audit --no-fund --prefix engine
           npm run -s check
+          npm test
           node tools/build.mjs --package
           cd dist && for f in *.ipk *.wgt; do sha256sum "$f" > "$f.sha256"; done
       - name: onto the draft
@@ -314,11 +315,12 @@ jobs:
     if: ${{ !cancelled() && needs.appimage.result == 'success' && (needs.draft.outputs.linux == 'true' || (needs.windows-smoke.result == 'success' && needs.macos.result == 'success')) }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: publish
         env:
+          MINISIGN_KEY: ${{ secrets.MINISIGN_KEY }}
           TAG: ${{ needs.draft.outputs.tag }}
         run: |
           # each build leaves <file>.sha256 next to its file (windows hands its lines over)
@@ -328,6 +330,18 @@ jobs:
           if gh release download "$TAG" --pattern SHA256SUMS --dir old 2> /dev/null; then
             awk 'NR == FNR { have[$2] = 1; next } !($2 in have)' SHA256SUMS old/SHA256SUMS > kept
             cat kept >> SHA256SUMS
+          fi
+          # signed with the release key: apps from 0.6.0 on update only to sums it signed
+          if [ -n "$MINISIGN_KEY" ]; then
+            cargo install rsign2 --version 0.6.7 --locked --quiet
+            (umask 077 && printf '%s\n' "$MINISIGN_KEY" > "$RUNNER_TEMP/minisign.key")
+            rsign sign -W -s "$RUNNER_TEMP/minisign.key" -t "noonix-tv $TAG" -x SHA256SUMS.minisig SHA256SUMS < /dev/null
+            rm -f "$RUNNER_TEMP/minisign.key"
+            key="$(grep -o '"RW[A-Za-z0-9+/=]*"' core/src/update.rs | head -1 | tr -d '"')"
+            rsign verify -P "$key" -x SHA256SUMS.minisig SHA256SUMS
+            gh release upload "$TAG" SHA256SUMS.minisig --clobber
+          elif [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "::error::MINISIGN_KEY isn't set: a release without SHA256SUMS.minisig can't update the apps" && exit 1
           fi
           gh release upload "$TAG" SHA256SUMS --clobber
           for f in sums/*.sha256; do gh release delete-asset "$TAG" "$(basename "$f")" --yes; done

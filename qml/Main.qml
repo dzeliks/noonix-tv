@@ -25,6 +25,7 @@ Window {
     onUChanged: { Theme.u = u; Theme.gw = width / u; Theme.gh = height / u }
     Binding { target: Theme; property: "minGridW"; value: Desktop.gridW > 0 ? Desktop.gridW : 1920 / Desktop.boost }
     Binding { target: Theme; property: "pointing"; value: Input.pointing === true }
+    Binding { target: Theme; property: "dpr"; value: Math.max(1, Screen.devicePixelRatio) }
     Binding { target: Theme; property: "mouseMode"; value: Input.mouseMode === true }
     Timer { interval: 30000; repeat: true; running: true; onTriggered: Theme.nap++ }
     // the window's safe area: backgrounds still go under a cutout, the side margins clear it
@@ -78,6 +79,8 @@ Window {
         loadProfiles()
         Api.call("setup.state", {}, function (ok, d) {
             if (!ok) return
+            // nothing else starts: setup on an empty db would only be lost again
+            if (d.dataError) { dataError.error = d.dataError; return }
             // set up before but the terms are new: those first, then on as usual
             win.setupDone = d.done && d.termsAgreed
             win.setupKnown = true
@@ -109,8 +112,8 @@ Window {
     // ---- tv wallpaper: animate it only while our glass shows it, pause it behind opaque pages / video
     readonly property bool wallShown: (page === "search" || page === "settings" || page === "library") && !detailStack.length && !videoUp
     readonly property bool coversWall: visible && visibility !== Window.Minimized && !wallShown
-    // only the tv's wallpaper: noonix tv on a desk monitor leaves it alone
-    readonly property bool onTv: !!screen && screen.name === "HDMI-A-1"
+    // only that screen's wallpaper: noonix tv on another monitor leaves it alone
+    readonly property bool onTv: !!screen && Desktop.wallpaperOutput !== "" && screen.name === Desktop.wallpaperOutput
     readonly property bool coversTv: coversWall && onTv
     onCoversTvChanged: Remote.setCovered(coversTv)
     // our glass shows the wallpaper: the screensaver's clock steps aside
@@ -157,8 +160,8 @@ Window {
         live: win.backdropLive
         mipmap: true
         smooth: true
-        // the frost blurs it anyway: a quarter-size copy keeps animations cheap at 4k
-        textureSize: Qt.size(Math.max(1, Math.round(win.width / 4)), Math.max(1, Math.round(win.height / 4)))
+        // the frost blurs it anyway: a ~1000 px copy keeps animations cheap at 4k
+        textureSize: Theme.copySize(win.width, win.height)
         visible: false
     }
     ShaderEffect {
@@ -169,7 +172,7 @@ Window {
         property real sigma: 2.8
         fragmentShader: "qrc:/shaders/blur.frag.qsb"
     }
-    ShaderEffectSource { id: blurHTex; sourceItem: blurH; hideSource: true; live: win.backdropLive; smooth: true; visible: false }
+    ShaderEffectSource { id: blurHTex; sourceItem: blurH; hideSource: true; live: win.backdropLive; smooth: true; textureSize: Theme.frostSize; visible: false }
     ShaderEffect {
         id: blurV
         width: 240; height: 135; visible: false
@@ -178,7 +181,7 @@ Window {
         property real sigma: 2.8
         fragmentShader: "qrc:/shaders/blur.frag.qsb"
     }
-    ShaderEffectSource { id: frostV; sourceItem: blurV; hideSource: true; live: win.backdropLive; smooth: true; visible: false }
+    ShaderEffectSource { id: frostV; sourceItem: blurV; hideSource: true; live: win.backdropLive; smooth: true; textureSize: Theme.frostSize; visible: false }
     // while setup is up, the glass over it refracts its zoomed copy of the app; the app's own glass
     // (the bar) still refracts the app, or it would show a piece of the zoomed copy
     GlassSource { id: setupGlass; sourceItem: setupView.backdropItem; live: setupView.visible }
@@ -822,7 +825,7 @@ Window {
         id: tracks
         anchors.fill: parent
         onClosed: osd.forceActiveFocus()
-        onAddFile: subPick.open()
+        onAddFile: win.addSubFile()
     }
     FolderPicker {
         id: subPick
@@ -831,12 +834,11 @@ Window {
         files: ["srt", "ass", "ssa", "vtt", "sub"]
         media: true
         caption: qsTr("Add a subtitle file")
-        onClosed: if (win.videoUp) osd.forceActiveFocus()
-        onPicked: function (path) {
-            Api.call("playback.importSub", { path: path }, function (ok) {
-                if (!ok) toast.show(qsTr("Couldn't read that file"))
-            })
+        onClosed: {
+            if (win.videoUp) osd.forceActiveFocus()
+            win.releaseSubs()
         }
+        onPicked: function (path) { win.importSub(path) }
     }
     Match {
         id: matchSheet
@@ -883,6 +885,34 @@ Window {
     Connections {
         target: Player
         function onNotice(text) { toast.show(text) }
+        // played on by hand meanwhile: not held any more
+        function onPausedChanged() { if (!Player.paused) win.subHeld = false }
+    }
+    // a subtitle search or file pick holds the picture, and plays on after if it was playing
+    property int subHolds: 0
+    property bool subHeld: false
+    function holdForSubs() {
+        if (subHolds++ === 0 && !Player.paused) {
+            Player.setPaused(true)
+            subHeld = true
+        }
+    }
+    function releaseSubs() {
+        if (subHolds === 0 || --subHolds > 0) return
+        if (subHeld && win.videoUp) Player.setPaused(false)
+        subHeld = false
+    }
+    // android: the system's picker (the in-app browser can't see files outside media folders there)
+    readonly property bool systemFiles: Theme.android && Input.canPickFile()
+    function addSubFile() {
+        holdForSubs()
+        if (systemFiles) Input.pickFile("sub", 8 << 20)
+        else subPick.open()
+    }
+    function importSub(path) {
+        Api.call("playback.importSub", { path: path }, function (ok) {
+            if (!ok) toast.show(qsTr("Couldn't read that file"))
+        })
     }
     Connections {
         target: Api
@@ -1153,7 +1183,7 @@ Window {
         live: win.pickerGlass
         mipmap: true
         smooth: true
-        textureSize: Qt.size(Math.max(1, Math.round(win.width / 4)), Math.max(1, Math.round(win.height / 4)))
+        textureSize: Theme.copySize(win.width, win.height)
         visible: false
     }
     ShaderEffect {
@@ -1164,7 +1194,7 @@ Window {
         property real sigma: 2.8
         fragmentShader: "qrc:/shaders/blur.frag.qsb"
     }
-    ShaderEffectSource { id: pickerBlurHTex; sourceItem: pickerBlurH; hideSource: true; live: win.pickerGlass; smooth: true; visible: false }
+    ShaderEffectSource { id: pickerBlurHTex; sourceItem: pickerBlurH; hideSource: true; live: win.pickerGlass; smooth: true; textureSize: Theme.frostSize; visible: false }
     ShaderEffect {
         id: pickerBlurV
         width: 240; height: 135; visible: false
@@ -1173,7 +1203,7 @@ Window {
         property real sigma: 2.8
         fragmentShader: "qrc:/shaders/blur.frag.qsb"
     }
-    ShaderEffectSource { id: pickerFrost; sourceItem: pickerBlurV; hideSource: true; live: win.pickerGlass; smooth: true; visible: false }
+    ShaderEffectSource { id: pickerFrost; sourceItem: pickerBlurV; hideSource: true; live: win.pickerGlass; smooth: true; textureSize: Theme.frostSize; visible: false }
     ProfileAdd {
         id: profileAdd
         anchors.fill: parent
@@ -1268,6 +1298,14 @@ Window {
     Connections {
         target: Input
         function onHoldBack() { Qt.quit() }
+        function onFilePicked(tag, path) {
+            if (tag !== "sub") return
+            if (path === "!big") toast.show(qsTr("That file is too big"))
+            else if (path === "!fail") toast.show(qsTr("Couldn't read that file"))
+            else if (path && win.videoUp) win.importSub(path)
+            win.releaseSubs()
+            if (win.videoUp) osd.forceActiveFocus()
+        }
     }
     // a word from the core (tmdb refused the key, ...)
     Connections {
@@ -1353,6 +1391,13 @@ Window {
             if (win.launchPicker && profilePicker.visible) profList.forceActiveFocus()
             else { browse.forceActiveFocus(); win.focusPage() }
         }
+    }
+    // over the splash too: the launch stops here
+    DataError {
+        id: dataError
+        z: 31
+        anchors.fill: parent
+        onLeave: Qt.quit()
     }
     // the page the splash reveals is set up underneath while it still holds: home, or
     // "who's watching?" (no glimpse of home first, no hitch when it starts moving)

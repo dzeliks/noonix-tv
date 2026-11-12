@@ -8,6 +8,7 @@ FocusScope {
     property string title: ""
     property string detail: ""
     property string okText: ""
+    property string noText: ""
     property var onYes: null
     property var onNo: null              // cancel, back or a click outside
     property int choice: 1               // 0 yes, 1 cancel
@@ -16,7 +17,7 @@ FocusScope {
     opacity: 0
     Behavior on opacity { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
     function open(o) {
-        title = o.title || ""; detail = o.detail || ""; okText = o.ok || ""; onYes = o.yes || null; onNo = o.no || null
+        title = o.title || ""; detail = o.detail || ""; okText = o.ok || ""; noText = o.cancel || qsTr("Cancel"); onYes = o.yes || null; onNo = o.no || null
         choice = 1
         opacity = 1
         forceActiveFocus()
@@ -62,7 +63,7 @@ FocusScope {
             // one width for both: the longer label decides
             readonly property real bw: Math.max(300 * cf.u, okM.advanceWidth + 120 * cf.u, noM.advanceWidth + 120 * cf.u)
             TextMetrics { id: okM; text: cf.okText; font { family: Theme.display; pixelSize: 27 * cf.u; weight: Font.DemiBold } }
-            TextMetrics { id: noM; text: qsTr("Cancel"); font: okM.font }
+            TextMetrics { id: noM; text: cf.noText; font: okM.font }
             GlassButton {
                 width: buttons.bw
                 text: cf.okText
@@ -73,7 +74,7 @@ FocusScope {
             }
             GlassButton {
                 width: buttons.bw
-                text: qsTr("Cancel")
+                text: cf.noText
                 focused: cf.activeFocus && cf.choice === 1
                 pointerFocus: false
                 onPointed: cf.choice = 1

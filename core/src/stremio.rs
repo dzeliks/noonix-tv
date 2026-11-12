@@ -47,9 +47,30 @@ pub fn check_url(url: &str) -> Result<url::Url> {
     Ok(u)
 }
 
+/// a pasted address: stremio:// and stremio's share links, no scheme, stray line breaks
+pub fn address(input: &str) -> String {
+    let s: String = input.split_whitespace().collect();
+    if s.contains("#/addons") {
+        if let Some(enc) = s.split("addon=").nth(1).and_then(|v| v.split('&').next()) {
+            if let Ok(d) = urlencoding::decode(enc) {
+                if d.contains("://") && !d.contains("#/addons") {
+                    return address(&d);
+                }
+            }
+        }
+    }
+    if let Some(rest) = s.strip_prefix("stremio://") {
+        return format!("https://{rest}");
+    }
+    if !s.is_empty() && !s.contains("://") {
+        return format!("https://{s}");
+    }
+    s
+}
+
 pub async fn load_manifest(url: &str) -> Result<Addon> {
-    let url = url.trim().replace("stremio://", "https://");
-    let url = if url.ends_with("manifest.json") { url } else { format!("{}/manifest.json", url.trim_end_matches('/')) };
+    let url = address(url);
+    let url = if url.split('?').next().unwrap_or("").ends_with("manifest.json") { url } else { format!("{}/manifest.json", url.trim_end_matches('/')) };
     check_url(&url)?;
     let m = http::json(&Req::get(&url).timeout(15)).await?;
     let list = |v: Option<&Value>| -> Vec<String> {
@@ -357,11 +378,16 @@ static GROUP: Lazy<Regex> = Lazy::new(|| Regex::new(r"-([A-Za-z0-9]{2,12})(?:\.[
 
 // word-bounded, case-insensitive; compiled once per pattern
 fn has(text: &str, pat: &'static str) -> bool {
-    static CACHE: Lazy<std::sync::Mutex<std::collections::HashMap<&'static str, Regex>>> = Lazy::new(Default::default);
+    has_tail(text, pat, false)
+}
+
+// digit: a number may follow right away, as the channels do (ddp5.1, aac2.0)
+fn has_tail(text: &str, pat: &'static str, digit: bool) -> bool {
+    static CACHE: Lazy<std::sync::Mutex<std::collections::HashMap<(&'static str, bool), Regex>>> = Lazy::new(Default::default);
     let mut cache = CACHE.lock().unwrap_or_else(|e| e.into_inner());
     cache
-        .entry(pat)
-        .or_insert_with(|| Regex::new(&format!(r"(?i)(^|[^a-z0-9]){pat}([^a-z0-9]|$)")).expect("pattern"))
+        .entry((pat, digit))
+        .or_insert_with(|| Regex::new(&format!(r"(?i)(^|[^a-z0-9]){pat}([^a-z{}]|$)", if digit { "" } else { "0-9" })).expect("pattern"))
         .is_match(text)
 }
 
@@ -373,7 +399,7 @@ pub fn parse_size(text: &str) -> Option<u64> {
     let c = SIZE.captures(text)?;
     let n: f64 = c[1].replace(',', ".").parse().ok()?;
     let mult = if c[2].to_uppercase().starts_with('G') { 1u64 << 30 } else { 1 << 20 };
-    Some((n * mult as f64) as u64)
+    Some((n * mult as f64).round() as u64)
 }
 
 pub fn parse_release(text: &str) -> Stream {
@@ -423,7 +449,7 @@ pub fn parse_release(text: &str) -> Stream {
         ("opus", "Opus"),
         ("flac", "FLAC"),
     ] {
-        if has(text, pat) && !(name == "DTS" && audio.iter().any(|a| a == "DTS-HD")) && !(name == "DD" && audio.iter().any(|a| a == "DD+")) {
+        if has_tail(text, pat, true) && !(name == "DTS" && audio.iter().any(|a| a == "DTS-HD")) && !(name == "DD" && audio.iter().any(|a| a == "DD+")) {
             audio.push(name.to_owned());
         }
     }
@@ -656,6 +682,40 @@ pub fn video_id(imdb: &str, season: Option<i64>, episode: Option<i64>) -> String
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// what people paste: the same cases the tv app's address() passes (core/fixtures/release-names.json)
+    #[test]
+    fn pasted_addresses() {
+        let all: Value = serde_json::from_str(include_str!("../fixtures/release-names.json")).unwrap();
+        for c in all["addresses"].as_array().unwrap() {
+            let pasted = c["pasted"].as_str().unwrap();
+            assert_eq!(address(pasted), c["address"].as_str().unwrap(), "{pasted:?}");
+        }
+        // a long configured address (configurable addons carry their settings in the path)
+        let long = format!("https://addon.example.org/stremio/{}/manifest.json", "eyJ".repeat(600));
+        assert_eq!(address(&long), long);
+        assert!(check_url(&address(&long)).is_ok());
+    }
+
+    /// the cases the tv app's port (tv/src/data/release.ts) has to pass too
+    #[test]
+    fn release_names_fixture() {
+        let all: Value = serde_json::from_str(include_str!("../fixtures/release-names.json")).unwrap();
+        let list = |v: &Value| v.as_array().unwrap().iter().map(|x| x.as_str().unwrap().to_owned()).collect::<Vec<_>>();
+        for c in all["releases"].as_array().unwrap() {
+            let text = c["text"].as_str().unwrap();
+            let s = parse_release(text);
+            assert_eq!(s.resolution as u64, c["resolution"].as_u64().unwrap(), "resolution: {text}");
+            assert_eq!(s.hdr, list(&c["hdr"]), "hdr: {text}");
+            assert_eq!(s.codec.as_deref(), c["codec"].as_str(), "codec: {text}");
+            assert_eq!(s.audio, list(&c["audio"]), "audio: {text}");
+            assert_eq!(s.source.as_deref(), c["source"].as_str(), "source: {text}");
+        }
+        for c in all["sizes"].as_array().unwrap() {
+            let text = c["text"].as_str().unwrap();
+            assert_eq!(parse_size(text), c["bytes"].as_u64(), "size: {text}");
+        }
+    }
 
     #[test]
     fn a_hash_is_no_group() {

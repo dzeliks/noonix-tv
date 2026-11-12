@@ -20,8 +20,8 @@ jobs:
         run: |
           pacman -Syu --noconfirm --needed git rust cmake ninja pkgconf \
             qt6-base qt6-declarative qt6-shadertools qt6-wayland qt6-tools mpv sdl3 wayland wayland-protocols
-      - uses: actions/checkout@v7
-      - uses: actions/cache@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry
@@ -37,3 +37,43 @@ jobs:
         run: |
           cmake -S . -B build/cmake -G Ninja -DCMAKE_BUILD_TYPE=Release
           cmake --build build/cmake
+
+  # its own job: a new rust brings new lints, and that shouldn't hide what the tests say
+  lint:
+    name: clippy + shell scripts
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: system packages
+        run: pacman -Syu --noconfirm --needed git rust shellcheck
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            build/clippy
+          key: clippy-${{ runner.os }}-${{ hashFiles('core/Cargo.lock') }}
+          restore-keys: clippy-${{ runner.os }}-
+      # the c interface build (the mac client's): no qt needed, and it covers all of the core but bridge.rs
+      - name: clippy
+        env:
+          CARGO_TARGET_DIR: ${{ github.workspace }}/build/clippy
+        run: cargo clippy --manifest-path core/Cargo.toml --locked --no-default-features --all-targets -- -D warnings
+      - name: shellcheck
+        run: |
+          git config --global --add safe.directory "$PWD"
+          { git ls-files '*.sh'; echo tools/appimage/AppRun; } | xargs shellcheck -S warning
+
+  tv:
+    name: tv app type check + tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: check
+        run: |
+          cd tv
+          npm ci --no-audit --no-fund
+          npm run -s check
+          npm test
+

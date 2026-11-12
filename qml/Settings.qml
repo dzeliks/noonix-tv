@@ -537,7 +537,7 @@ FocusScope {
                         anchors.verticalCenter: parent.verticalCenter
                         width: 140 * br.u; height: width
                         source: "qrc:/noonix-tv.svg"
-                        sourceSize: Qt.size(width, height)
+                        sourceSize: Qt.size(width * Theme.dpr, height * Theme.dpr)
                     }
                     Column {
                         anchors { left: appIcon.right; leftMargin: 36 * br.u; right: parent.right; rightMargin: 40 * br.u; verticalCenter: parent.verticalCenter }

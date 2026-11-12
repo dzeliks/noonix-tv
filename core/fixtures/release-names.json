@@ -1,0 +1,57 @@
+{
+  "releases": [
+    { "text": "Show.S01E02.2160p.WEB-DL.DDP5.1.DV.HDR10.H.265-GRP.mkv", "resolution": 2160, "hdr": ["DV", "HDR10"], "codec": "HEVC", "audio": ["DD+"], "source": "WEB-DL" },
+    { "text": "Movie.2024.1080p.BluRay.REMUX.AVC.DTS-HD.MA.5.1-GRP", "resolution": 1080, "hdr": [], "codec": "AVC", "audio": ["DTS-HD"], "source": "Remux" },
+    { "text": "Movie.2023.2160p.UHD.BluRay.x265.HDR10+.TrueHD.7.1.Atmos-GRP", "resolution": 2160, "hdr": ["HDR10+"], "codec": "HEVC", "audio": ["Atmos", "TrueHD"], "source": "BluRay" },
+    { "text": "Film.2019.720p.WEBRip.x264.AAC2.0-GRP", "resolution": 720, "hdr": [], "codec": "AVC", "audio": ["AAC"], "source": "WEBRip" },
+    { "text": "Show.S02E05.1080p.HDTV.H264.AC3", "resolution": 1080, "hdr": [], "codec": "AVC", "audio": ["DD"], "source": "HDTV" },
+    { "text": "Movie 2022 4K HDR HEVC DD+ 5.1", "resolution": 2160, "hdr": ["HDR10"], "codec": "HEVC", "audio": ["DD+"], "source": null },
+    { "text": "Movie.2021.1080p.WEB.h264.EAC3", "resolution": 1080, "hdr": [], "codec": "AVC", "audio": ["DD+"], "source": "WEB" },
+    { "text": "Movie.2020.HDCAM.x264", "resolution": 0, "hdr": [], "codec": "AVC", "audio": [], "source": "CAM" },
+    { "text": "Old.Film.1999.DVDRip.XviD.MP3", "resolution": 0, "hdr": [], "codec": null, "audio": [], "source": "DVD" },
+    { "text": "Show.S01E01.2160p.NF.WEB-DL.DoVi.HLG.AV1.Opus5.1", "resolution": 2160, "hdr": ["DV", "HLG"], "codec": "AV1", "audio": ["Opus"], "source": "WEB-DL" },
+    { "text": "Movie.2018.1080p.BluRay.DTS5.1.x264-GRP", "resolution": 1080, "hdr": [], "codec": "AVC", "audio": ["DTS"], "source": "BluRay" },
+    { "text": "Movie.2018.2160p.BluRay.DTS-X.7.1.HEVC", "resolution": 2160, "hdr": [], "codec": "HEVC", "audio": ["DTS-HD"], "source": "BluRay" },
+    { "text": "Anime.Movie.1080p.BDRip.FLAC2.0.x265", "resolution": 1080, "hdr": [], "codec": "HEVC", "audio": ["FLAC"], "source": "BluRay" },
+    { "text": "Something 2K WEB-DL", "resolution": 1440, "hdr": [], "codec": null, "audio": [], "source": "WEB-DL" },
+    { "text": "Movie (2024) 2160p Dolby Vision HDR10Plus Atmos", "resolution": 2160, "hdr": ["DV", "HDR10+"], "codec": null, "audio": ["Atmos"], "source": null },
+    { "text": "Advice.2020.1080p.WEB.x264", "resolution": 1080, "hdr": [], "codec": "AVC", "audio": [], "source": "WEB" },
+    { "text": "The.Camera.Man.2020.1080p.WEB-DL.DD5.1", "resolution": 1080, "hdr": [], "codec": null, "audio": ["DD"], "source": "WEB-DL" },
+    { "text": "Show.1080i.HDTV.DD5.1.MPEG2", "resolution": 1080, "hdr": [], "codec": null, "audio": ["DD"], "source": "HDTV" },
+    { "text": "Mock 4K\nShow.S01E02.WEB-DL.DDP5.1.Atmos.H.265-GRP\n💾 12.3 GB", "resolution": 2160, "hdr": [], "codec": "HEVC", "audio": ["Atmos", "DD+"], "source": "WEB-DL" }
+  ],
+  "sizes": [
+    { "text": "💾 1.5 GB", "bytes": 1610612736 },
+    { "text": "700 MB", "bytes": 734003200 },
+    { "text": "2,5 GiB", "bytes": 2684354560 },
+    { "text": "4.37 GB", "bytes": 4692251771 },
+    { "text": "no size here", "bytes": null }
+  ],
+  "patterns": [
+    { "pattern": "blu ray", "text": "Movie.Blu.Ray.1080p", "match": true },
+    { "pattern": "blu ray", "text": "Movie.Blu-Ray.1080p", "match": true },
+    { "pattern": "blu ray", "text": "Movie.BluRay.1080p", "match": false },
+    { "pattern": "hc", "text": "Movie.HC.1080p", "match": true },
+    { "pattern": "hc", "text": "hchc", "match": false },
+    { "pattern": "GRP", "text": "Movie.1080p-grp.mkv", "match": true },
+    { "pattern": "x265", "text": "Movie.x2650", "match": false },
+    { "pattern": "dolby vision", "text": "Movie_Dolby_Vision_2160p", "match": true },
+    { "pattern": "caf", "text": "Le.Café.2020", "match": false },
+    { "pattern": "šuma", "text": "Zelena.Šuma.2020", "match": true },
+    { "pattern": "c++", "text": "learn.c++.1080p", "match": true },
+    { "pattern": "/web[ .-]?dl/", "text": "x.WEB-DL.y", "match": true },
+    { "pattern": "/^movie/", "text": "a movie", "match": false },
+    { "pattern": "/(/", "text": "anything (", "match": false },
+    { "pattern": "   ", "text": "anything", "match": false }
+  ],
+  "addresses": [
+    { "pasted": "https://addon.example.org/some%2Fconfig/manifest.json", "address": "https://addon.example.org/some%2Fconfig/manifest.json" },
+    { "pasted": "  https://addon.example.org/abc/manifest.json\n", "address": "https://addon.example.org/abc/manifest.json" },
+    { "pasted": "stremio://addon.example.org/abc/manifest.json", "address": "https://addon.example.org/abc/manifest.json" },
+    { "pasted": "addon.example.org/abc", "address": "https://addon.example.org/abc" },
+    { "pasted": "https://addon.example.org/a\nbc/manifest.json", "address": "https://addon.example.org/abc/manifest.json" },
+    { "pasted": "https://web.stremio.com/#/addons?addon=https%3A%2F%2Faddon.example.org%2Fabc%2Fmanifest.json", "address": "https://addon.example.org/abc/manifest.json" },
+    { "pasted": "http://127.0.0.1:8771/manifest.json", "address": "http://127.0.0.1:8771/manifest.json" },
+    { "pasted": "", "address": "" }
+  ]
+}

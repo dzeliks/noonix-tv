@@ -48,6 +48,48 @@ extension AppModel {
     }
 }
 
+/// the db file didn't open (qml DataError): the core runs on an empty one in memory and keeps
+/// nothing, so this instead of everything else
+struct DataErrorView: View {
+    @Environment(AppModel.self) private var app
+    let error: String
+
+    var body: some View {
+        let u = app.u
+        ZStack {
+            Color.black.ignoresSafeArea()
+            VStack(spacing: 0) {
+                Text(L("Noonix TV can't open its data"))
+                    .font(Theme.display(64 * u, .bold))
+                    .foregroundStyle(Theme.fg)
+                    .multilineTextAlignment(.center)
+                Text(L("Your profiles and settings are still on this device, they just couldn't be read. Close Noonix TV and open it again. If this comes back, the storage may be full or the file damaged."))
+                    .font(Theme.text(28 * u))
+                    .foregroundStyle(Theme.fg2)
+                    .multilineTextAlignment(.center)
+                    .lineSpacing(4 * u)
+                    .frame(maxWidth: 900 * u)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 26 * u)
+                Text(error)
+                    .font(Theme.text(22 * u))
+                    .foregroundStyle(Theme.fg3)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 900 * u)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 22 * u)
+                // ios apps don't quit themselves
+                if Platform.canQuit {
+                    GlassButton(text: L("Close"), primary: true, focused: true, u: u, flat: true, width: 300 * u)
+                        .onTapGesture { Platform.quit() }
+                        .padding(.top, 56 * u)
+                }
+            }
+            .padding(.horizontal, Theme.margin(u))
+        }
+    }
+}
+
 /// a yes / no question over everything (qml Confirm): title, a line on what happens, two buttons.
 /// cancel has the focus, so a stray ok or back is harmless
 @MainActor @Observable
@@ -55,16 +97,18 @@ final class ConfirmModel {
     let title: String
     let detail: String
     let ok: String
+    let cancel: String
     let yes: () -> Void
     /// cancel, back or a tap outside
     let no: (() -> Void)?
     var answered = false
     var choice = 1          // 0 yes, 1 cancel
 
-    init(title: String, detail: String, ok: String, yes: @escaping () -> Void, no: (() -> Void)? = nil) {
+    init(title: String, detail: String, ok: String, cancel: String = L("Cancel"), yes: @escaping () -> Void, no: (() -> Void)? = nil) {
         self.title = title
         self.detail = detail
         self.ok = ok
+        self.cancel = cancel
         self.yes = yes
         self.no = no
     }
@@ -78,7 +122,7 @@ struct ConfirmView: View {
     var body: some View {
         let u = app.u
         // one width for both buttons: the longer label decides
-        let bw = max(300 * u, (CGFloat(max(model.ok.count, L("Cancel").count)) * 15 + 120) * u)
+        let bw = max(300 * u, (CGFloat(max(model.ok.count, model.cancel.count)) * 15 + 120) * u)
         ZStack {
             Rectangle().fill(.ultraThinMaterial).overlay { Color.black.opacity(0.74) }
                 .ignoresSafeArea()
@@ -99,7 +143,7 @@ struct ConfirmView: View {
                         .padding(.top, 26 * u)
                 }
                 HStack(spacing: 28 * u) {
-                    ForEach(Array([model.ok, L("Cancel")].enumerated()), id: \.offset) { i, t in
+                    ForEach(Array([model.ok, model.cancel].enumerated()), id: \.offset) { i, t in
                         GlassButton(text: t, focused: model.choice == i, u: u, flat: true, width: bw)
                             .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.choice = i } }
                             .onTapGesture { i == 0 ? app.confirmYes() : (app.confirm = nil) }

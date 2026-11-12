@@ -94,7 +94,7 @@ const CP1251: &str = "ЂЃ‚ѓ„…†‡€‰Љ‹ЊЌЋЏђ‘’“”•�
 /// themselves are all high bytes (cyrillic)
 fn decode(bytes: &[u8]) -> Option<String> {
     let utf16 = |be: bool| {
-        let units = bytes[2..].chunks_exact(2).map(|p| if be { u16::from_be_bytes([p[0], p[1]]) } else { u16::from_le_bytes([p[0], p[1]]) });
+        let units = bytes[2..].as_chunks::<2>().0.iter().map(|p| if be { u16::from_be_bytes(*p) } else { u16::from_le_bytes(*p) });
         char::decode_utf16(units).map(|c| c.unwrap_or('\u{fffd}')).collect::<String>()
     };
     let text = match bytes {

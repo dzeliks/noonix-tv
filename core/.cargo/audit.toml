@@ -1,0 +1,10 @@
+# advisories looked at and found not to reach this app (cargo audit reads this from core/)
+[advisories]
+ignore = [
+    # ringbuf: a double free when an element's drop panics. librqbit-utp keeps only bytes in it
+    # (SharedRb<Heap<u8>>), and a byte's drop can't panic. no librqbit-utp with ringbuf 0.5 yet
+    "RUSTSEC-2026-0293",
+    # rsa (smb -> sspi -> picky): timing of rsa decryption. shares log in with a user and password
+    # (ntlm), which uses no rsa; no picky release takes the fixed rsa yet
+    "RUSTSEC-2023-0071",
+]

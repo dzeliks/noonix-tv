@@ -18,7 +18,7 @@ case $kind in
     tv-device|tv-ipa) t=aarch64-apple-tvos; dest="generic/platform=tvOS"; sdk=appletvos; plat=AppleTVOS;;
     *) t=aarch64-apple-ios-sim; dest="generic/platform=iOS Simulator"; sdk=iphonesimulator; plat=iPhoneSimulator;;
 esac
-core=core-ios; [[ $tv == 1 ]] && core=core-tvos
+core="core-ios"; [[ $tv == 1 ]] && core="core-tvos"
 export IPHONEOS_DEPLOYMENT_TARGET=26.0 TVOS_DEPLOYMENT_TARGET=26.0
 conf=${CONF:-Release}
 

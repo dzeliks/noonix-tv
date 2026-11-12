@@ -106,7 +106,6 @@ pub mod keys {
 // a copy of the table: secret() is called everywhere, also from sync code
 static SECRETS: Lazy<RwLock<BTreeMap<String, String>>> = Lazy::new(|| RwLock::new(load_secrets()));
 
-/// loads them now: the first read takes the db lock, so it must not happen inside a db call
 /// custom avatars: on ios where the files app reaches (the app's documents), else the data dir
 pub fn avatars() -> PathBuf {
     #[cfg(target_os = "ios")]
@@ -115,6 +114,7 @@ pub fn avatars() -> PathBuf {
     PATHS.data.join("avatars")
 }
 
+/// loads them now: the first read takes the db lock, so it must not happen inside a db call
 pub fn init_secrets() {
     Lazy::force(&SECRETS);
 }

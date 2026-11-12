@@ -229,6 +229,7 @@ struct DetailsView: View {
     @Environment(AppModel.self) private var app
     let model: DetailsModel
     @State private var infoH: CGFloat = 0
+    @State private var identityH: CGFloat = 0
     @State private var heldY: CGFloat?
     @State private var plotSpare: CGFloat = 0
     @State private var actionsW: CGFloat = 0
@@ -256,7 +257,8 @@ struct DetailsView: View {
         let sp = self.sp
         let shows = model.hasSeasons
         let episodesH = 400 * u * 9 / 16 + 150 * u
-        let top = !shows ? H * 0.2 : max(headroom, H - edge - (infoH + underInfo))
+        // a movie: a story taller than the logo side takes its extra from up here (qml Details topRoom)
+        let top = !shows ? max(headroom, H * 0.2 - max(0, infoH - identityH)) : max(headroom, H - edge - (infoH + underInfo))
         let yActions = top + sp + infoH + sp
         let ySeasons = yActions + actionsH + sp
         let yEpisodes = ySeasons + pillsH + sp
@@ -357,7 +359,8 @@ struct DetailsView: View {
         // tight with episodes: as many plot lines as fit above them (two at least)
         let fixedH = (34 + 14 + 26 + 14 + 26 + 14) * u
         let room = H - edge - headroom - underInfo + lend - fixedH
-        let plotLines = !tight ? 7 : !model.hasSeasons ? 4 : max(2, min(7, Int(((room - 28 * u) / (29 * u)).rounded(.down))))
+        let plotLines = !tight ? 7 : !model.hasSeasons ? min(7, 4 + max(0, Int(((H * 0.2 - headroom) / (29 * u)).rounded(.down))))
+            : max(2, min(7, Int(((room - 28 * u) / (29 * u)).rounded(.down))))
         return HStack(alignment: .bottom, spacing: 0) {
             VStack(alignment: .leading, spacing: idSpacing) {
                 LogoBox(url: d?.item.logo, title: d?.item.title ?? model.item.showTitle ?? model.item.title ?? "",
@@ -371,6 +374,7 @@ struct DetailsView: View {
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { metaH = $0 }
             }
             .frame(width: W * 0.44, alignment: .leading)
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { identityH = $0 }
             .padding(.leading, margin)
             Spacer(minLength: 0)
             VStack(alignment: .leading, spacing: 14 * u) {

@@ -35,6 +35,7 @@ final class SetupModel {
     var quality: [String: Any]?
     let speed = SpeedCheckModel()
     @ObservationIgnored private var benchAsked = false
+    @ObservationIgnored private var skipSure = false
     var busy = false
     var code: TraktCodeModel?
     var codeProfile = 0
@@ -335,6 +336,24 @@ final class SetupModel {
     func next(app: AppModel) {
         if name == "profiles", profiles.isEmpty {
             app.addProfile { [weak self] in Task { await self?.refresh() } }
+            return
+        }
+        // on without a reading: say what that risks, once
+        if name == "benchmark", !speed.running, speed.netValue == nil, speed.devValue == nil, !skipSure {
+            app.confirm = ConfirmModel(
+                title: L("Skip the speed check?"),
+                detail: L("Without it Noonix TV can only guess what this connection and this device can play, so some videos may stutter or not play at all. You can set the picture quality yourself any time in Settings › Sources › Picture quality."),
+                ok: L("Skip Anyway"), cancel: L("Run It"),
+                yes: { [weak self, weak app] in
+                    guard let self, let app else { return }
+                    self.skipSure = true
+                    self.next(app: app)
+                },
+                no: { [weak self, weak app] in
+                    guard let self, let app else { return }
+                    self.speed.measured = { [weak self] in Task { self?.quality = await self?.json("quality.options") as? [String: Any] ?? self?.quality } }
+                    self.speed.open(auto: true, app: app)
+                })
             return
         }
         // continuing without a pick keeps the recommended one

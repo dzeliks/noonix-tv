@@ -23,7 +23,7 @@ final class KeyEntryModel {
     init() {
         kb.enterLabel = L("done")
         kb.typed = { [weak self] t in
-            guard let self, text.count < 400 else { return }
+            guard let self, text.count < 4096 else { return }
             text += t
             status = ""
         }
@@ -87,7 +87,7 @@ final class KeyEntryModel {
 
     func typed(_ t: Typed) {
         switch t {
-        case .text(let s): if text.count < 400 { text += s; status = "" }
+        case .text(let s): if text.count < 4096 { text += s; status = "" }
         case .erase: if !text.isEmpty { text.removeLast(); status = "" }
         case .submit: submit()
         }
@@ -154,6 +154,9 @@ struct KeyEntryView: View {
             Text(model.status).font(Theme.text(24 * u, .medium))
                 .foregroundStyle(model.ok ? Color(red: 0x30 / 255, green: 0xD1 / 255, blue: 0x58 / 255) : model.busy ? Theme.fg2 : Color(red: 1, green: 0x9F / 255, blue: 0x0A / 255))
                 .frame(height: 30 * u)
+                // a new line fades in rather than popping (qml Appear)
+                .contentTransition(.opacity)
+                .animation(.easeOut(duration: 0.18), value: model.status)
             if touch {
                 // the phone's keyboard has no done of ours; keys are long, pasting is how they arrive
                 HStack(spacing: 20 * u) {

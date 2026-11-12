@@ -265,7 +265,33 @@ fn local(ip: std::net::IpAddr) -> bool {
     }
 }
 
-const CORS: &str = "Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Headers: Range\r\nAccess-Control-Expose-Headers: Content-Range, Content-Length, Accept-Ranges\r\n";
+fn is_loopback(ip: std::net::IpAddr) -> bool {
+    match ip {
+        std::net::IpAddr::V6(v) => v.is_loopback() || v.to_ipv4_mapped().is_some_and(|m| m.is_loopback()),
+        std::net::IpAddr::V4(v) => v.is_loopback(),
+    }
+}
+
+fn header<'a>(head: &'a str, name: &str) -> Option<&'a str> {
+    head.lines().skip(1).filter_map(|l| l.split_once(':')).find(|(k, _)| k.trim().eq_ignore_ascii_case(name)).map(|(_, v)| v.trim())
+}
+
+/// this device is approved without asking, so a site open in a browser here mustn't get to add
+/// torrents: a cross-site fetch says so itself, a rebound name (evil.example -> 127.0.0.1) shows in
+/// the host. tvs aren't checked: each one is allowed by hand, and old engines send no such headers
+fn from_a_web_page(head: &str) -> bool {
+    if header(head, "sec-fetch-site").is_some_and(|s| s.eq_ignore_ascii_case("cross-site") || s.eq_ignore_ascii_case("same-site")) {
+        return true;
+    }
+    let Some(host) = header(head, "host") else { return false };
+    let name = match host.strip_prefix('[') {
+        Some(v6) => v6.split(']').next().unwrap_or(""),
+        None => host.rsplit_once(':').map_or(host, |(h, p)| if p.bytes().all(|b| b.is_ascii_digit()) { h } else { host }),
+    };
+    !(name.eq_ignore_ascii_case("localhost") || name.parse::<std::net::IpAddr>().is_ok())
+}
+
+const CORS: &str ="Access-Control-Allow-Origin: *\r\nAccess-Control-Allow-Headers: Range\r\nAccess-Control-Expose-Headers: Content-Range, Content-Length, Accept-Ranges\r\n";
 
 async fn reply(sock: &mut TcpStream, status: &str, kind: &str, body: &[u8]) -> Result<()> {
     let h = format!("HTTP/1.1 {status}\r\nContent-Type: {kind}\r\nContent-Length: {}\r\n{CORS}Connection: close\r\n\r\n", body.len());
@@ -297,6 +323,9 @@ async fn serve(mut sock: TcpStream, from: std::net::IpAddr) -> Result<()> {
 
     if method == "OPTIONS" {
         return reply(&mut sock, "204 No Content", "text/plain", b"").await;
+    }
+    if is_loopback(from) && from_a_web_page(&text) {
+        return reply(&mut sock, "403 Forbidden", "text/plain", b"not from a web page").await;
     }
     // a tv the user hasn't allowed gets nothing (the computer asks once)
     if !approved(from, &text).await {
@@ -445,7 +474,19 @@ async fn file_for(hash: &str, idx: i64, trackers: &[String]) -> Result<(Arc<Mana
 
 #[cfg(test)]
 mod tests {
-    use super::local;
+    use super::{from_a_web_page, local};
+
+    #[test]
+    fn web_pages_on_this_device_are_turned_away() {
+        let req = |extra: &str| format!("GET /{}/0 HTTP/1.1\r\n{extra}\r\n", "a".repeat(40));
+        // the app's own player, curl, a tv's engine: no browser headers
+        for ok in ["Host: 127.0.0.1:11470\r\n", "Host: localhost:11470\r\n", "Host: [::1]:11470\r\n", "Host: 192.168.1.4\r\n", "", "Host: 127.0.0.1\r\nSec-Fetch-Site: none\r\n", "Host: localhost\r\nsec-fetch-site: same-origin\r\n"] {
+            assert!(!from_a_web_page(&req(ok)), "{ok:?}");
+        }
+        for bad in ["Host: 127.0.0.1:11470\r\nSec-Fetch-Site: cross-site\r\n", "Host: localhost\r\nSec-Fetch-Site: same-site\r\n", "Host: evil.example:11470\r\n", "host: evil.example\r\n"] {
+            assert!(from_a_web_page(&req(bad)), "{bad:?}");
+        }
+    }
 
     #[test]
     fn only_the_local_network() {

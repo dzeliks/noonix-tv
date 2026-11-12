@@ -70,10 +70,11 @@ void stderrToLogcat()
 
 QScreen *pickScreen()
 {
-    const QString want = qEnvironmentVariable("NOONIX_OUTPUT", QStringLiteral("HDMI-A-1"));
-    for (QScreen *s : QGuiApplication::screens())
-        if (s->name() == want)
-            return s;
+    const QString want = qEnvironmentVariable("NOONIX_OUTPUT");
+    if (!want.isEmpty())
+        for (QScreen *s : QGuiApplication::screens())
+            if (s->name() == want)
+                return s;
     return QGuiApplication::primaryScreen();
 }
 
