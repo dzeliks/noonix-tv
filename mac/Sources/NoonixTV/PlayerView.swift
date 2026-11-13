@@ -888,7 +888,8 @@ struct PlayerView: View {
                 lastTap = nil
                 // the pause comes back as it was, without the symbol's swap: it ran into the window growing
                 if last.side == 1 { osd?.quietIcon(); player.togglePause() }
-                DispatchQueue.main.async { WindowState.shared.toggle() }
+                // a few frames on: the system's full screen zoom is a picture of the window as it is drawn then
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) { WindowState.shared.toggle() }
                 return
             }
             let pauses = osd?.picker == nil && osd?.match == nil && osd?.shown == true
