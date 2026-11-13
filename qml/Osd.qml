@@ -3,7 +3,7 @@ import QtQuick.Effects
 
 // playback controls, tv osc layout on the 1080 grid: logo/title + episode line bottom
 // left, seek bar, times, then a liquid glass row: subtitles + audio left, -10 / play / +10
-// in the middle, next episode + exit right; clock + "ends at" top right; skip pill and the
+// in the middle, volume + fullscreen right; clock + "ends at" top right; skip pill and the
 // next episode card (no countdown, house rule)
 FocusScope {
     id: osd
@@ -15,7 +15,6 @@ FocusScope {
     property string zone: "bar"          // bar | row | skip | tracks
     property int rowIndex: 3
     property string exitArmed: ""        // back once more exits
-    readonly property bool nextButton: nextReady && Player.state !== "ended"
     // the way out is the back button top left for everyone (a remote reaches it going up, its back
     // key arms it). the mouse also gets volume bottom right (refresh matching lives in settings)
     readonly property bool mouse: Theme.mouse
@@ -24,7 +23,10 @@ FocusScope {
     // phones: play and the jumps lead the row on the left, the rest follow
     readonly property bool phone: Desktop.phone
     readonly property var buttons: (phone ? ["rew", "play", "fwd", "subs", "audio", "match"] : ["subs", "audio", "match", "rew", "play", "fwd"])
-        .concat(nextButton ? ["next"] : [], mouse ? ["vol"] : [], fullButton ? ["full"] : [])
+        .concat(mouse ? ["vol"] : [], fullButton ? ["full"] : [])
+    // fullscreen entered here from a window: back leaves that first, the player after
+    property bool fullFromWindow: false
+    function toggleFull() { fullFromWindow = !Remote.fullScreen; Remote.toggleFullScreen() }
     property bool pickerOpen: false          // a track picker covers the left side
     readonly property bool chromeShown: shown || Player.state === "ended"
     // lifted, the line's foot sits a little above the seek bar (77 % on a tv, higher on a phone)
@@ -96,6 +98,7 @@ FocusScope {
             if (Player.state === "playing") osd.show(5)
             // the end: the next episode card takes the focus, ok plays it
             else if (Player.state === "ended") { osd.show(); osd.zone = osd.nextReady ? "skip" : "row" }
+            else if (Player.state === "idle") osd.fullFromWindow = false
         }
     }
 
@@ -203,8 +206,7 @@ FocusScope {
             osd.pickTracks(b === "subs" ? "sub" : "audio", l, r - l)
         }
         else if (b === "match") openMatch()
-        else if (b === "next") { Player.playNext(); return }
-        else if (b === "full") Remote.toggleFullScreen()
+        else if (b === "full") toggleFull()
         else if (b === "vol") Player.setMuted(!Player.muted)
         else if (b === "exit") osd.exit()
         show()
@@ -232,6 +234,7 @@ FocusScope {
         // the menu key: the match sheet, like a card's options while browsing
         if (k === Qt.Key_Menu) { show(); zone = "row"; rowIndex = buttons.indexOf("match"); openMatch(); return }
         if (k === Qt.Key_Escape || k === Qt.Key_Back) {
+            if (fullFromWindow && Remote.fullScreen) { toggleFull(); return }
             if (exitArmed === "exit" || Player.state === "ended") { osd.exit(); return }
             if (shown) { hide(); return }
             // first back with the controls down: land on the back button, a second one leaves
@@ -286,7 +289,7 @@ FocusScope {
                 if (tapCount === 2 && !osd.pickerOpen && !Theme.android) {
                     if (pauseFlip) Player.togglePause()
                     pauseFlip = false
-                    Remote.toggleFullScreen()
+                    osd.toggleFull()
                     osd.show()
                     return
                 }
@@ -493,10 +496,8 @@ FocusScope {
         // runs out of room every button goes without its label (the icons say it)
         TextMetrics { id: subM; font: Qt.font({ family: Theme.display, pixelSize: 27 * osd.u, weight: Font.DemiBold }); text: osd.subLabel }
         TextMetrics { id: audioM; font: subM.font; text: osd.audioLabel }
-        TextMetrics { id: nextM; font: subM.font; text: qsTr("Next Episode") }
         // the right row with its labels (not rightRow itself: its width follows compact)
-        readonly property real rightFull: (osd.nextButton ? nextM.advanceWidth + (64 + 44 + 18) * osd.u : 0)
-                                          + (osd.mouse ? (300 + 18) * osd.u : 0) + (osd.fullButton ? (76 + 18) * osd.u : 0)
+        readonly property real rightFull: (osd.mouse ? (300 + 18) * osd.u : 0) + (osd.fullButton ? (76 + 18) * osd.u : 0)
         readonly property bool compact: Theme.margin + subM.advanceWidth + audioM.advanceWidth + 2 * (64 + 44) * osd.u + 76 * osd.u
                                         + 3 * 18 * osd.u + transport.width + 18 * osd.u > width - Theme.margin - rightFull
         // the row at H-86: glass at rest, white when focused
@@ -564,8 +565,6 @@ FocusScope {
             anchors { right: parent.right; rightMargin: Theme.margin }
             y: parent.height - 86 * osd.u - height / 2
             spacing: 18 * osd.u
-            // short of room the labels go first (the icons say it)
-            RowButton { key: "next"; icon: "next"; text: chrome.compact ? "" : qsTr("Next Episode"); visible: osd.nextButton }
             Volume { visible: osd.mouse; anchors.verticalCenter: parent.verticalCenter }
             RowButton { key: "full"; icon: Remote.fullScreen ? "unfullscreen" : "fullscreen"; visible: osd.fullButton }
         }
