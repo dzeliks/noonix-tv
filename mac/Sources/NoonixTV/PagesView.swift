@@ -260,7 +260,7 @@ struct SearchPage: View {
         let margin = Theme.margin(u)
         let columnW = 575 * u
         let columnX = W - margin - columnW
-        let topY = 150 * u
+        let topY = 150 * u + WindowState.shared.navDrop(u)
         let osk = s.osk
         // touch: the phone's own keyboard types. the layout ends where it starts
         let ime = Theme.touch

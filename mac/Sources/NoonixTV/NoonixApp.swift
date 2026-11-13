@@ -66,18 +66,30 @@ final class WindowState {
         false
         #endif
     }
+    /// how far the top bar sits under its usual 44 to clear those buttons in a small window: what starts
+    /// right under the bar (search's field) moves down as much
+    func navDrop(_ u: CGFloat) -> CGFloat { lights ? max(0, 34 - 7 * u - 44 * u) : 0 }
     /// a top left control's y, below those buttons while they show
     func belowLights(_ y: CGFloat) -> CGFloat { lights ? max(y, 40) : y }
     #if os(macOS)
+    /// full screen entered while something played in a window: back leaves it first, the player after
+    @ObservationIgnored var enteredPlaying = false
     @ObservationIgnored private var watching = false
     func watch() {
         guard !watching else { return }
         watching = true
         fullScreen = NSApp.windows.contains { $0.styleMask.contains(.fullScreen) }
         for n in [NSWindow.didEnterFullScreenNotification, NSWindow.didExitFullScreenNotification] {
-            NotificationCenter.default.addObserver(forName: n, object: nil, queue: .main) { _ in
-                MainActor.assumeIsolated { WindowState.shared.fullScreen = NSApp.keyWindow?.styleMask.contains(.fullScreen) ?? false }
+            NotificationCenter.default.addObserver(forName: n, object: nil, queue: .main) { note in
+                MainActor.assumeIsolated {
+                    let s = WindowState.shared
+                    s.fullScreen = NSApp.keyWindow?.styleMask.contains(.fullScreen) ?? false
+                    s.enteredPlaying = note.name == NSWindow.didEnterFullScreenNotification && AppModel.current?.playing == true
+                }
             }
+        }
+        NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { PlayerCursor.show() }
         }
     }
     func toggle() { (NSApp.keyWindow ?? NSApp.windows.first { $0.styleMask.contains(.titled) })?.toggleFullScreen(nil) }

@@ -181,10 +181,6 @@ enum Input {
     static var pointerHolds: Bool { pointing && pointerLive }
     /// true: this first key after the mouse only brought the selection back
     static func keyed() -> Bool {
-        #if os(macOS)
-        // keys in use: the cursor goes until the mouse moves again
-        NSCursor.setHiddenUntilMouseMoves(true)
-        #endif
         guard PointerMode.shared.on else { return false }
         PointerMode.shared.on = false
         return AppModel.current?.leaveMouse() ?? false
@@ -217,6 +213,7 @@ enum Input {
         }
         monitors.append(NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { e in
             lastMove = Date()
+            PlayerCursor.show()
             if !PointerMode.shared.on { PointerMode.shared.on = true }
             return e
         } as Any)
@@ -502,6 +499,25 @@ enum DevKeys {
         v.cacheDisplay(in: v.bounds, to: rep)
         try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
     }
+    /// the mouse without one (a locked screen takes no real events): move / click / dbl at x,y, window
+    /// points from the top left. posted to the app, so they go the way a real one does from there on
+    @MainActor static func mouse(_ what: String, _ at: String) {
+        let p = at.split(separator: ",").compactMap { Double($0) }
+        guard p.count == 2, let w = NSApp.windows.first(where: { $0.isVisible && $0.contentView != nil }) else { return }
+        let spot = NSPoint(x: p[0], y: w.frame.height - p[1])
+        let post = { (t: NSEvent.EventType, n: Int, after: Double) in
+            DispatchQueue.main.asyncAfter(deadline: .now() + after) {
+                if let e = NSEvent.mouseEvent(with: t, location: spot, modifierFlags: [], timestamp: ProcessInfo.processInfo.systemUptime,
+                                              windowNumber: w.windowNumber, context: nil, eventNumber: 0, clickCount: n, pressure: t == .leftMouseDown ? 1 : 0) {
+                    NSApp.postEvent(e, atStart: false)
+                }
+            }
+        }
+        post(.mouseMoved, 0, 0)
+        guard what != "move" else { return }
+        post(.leftMouseDown, 1, 0.03); post(.leftMouseUp, 1, 0.05)
+        if what == "dbl" { post(.leftMouseDown, 2, 0.2); post(.leftMouseUp, 2, 0.22) }
+    }
     #else
     /// the simulator is shot from outside (simctl io)
     @MainActor static func shot(_ path: String) {}
@@ -534,6 +550,10 @@ enum DevKeys {
                             else if line == "erase" { _ = typed(.erase) }
                             else if line == "submit" { _ = typed(.submit) }
                             else if line.hasPrefix("shot:") { shot(String(line.dropFirst(5))) }
+                            #if os(macOS)
+                            for what in ["move", "click", "dbl"] where line.hasPrefix(what + ":") { mouse(what, String(line.dropFirst(what.count + 1))) }
+                            if line.hasPrefix("cursor:") { try? (PlayerCursor.hidden ? "hidden" : "shown").write(toFile: String(line.dropFirst(7)), atomically: true, encoding: .utf8) }
+                            #endif
 
                         }
                     }

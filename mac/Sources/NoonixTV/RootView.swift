@@ -221,7 +221,7 @@ struct TopNav: View {
         let u = app.u
         let margin = Theme.margin(u)
         // a small window: the avatar clears the window's own buttons
-        let top = WindowState.shared.lights ? max(44 * u, 34 - 7 * u) : 44 * u
+        let top = 44 * u + WindowState.shared.navDrop(u)
         ZStack(alignment: .top) {
             HStack {
                 if let p = app.currentProfile {

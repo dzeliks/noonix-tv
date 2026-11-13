@@ -87,7 +87,7 @@ final class Osd {
     static weak var shared: Osd?
 
     enum Zone { case bar, row, skip, back }
-    enum Button: String { case subs, audio, match, rew, play, fwd, next, vol, full }
+    enum Button: String { case subs, audio, match, rew, play, fwd, vol, full }
     /// the way out is the back button top left for everyone (keys reach it going up, back arms it).
     /// the mouse also gets volume bottom right (refresh matching lives in settings)
     var mouse: Bool { Theme.mouse }
@@ -96,7 +96,6 @@ final class Osd {
     var buttons: [Button] {
         // phones: play and the jumps lead the row on the left, the rest follow
         (Platform.phone ? [.rew, .play, .fwd, .subs, .audio, .match] : [.subs, .audio, .match, .rew, .play, .fwd])
-            + (player.next != nil && player.state != .ended ? [.next] : [])
             + (mouse ? [.vol] : []) + (fullButton ? [.full] : [])
     }
     /// "how's this one?" and the subtitle timing, over the left of the row
@@ -423,6 +422,13 @@ final class Osd {
         player.seek(to: seg.kind == "outro" ? max(0, player.duration - 1) : seg.end)
     }
 
+    /// play / pause changes its symbol at once for a moment (a double click taking its pause back)
+    private(set) var iconQuiet = false
+    func quietIcon() {
+        iconQuiet = true
+        Task { try? await Task.sleep(for: .milliseconds(900)); iconQuiet = false }
+    }
+
     /// any picker down (a click beside it, another control)
     func closePickers() { picker = nil; match = nil; show() }
 
@@ -438,7 +444,6 @@ final class Osd {
         case .play: player.togglePause()
         case .fwd: player.seek(by: 10)
         case .match: openMatch()
-        case .next: app?.playNext(); return
         case .vol: player.setMuted(!player.muted)
         case .full:
             #if os(macOS)
@@ -518,6 +523,10 @@ final class Osd {
             return true
         }
         if k == .back {
+            #if os(macOS)
+            // full screen entered while this played in a window: back is the way out of that first
+            if WindowState.shared.enteredPlaying, WindowState.shared.fullScreen { WindowState.shared.toggle(); return true }
+            #endif
             if exitArmed || player.state == .ended { app?.stopPlayback(); return true }
             if shown { hideNow(); return true }
             // first back with the controls down: land on the back button, a second one leaves
@@ -877,8 +886,9 @@ struct PlayerView: View {
             // with a count: 2 gesture: swiftui then holds every click, the buttons' too, until a second can't come
             if let last = lastTap, Date().timeIntervalSince(last.at) < NSEvent.doubleClickInterval {
                 lastTap = nil
-                if last.side == 1 { player.togglePause() }
-                NSApp.keyWindow?.toggleFullScreen(nil)
+                // the pause comes back as it was, without the symbol's swap: it ran into the window growing
+                if last.side == 1 { osd?.quietIcon(); player.togglePause() }
+                DispatchQueue.main.async { WindowState.shared.toggle() }
                 return
             }
             let pauses = osd?.picker == nil && osd?.match == nil && osd?.shown == true
@@ -905,11 +915,33 @@ struct PlayerView: View {
         }
         .onChange(of: (osd?.shown ?? true) || player.state == .ended, initial: true) { _, up in player.setSubtitleLift(up) }
         #if os(macOS)
-        // the cursor goes with the controls, until the mouse moves again
-        .onHover { inside in NSCursor.setHiddenUntilMouseMoves(inside && !(osd?.shown ?? true)) }
-        .onChange(of: osd?.shown ?? true) { _, up in if !up { NSCursor.setHiddenUntilMouseMoves(true) } }
+        // the cursor goes with the controls, and is back the moment the mouse moves (Input)
+        .onChange(of: osd?.shown ?? true) { _, up in if up { PlayerCursor.show() } else { PlayerCursor.hide() } }
+        .onDisappear { PlayerCursor.show() }
         #endif
     }
+}
+
+/// the player's cursor. hide and unhide are counted by the system, so they're paired here; set-hidden-until-
+/// the-mouse-moves didn't hold (the controls going took it back)
+@MainActor enum PlayerCursor {
+    #if os(macOS)
+    private(set) static var hidden = false
+    /// only over our own window, and only while it's the one in front
+    static func hide() {
+        guard !hidden, NSApp.isActive, let w = NSApp.keyWindow, w.frame.contains(NSEvent.mouseLocation) else { return }
+        hidden = true
+        NSCursor.hide()
+    }
+    static func show() {
+        guard hidden else { return }
+        hidden = false
+        NSCursor.unhide()
+    }
+    #else
+    static func hide() {}
+    static func show() {}
+    #endif
 }
 
 struct OsdView: View {
@@ -1040,9 +1072,6 @@ struct OsdView: View {
                         }
                     Spacer(minLength: 0)
                     HStack(spacing: 18 * u) {
-                        if osd.buttons.contains(.next) {
-                            rowButton(.next, text: L("Next Episode"), icon: "forward.end.fill", focused: focusOf(.next))
-                        }
                         if osd.buttons.contains(.vol) {
                             VolumeControl(osd: osd, u: u)
                         }
@@ -1105,7 +1134,7 @@ private struct TransportKey: View {
         let d = (small ? (b == .play ? 64 : 58) : (b == .play ? 84 : 76)) * u
         Image(systemName: b == .play ? (osd.player.paused ? "play.fill" : "pause.fill") : b == .rew ? "arrow.counterclockwise" : "arrow.clockwise")
             .font(.system(size: (b == .play ? 34 : 28) * (small ? 0.76 : 1) * u, weight: .semibold))
-            .contentTransition(.symbolEffect(.replace, options: .speed(2.5)))
+            .contentTransition(osd.iconQuiet ? .identity : .symbolEffect(.replace, options: .speed(2.5)))
             .foregroundStyle(foc ? Theme.focusFg : Theme.fg)
             .frame(width: d, height: d)
             .background { Circle().fill(foc ? Color.white : .clear).scaleEffect(foc ? 1.1 : 1) }
