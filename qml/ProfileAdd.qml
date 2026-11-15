@@ -157,7 +157,9 @@ FocusScope {
                 width: 72 * pa.u; height: looks.height
                 Avatar {
                     visible: modelData !== "+"
+                    // no pixel snapping: the ring round it is centred the same way (windows' sizes are fractional)
                     anchors.centerIn: parent
+                    anchors.alignWhenCentered: false
                     size: 64 * pa.u
                     colour: index < pa.colours.length ? modelData : pa.lastColour
                     image: index < pa.colours.length || modelData === "+" ? "" : modelData
@@ -169,6 +171,7 @@ FocusScope {
                 Rectangle {
                     visible: modelData === "+"
                     anchors.centerIn: parent
+                    anchors.alignWhenCentered: false
                     width: 64 * pa.u; height: width; radius: width / 2
                     color: Qt.rgba(1, 1, 1, 0.12)
                     scale: parent.foc || parent.pointed ? 1.14 : 1
@@ -182,6 +185,7 @@ FocusScope {
                 }
                 Rectangle {
                     anchors.centerIn: parent
+                    anchors.alignWhenCentered: false
                     width: 80 * pa.u; height: width; radius: width / 2
                     color: "transparent"
                     border.width: 4 * pa.u
