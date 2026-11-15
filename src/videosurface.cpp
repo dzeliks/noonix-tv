@@ -511,13 +511,16 @@ void VideoSurface::renderLoop()
                 break;
             want = m_pending;
         }
+        // paused, mpv brings no new frame: the old size would stay (cut, or a corner of the window)
+        bool resized = false;
         if (!want.isEmpty() && want != size) {
             size = want;
             wl_egl_window_resize(native, size.width(), size.height(), 0, 0);
+            resized = m_frameSeen;
         }
         const uint64_t flags = mpv_render_context_update(rc);
         const bool forced = m_grabNow.exchange(false);
-        if ((flags & MPV_RENDER_UPDATE_FRAME) || forced) {
+        if ((flags & MPV_RENDER_UPDATE_FRAME) || forced || resized) {
             mpv_opengl_fbo fbo{0, size.width(), size.height(), 0};
             int flip = 1;
             mpv_render_param rp[] = {

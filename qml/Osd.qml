@@ -59,7 +59,11 @@ FocusScope {
     // the next episode card: the outro, or the last 50 s when the outro starts later (or isn't known)
     readonly property bool nearEnd: Player.duration > 300 && pos >= Player.duration - 50
     readonly property bool nextUp: nextReady && (Player.state === "ended" || nearEnd || (!!segment && segment.kind === "outro"))
-    readonly property bool pillShown: (!!segment && Player.state === "playing") || nextUp
+    // the pill's own segment (or the next card): used once, it fades and stays away until another one
+    readonly property string pillKey: nextUp ? "next" : segment ? segment.kind + segment.start : ""
+    property string pillUsed: ""
+    onPillKeyChanged: if (pillKey !== pillUsed) pillUsed = ""
+    readonly property bool pillShown: ((!!segment && Player.state === "playing") || nextUp) && pillKey !== pillUsed
     signal exit()
     signal pickTracks(string kind, real x, real w)
     // the match sheet, above the row like the track picker
@@ -186,6 +190,8 @@ FocusScope {
     Timer { id: bubbleTimer; interval: 1200; onTriggered: { osd.bubble = ""; osd.holdDir = 0 } }
 
     function skipAction() {
+        pillUsed = pillKey
+        if (zone === "skip") zone = "bar"
         if (nextUp) { Player.playNext(); return }
         if (segment) Player.seekTo(segment.kind === "outro" ? Math.max(0, dur - 1) : segment.end)
     }
@@ -612,7 +618,8 @@ FocusScope {
         }
         Item {
             id: track
-            anchors { left: spk.right; leftMargin: 6 * osd.u; right: parent.right; rightMargin: 30 * osd.u; verticalCenter: parent.verticalCenter }
+            // its right end on the centre of the capsule's round end
+            anchors { left: spk.right; leftMargin: -2 * osd.u; right: parent.right; rightMargin: 38 * osd.u; verticalCenter: parent.verticalCenter }
             height: 8 * osd.u
             readonly property real frac: Player.muted ? 0 : Math.max(0, Math.min(1, Player.volume / 100))
             Rectangle { anchors.fill: parent; radius: height / 2; color: Qt.rgba(1, 1, 1, 0.25) }
@@ -627,10 +634,11 @@ FocusScope {
             }
             MouseArea {
                 id: volMa
-                anchors { fill: parent; topMargin: -30 * osd.u; bottomMargin: -30 * osd.u; leftMargin: -10 * osd.u; rightMargin: -10 * osd.u }
+                // no further left than the speaker's circle: its click is mute
+                anchors { fill: parent; topMargin: -30 * osd.u; bottomMargin: -30 * osd.u; leftMargin: -2 * osd.u; rightMargin: -10 * osd.u }
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                function set(x) { Player.setVolume(Math.round(Math.max(0, Math.min(1, (x - 10 * osd.u) / track.width)) * 100)); osd.show() }
+                function set(x) { Player.setVolume(Math.round(Math.max(0, Math.min(1, (x - 2 * osd.u) / track.width)) * 100)); osd.show() }
                 onPressed: function (m) { set(m.x) }
                 onPositionChanged: function (m) { if (pressed) set(m.x); else if (Input.pointerLive()) osd.show() }
             }
@@ -647,14 +655,25 @@ FocusScope {
     // ---- skip pill / next episode (shown without the controls too)
     Item {
         id: pill
-        readonly property bool next: osd.nextUp
+        // what it shows stays while it fades out (the seek ends the segment at once)
+        property bool next: false
+        property string label: ""
+        Binding on next { when: osd.pillShown; value: osd.nextUp; restoreMode: Binding.RestoreNone }
+        Binding on label {
+            when: osd.pillShown && !!osd.segment; restoreMode: Binding.RestoreNone
+            value: !osd.segment ? "" : osd.segment.kind === "intro" ? qsTr("Skip Intro") : osd.segment.kind === "recap" ? qsTr("Skip Recap") : qsTr("Skip Credits")
+        }
         // alone on screen it's the white one; with the controls up, the mouse lights it by being on it
-        readonly property bool foc: !osd.shown || (Theme.pointing ? Theme.hover(pillPt) : osd.zone === "skip")
+        property bool foc: true
+        Binding on foc { when: osd.pillShown; value: !osd.shown || (Theme.pointing ? Theme.hover(pillPt) : osd.zone === "skip"); restoreMode: Binding.RestoreNone }
         anchors { right: parent.right; rightMargin: Theme.margin }
         y: parent.height - (osd.shown ? 300 : 150) * osd.u - height
         Behavior on y { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
         width: next ? 340 * osd.u : pillText.implicitWidth + 80 * osd.u
         height: next ? (340 - 24) * osd.u * 9 / 16 + 88 * osd.u : 84 * osd.u
+        // on screen, a new label or the next card grows into place; coming in, it's already its size
+        Behavior on width { enabled: pill.visible; NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
+        Behavior on height { enabled: pill.visible; NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
         opacity: osd.pillShown ? 1 : 0
         visible: opacity > 0
         Behavior on opacity { NumberAnimation { duration: 300 } }
@@ -709,8 +728,7 @@ FocusScope {
             id: pillText
             visible: !pill.next
             anchors.centerIn: parent
-            text: !osd.segment ? "" : osd.segment.kind === "intro" ? qsTr("Skip Intro")
-                : osd.segment.kind === "recap" ? qsTr("Skip Recap") : qsTr("Skip Credits")
+            text: pill.label
             color: pill.foc ? Theme.focusFg : Theme.fg
             font { family: Theme.display; pixelSize: 29 * osd.u; weight: Font.DemiBold }
         }

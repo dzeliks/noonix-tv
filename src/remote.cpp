@@ -479,8 +479,15 @@ void Remote::toggleFullScreen()
     m_window->setMinimumSize(QSize(960, 540));
     m_window->showNormal();
     // a window as big as the screen isn't one you can see as a window
-    if (m_window->width() * 10 >= screen.width() * 9 && m_window->height() * 10 >= screen.height() * 9)
-        m_window->setGeometry(r);
+    if (m_window->width() * 10 < screen.width() * 9 || m_window->height() * 10 < screen.height() * 9)
+        return;
+    m_window->setGeometry(r);
+    // wayland: the compositor answers leaving full screen with its own size (the whole work area
+    // for a window that started full screen): the size again once it's a window
+    QTimer::singleShot(150, m_window, [w = m_window, s = r.size()] {
+        if (w && w->visibility() == QWindow::Windowed)
+            w->resize(s);
+    });
 }
 
 void Remote::Raise()

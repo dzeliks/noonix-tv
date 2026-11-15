@@ -411,12 +411,27 @@ final class Osd {
     }
     /// kept, not worked out by its readers: they'd follow the position with the controls down
     private(set) var pillShown = false
+    /// the pill's own segment (or the next card): used once, it fades and stays away until another one
+    @ObservationIgnored private var pillUsed: String?
+    private var pillKey: String? { nextUp ? "next" : segment.map { "\($0.kind)\($0.start)" } }
     func pillCheck() {
-        let on = (segment != nil && player.state == .playing) || nextUp
+        let key = pillKey
+        if pillUsed != nil && key != pillUsed { pillUsed = nil }
+        let on = ((segment != nil && player.state == .playing) || nextUp) && (key == nil || key != pillUsed)
+        if on {
+            // what it shows stays while it fades out (the seek ends the segment at once)
+            let label = segment.map { $0.kind == "intro" ? L("Skip Intro") : $0.kind == "recap" ? L("Skip Recap") : L("Skip Credits") } ?? pillLabel
+            if label != pillLabel { pillLabel = label }
+            if nextUp != pillNext { pillNext = nextUp }
+        }
         if on != pillShown { pillShown = on }
     }
+    private(set) var pillLabel = ""
+    private(set) var pillNext = false
 
     func skipAction() {
+        pillUsed = pillKey
+        pillCheck()
         if nextUp { app?.playNext(); return }
         guard let seg = segment else { return }
         player.seek(to: seg.kind == "outro" ? max(0, player.duration - 1) : seg.end)
@@ -1177,10 +1192,10 @@ struct SkipPill: View {
 
     var body: some View {
         let p = osd.player
-        let next = osd.nextUp
+        let next = osd.pillNext
         // alone on screen it's the white one; with the controls up, the mouse lights it by being on it
         let foc = !osd.shown || (Input.pointing ? Theme.mouse && osd.hoverPill : osd.zone == .skip)
-        let label = osd.segment.map { $0.kind == "intro" ? L("Skip Intro") : $0.kind == "recap" ? L("Skip Recap") : L("Skip Credits") } ?? ""
+        let label = osd.pillLabel
         let cardW = 340 * u
         ZStack {
             if next, let n = p.next {
@@ -1212,6 +1227,9 @@ struct SkipPill: View {
         }
         .shadow(color: .black.opacity(foc ? 0.55 : 0.28), radius: 22 * u, y: 16 * u)
         .animation(.easeOut(duration: 0.14), value: foc)
+        // a new label or the next card grows into place
+        .animation(.easeOut(duration: 0.26), value: label)
+        .animation(.easeOut(duration: 0.26), value: next)
         .contentShape(.rect)
         .hover { osd.hoverPill = $0 }
         .onTapGesture { osd.skipAction() }
@@ -1395,7 +1413,7 @@ private struct VolumeControl: View {
         let frac = p.muted ? 0 : max(0, min(1, p.volume / 100))
         let speaker = onSpeaker && Theme.mouse
         let live = (onTrack && Theme.mouse) || dragging
-        HStack(spacing: 6 * u) {
+        HStack(spacing: -2 * u) {
             Image(systemName: p.muted || p.volume <= 0 ? "speaker.slash.fill" : "speaker.wave.2.fill")
                 .font(.system(size: 26 * u, weight: .semibold))
                 .foregroundStyle(speaker ? Theme.focusFg : Theme.fg)
@@ -1425,7 +1443,8 @@ private struct VolumeControl: View {
                     .onEnded { _ in dragging = false })
                 #endif
             }
-            .padding(.trailing, 30 * u)
+            // its right end on the centre of the capsule's round end
+            .padding(.trailing, 38 * u)
         }
         .frame(width: 300 * u, height: 76 * u)
         .glassEffect(.regular.tint(.white.opacity(0.06)), in: .capsule)
