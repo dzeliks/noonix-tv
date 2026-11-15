@@ -47,8 +47,10 @@ VIAddVersionKey "LegalCopyright" "GPL-3.0-or-later"
 Section
     SetShellVarContext current
     SetOutPath "$INSTDIR"
-    ; an older version's files go first: nothing stale stays behind
+    ; an older version's files go first: nothing stale stays behind. rd with \\?\ for the old
+    ; services' node_modules: their paths pass windows' 260 characters, which RMDir stops at
     RMDir /r "$INSTDIR\qml"
+    nsExec::Exec 'cmd /c rd /s /q "\\?\$INSTDIR\services"'
     RMDir /r "$INSTDIR\services"
     File /r "${SRC}\*"
     WriteUninstaller "$INSTDIR\uninstall.exe"
@@ -70,10 +72,14 @@ SectionEnd
 
 Section "Uninstall"
     SetShellVarContext current
+    ; still open: its files are locked and would stay behind
+    nsExec::Exec 'taskkill /F /T /IM ${EXE}'
+    Sleep 800
     ; what the app set up for itself: open at login and the daily keepalive task
     DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "${NAME}"
     nsExec::Exec 'schtasks /Delete /TN "Noonix TV keepalive" /F'
     Delete "$SMPROGRAMS\${NAME}.lnk"
+    nsExec::Exec 'cmd /c rd /s /q "\\?\$INSTDIR\services"'
     RMDir /r "$INSTDIR"
     DeleteRegKey HKCU "${UNINST}"
 SectionEnd

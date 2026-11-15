@@ -94,7 +94,7 @@ struct ProfilePicker: View {
                     }
                     .frame(width: 240 * u)
                     .contentShape(.rect)
-                    .onContinuousHover { phase in if case .active = phase, Input.pointerLive, !editing { model.onAuto = false; model.index = i } }
+                    .onContinuousHover { phase in if case .active = phase, Input.hoverLive, !editing { if model.onAuto { model.onAuto = false }; if model.index != i { model.index = i } } }
                     .onTapGesture { model.activate(i, app: app) }
                     #if os(iOS)
                     .simultaneousGesture(DragGesture(minimumDistance: 0).updating($downAt) { _, d, _ in d = i })
@@ -115,7 +115,7 @@ struct ProfilePicker: View {
                     .frame(width: 800 * u)
                     .fixedSize(horizontal: false, vertical: true)
                     .alignmentGuide(.bottom) { $0[.top] - (app.short ? 24 : 64) * u }
-                    .onContinuousHover { phase in if case .active = phase, Input.pointerLive, !editing { model.onAuto = true } }
+                    .onContinuousHover { phase in if case .active = phase, Input.hoverLive, !editing { if !model.onAuto { model.onAuto = true } } }
                     .onTapGesture { app.setAutoLogin(!app.autoLogin) }
             }
         }
@@ -448,7 +448,7 @@ struct TraktChoiceView: View {
                     ForEach(Array(model.lines.enumerated()), id: \.offset) { i, l in
                         SettingsRow(line: l, focused: model.index == i, u: u, grow: 1)
                             .opacity(model.busy ? 0.5 : 1)
-                            .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.index = i } }
+                            .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.index != i { model.index = i } } }
                             .onTapGesture { model.index = i; model.pick(i, app: app) }
                     }
                 }
@@ -477,6 +477,8 @@ struct TraktCodeView: View {
                     .padding(.bottom, 6 * u)
                 Text(model.userCode ?? "· · · ·")
                     .font(Theme.rounded(96 * u, .bold)).tracking(10 * u)
+                    // tracking trails the last letter too: the same in front keeps it centred
+                    .padding(.leading, 10 * u)
                     .foregroundStyle(Theme.fg)
                     .selectable()
                 Spinner(size: 44 * u)

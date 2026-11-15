@@ -40,6 +40,8 @@ struct KeyHint: View {
                 Text(app.inputKind == "remote" ? Self.remote[key] ?? key : Self.keys[key] ?? key)
                     .font(Theme.display(24 * u, .bold)).tracking(0.8 * u)
                     .foregroundStyle(Color.white.opacity(0.85))
+                    // tracking also trails the last letter: the same in front keeps it in the middle
+                    .padding(.leading, 0.8 * u)
                     .padding(.horizontal, 14 * u)
                     .frame(height: 46 * u)
                     .overlay { RoundedRectangle(cornerRadius: 11 * u).stroke(line, lineWidth: 1.6 * u) }

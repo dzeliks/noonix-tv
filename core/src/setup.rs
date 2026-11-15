@@ -21,14 +21,32 @@ pub async fn set_languages(languages: Vec<String>, subtitles: Vec<String>) -> Re
     Ok(())
 }
 
-/// balkan mode on or off for the whole install: every profile, and new ones start with it
-pub async fn set_balkan(on: bool) -> Result<()> {
+/// balkan first, english second, then the rest: an install set up in serbian
+fn serbian_first(subs: &[String]) -> Vec<String> {
+    let mut out = vec!["balkan".to_owned(), "en".to_owned()];
+    out.extend(subs.iter().filter(|l| *l != "balkan" && *l != "en" && !crate::ranking::BALKAN.contains(&l.as_str())).cloned());
+    out
+}
+
+/// balkan mode on or off for the whole install: every profile, and new ones start with it.
+/// first (setup in serbian): balkan mode leads the subtitles, english after it
+pub async fn set_balkan(on: bool, first: bool) -> Result<()> {
     let profiles = store::with(store::profiles).await?;
     store::with(move |c| store::set_setting(c, "app", "balkan_subs", &json!(on))).await?;
+    if on && first {
+        let d = store::with(|c| store::get_setting(c, "app", "default_langs")).await?;
+        let langs = d.as_ref().and_then(|d| serde_json::from_value::<Vec<String>>(d["languages"].clone()).ok());
+        let subs = d.as_ref().and_then(|d| serde_json::from_value::<Vec<String>>(d["subtitles"].clone()).ok()).unwrap_or_default();
+        let langs = langs.unwrap_or_else(|| crate::ranking::Prefs::default().languages);
+        let d = json!({ "languages": langs, "subtitles": serbian_first(&subs) });
+        store::with(move |c| store::set_setting(c, "app", "default_langs", &d)).await?;
+    }
     for p in profiles {
         let mut prefs = crate::addons::prefs(p.id).await;
         let has = prefs.subtitles.iter().any(|l| l == "balkan" || crate::ranking::BALKAN.contains(&l.as_str()));
-        if on && !has {
+        if on && first {
+            prefs.subtitles = serbian_first(&prefs.subtitles);
+        } else if on && !has {
             prefs.subtitles.push("balkan".into());
         } else if !on && has {
             prefs.subtitles.retain(|l| l != "balkan" && !crate::ranking::BALKAN.contains(&l.as_str()));
@@ -195,5 +213,15 @@ pub async fn set_credential(key: &str, value: &Value) -> Result<Value> {
             config::set_secrets(&before).context("couldn't restore the old key")?;
             Ok(json!({ "ok": false, "message": format!("{e:#}") }))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn serbian_puts_balkan_then_english() {
+        let v = |l: &[&str]| l.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert_eq!(super::serbian_first(&v(&["en"])), v(&["balkan", "en"]));
+        assert_eq!(super::serbian_first(&v(&["de", "en", "balkan", "hr"])), v(&["balkan", "en", "de"]));
     }
 }

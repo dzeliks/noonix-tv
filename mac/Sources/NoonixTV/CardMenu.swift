@@ -176,7 +176,7 @@ struct CardMenuView: View {
                         .frame(maxWidth: .infinity, minHeight: (o.1 == .dismiss ? 108 : 84) * u, alignment: .leading)
                         .background { RoundedRectangle(cornerRadius: 24 * u).fill(foc ? Color.white : .clear) }
                         .contentShape(.rect)
-                        .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.index = i } }
+                        .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.index != i { model.index = i } } }
                         .onTapGesture { model.run(o.1, app: app) }
                 }
             }

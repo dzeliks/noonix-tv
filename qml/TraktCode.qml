@@ -85,6 +85,8 @@ FocusScope {
             Item { width: 1; height: 6 * tc.u }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
+                // the spacing trails the last letter too
+                anchors.horizontalCenterOffset: font.letterSpacing / 2
                 text: tc.code ? tc.code.user_code : "· · · ·"
                 color: Theme.fg
                 font { family: Theme.rounded; pixelSize: 96 * tc.u; weight: Font.Bold; letterSpacing: 10 * tc.u }

@@ -229,7 +229,7 @@ struct SourcesView: View {
                     AddonChip(addon: a, count: model.count(a), spin: model.addons.count > 1, on: model.only == a.name && model.addons.count > 1,
                               focused: model.zone == .chips && model.chip == i && (!PointerMode.shared.on || model.hoverChip == i), u: u)
                         .onContinuousHover { phase in
-                            if case .active = phase, Input.pointerLive { model.zone = .chips; model.chip = i; model.hoverChip = i }
+                            if case .active = phase, Input.hoverLive { if model.zone != .chips { model.zone = .chips }; if model.chip != i { model.chip = i }; if model.hoverChip != i { model.hoverChip = i } }
                             else if case .ended = phase, model.hoverChip == i { model.hoverChip = nil }
                         }
                         .onTapGesture { model.toggleChip(i) }
@@ -248,7 +248,7 @@ struct SourcesView: View {
                 .font(Theme.text(23 * u, .semibold)).foregroundStyle(Theme.fg2).lineLimit(1)
             Spacer()
             GlassButton(text: L("Torrents?"), focused: model.zone == .torrents, u: u, height: 60 * u, flat: true)
-                .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.zone = .torrents } }
+                .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.zone != .torrents { model.zone = .torrents } } }
                 .onTapGesture { model.zone = .torrents; model.askTorrentsNow(app: app) }
         }
         .frame(height: 64 * u)
@@ -261,7 +261,7 @@ struct SourcesView: View {
                 .font(Theme.text(23 * u, .semibold)).foregroundStyle(Theme.cached).lineLimit(1)
             Spacer()
             GlassButton(text: L("Advanced"), focused: model.zone == .advanced, u: u, height: 60 * u, flat: true)
-                .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.zone = .advanced } }
+                .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.zone != .advanced { model.zone = .advanced } } }
                 .onTapGesture { model.zone = .advanced; model.toggleTemplate() }
         }
         .frame(height: 64 * u)
@@ -286,7 +286,7 @@ struct SourcesView: View {
             if !Platform.tv {
                 GlassButton(text: model.copied ? L("Copied") : L("Copy"), icon: "doc.on.doc", focused: model.zone == .copy, u: u, height: 56 * u, flat: true)
                     .padding(18 * u)
-                    .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.zone = .copy } }
+                    .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.zone != .copy { model.zone = .copy } } }
                     .onTapGesture { model.zone = .copy; model.copyTemplate() }
             }
         }
@@ -310,7 +310,7 @@ struct SourcesView: View {
                         SourceRow(s: s, focused: model.zone == .list && model.index == i, u: u)
                             .contentShape(.rect)
                             .onContinuousHover { phase in
-                                if case .active = phase, Input.pointerLive { model.zone = .list; model.index = i }
+                                if case .active = phase, Input.hoverLive { if model.zone != .list { model.zone = .list }; if model.index != i { model.index = i } }
                             }
                             .onTapGesture {
                                 if let pick = model.pick(i) { app.sources = nil; app.play(model.target, stream: pick) }
@@ -501,6 +501,7 @@ struct Badge: View {
         Text(text)
             .font(Theme.text(19 * u, .bold))
             .tracking(0.4 * u)
+            .padding(.leading, 0.4 * u)
             .foregroundStyle(strong ? (onLight ? .white : Theme.focusFg) : (onLight ? Theme.focusFg : Theme.fg))
             .padding(.horizontal, 9 * u)
             .frame(height: 34 * u)

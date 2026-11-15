@@ -188,7 +188,7 @@ struct FolderPickerView: View {
                             ForEach(Array(lines.enumerated()), id: \.offset) { i, l in
                                 SettingsRow(line: l, focused: model.index == i, u: u, grow: 1)
                                     .opacity(model.busy ? 0.5 : 1)
-                                    .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.index = i } }
+                                    .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.index != i { model.index = i } } }
                                     .onTapGesture { model.index = i; model.run(l, app: app) }
                                     .id(i)
                             }

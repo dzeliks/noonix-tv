@@ -140,27 +140,32 @@ FocusScope {
         y: splash.by + 156 * splash.k
         opacity: splash.intro ? 0 : 1
         width: splash.iconSize; height: width
+        // the rise is an offset: the window may still be growing to full screen as it starts (windows)
         Item {
-            id: zoom
-            anchors.fill: parent
+            id: lift
+            width: parent.width; height: parent.height
             Item {
-                width: 1024; height: 1024
-                scale: logo.width / 1024
-                transformOrigin: Item.TopLeft
-                Part { file: "plate"; box: Qt.rect(0, 0, 1024, 1024) }
-                Antenna { id: antL; file: "antenna-left" }
-                // mirrored, same beat: they spread apart, swing back together and settle
-                Antenna { id: antR; file: "antenna-right"; amp: -1 }
-                Part { file: "head"; box: Qt.rect(232, 300, 560, 544) }
-                // each eye closes into itself, then opens again as a happy arc in the same spot
-                Part { id: eyeL; file: "eye-left"; box: Qt.rect(376, 544, 88, 112) }
-                Part { id: eyeR; file: "eye-right"; box: Qt.rect(560, 544, 88, 112) }
-                Part { id: happyL; file: "eye-happy-left"; box: Qt.rect(376, 544, 88, 112); opacity: 0 }
-                Part { id: happyR; file: "eye-happy-right"; box: Qt.rect(560, 544, 88, 112); opacity: 0 }
-                Part { file: "features"; box: Qt.rect(280, 640, 464, 96) }
-                Part { id: mouth; file: "mouth"; box: Qt.rect(456, 688, 112, 48) }
-                Part { id: smile; file: "smile"; box: Qt.rect(432, 680, 160, 112); opacity: 0; transformOrigin: Item.Top }
-                Part { id: blush; file: "blush"; box: Qt.rect(334, 662, 356, 56); opacity: 0.5625 }   // 0.45 of the svg's 0.8
+                id: zoom
+                anchors.fill: parent
+                Item {
+                    width: 1024; height: 1024
+                    scale: logo.width / 1024
+                    transformOrigin: Item.TopLeft
+                    Part { file: "plate"; box: Qt.rect(0, 0, 1024, 1024) }
+                    Antenna { id: antL; file: "antenna-left" }
+                    // mirrored, same beat: they spread apart, swing back together and settle
+                    Antenna { id: antR; file: "antenna-right"; amp: -1 }
+                    Part { file: "head"; box: Qt.rect(232, 300, 560, 544) }
+                    // each eye closes into itself, then opens again as a happy arc in the same spot
+                    Part { id: eyeL; file: "eye-left"; box: Qt.rect(376, 544, 88, 112) }
+                    Part { id: eyeR; file: "eye-right"; box: Qt.rect(560, 544, 88, 112) }
+                    Part { id: happyL; file: "eye-happy-left"; box: Qt.rect(376, 544, 88, 112); opacity: 0 }
+                    Part { id: happyR; file: "eye-happy-right"; box: Qt.rect(560, 544, 88, 112); opacity: 0 }
+                    Part { file: "features"; box: Qt.rect(280, 640, 464, 96) }
+                    Part { id: mouth; file: "mouth"; box: Qt.rect(456, 688, 112, 48) }
+                    Part { id: smile; file: "smile"; box: Qt.rect(432, 680, 160, 112); opacity: 0; transformOrigin: Item.Top }
+                    Part { id: blush; file: "blush"; box: Qt.rect(334, 662, 356, 56); opacity: 0.5625 }   // 0.45 of the svg's 0.8
+                }
             }
         }
     }
@@ -186,7 +191,7 @@ FocusScope {
         ParallelAnimation {
             OpacityAnimator { target: bg; from: 0; to: 1; duration: 700 * splash.slow; easing.type: Easing.InOutSine }
             OpacityAnimator { target: light; from: 0; to: 1; duration: 700 * splash.slow; easing.type: Easing.InOutSine }
-            YAnimator { target: logo; from: splash.by + 156 * splash.k + splash.riseBy; to: splash.by + 156 * splash.k; duration: 900 * splash.slow; easing.type: Easing.BezierSpline; easing.bezierCurve: splash.rise }
+            YAnimator { target: lift; from: splash.riseBy; to: 0; duration: 900 * splash.slow; easing.type: Easing.BezierSpline; easing.bezierCurve: splash.rise }
             YAnimator { target: nameClip; from: splash.riseBy; to: 0; duration: 900 * splash.slow; easing.type: Easing.BezierSpline; easing.bezierCurve: splash.rise }
             OpacityAnimator { target: logo; from: 0; to: 1; duration: 550 * splash.slow; easing.type: Easing.OutSine }
             OpacityAnimator { target: nameClip; from: 0; to: 1; duration: 550 * splash.slow; easing.type: Easing.OutSine }

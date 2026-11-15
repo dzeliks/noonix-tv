@@ -50,8 +50,9 @@ FocusScope {
         continueBtn.forceActiveFocus()
     }
     // balkan mode for the whole install; on = "balkan" in the subtitle languages
-    function balkan(on) {
-        Api.call("setup.setBalkan", { on: on }, function () {
+    // first: set up in serbian, balkan mode leads the subtitles and english follows
+    function balkan(on, first) {
+        Api.call("setup.setBalkan", { on: on, first: !!first }, function () {
             setup.refresh()
             Api.call("languages.options", {}, function (ok, d) { if (ok) setup.langOptions = d })
             Api.call("sources.prefs", {}, function (ok, d) { if (ok) setup.langs = { languages: d.languages, subtitles: d.subtitles } })
@@ -201,8 +202,8 @@ FocusScope {
         if (a.indexOf("uilang:") === 0) {
             Desktop.setLanguage(a.slice(7))
             setApp("ui_lang", a.slice(7))
-            // serbian: balkan mode on, so the subtitles step already shows it picked
-            if (a === "uilang:sr" && !(info && info.balkanOn)) balkan(true)
+            // serbian: balkan mode on (and first), so the subtitles step already shows it picked
+            if (a === "uilang:sr" && !(info && info.balkanOn)) balkan(true, true)
         } else if (a === "add") {
             add.open((info.profiles || []).map(function (p) { return p.color }))
         } else if (a.indexOf("edit:") === 0) {
@@ -304,6 +305,8 @@ FocusScope {
     }
 
     function next() {
+        // opened in serbian (the system's language) and left as it was
+        if (name === "language" && Desktop.language === "sr" && info && !info.balkanOn) balkan(true, true)
         if (name === "profiles" && !(info && info.profiles && info.profiles.length)) {
             add.open([])
             return
@@ -479,10 +482,14 @@ FocusScope {
             visible: height > 0
             Glass { anchors.fill: parent; kind: "panel"; radius: 40 * setup.u }
             ListWheel { view: list }
+            Rectangle { id: listMask; anchors.fill: list; radius: 24 * setup.u; visible: false; layer.enabled: true }
             ListView {
                 id: list
                 anchors { fill: parent; margins: 16 * setup.u }
                 clip: true
+                // the clip follows the panel's round corners (a flat one cut a lit row square); a layer only while cut
+                layer.enabled: contentHeight > height + 1
+                layer.effect: MultiEffect { maskEnabled: true; maskSource: listMask; maskThresholdMin: 0.5; maskSpreadAtMin: 1.0 }
                 interactive: !Theme.touch
                 model: setup.lines
                 onModelChanged: {
@@ -590,6 +597,8 @@ FocusScope {
                 }
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter
+                    // the spacing trails the last letter too
+                    anchors.horizontalCenterOffset: font.letterSpacing / 2
                     text: setup.code ? setup.code.user_code : ""
                     color: Theme.fg
                     font { family: Theme.rounded; pixelSize: 84 * setup.u; weight: Font.Bold; letterSpacing: 8 * setup.u }

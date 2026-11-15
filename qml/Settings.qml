@@ -211,6 +211,13 @@ FocusScope {
                                       : { label: qsTr("Add to the app menu"), detail: qsTr("Find Noonix TV with your other apps"), checkable: true, checked: !!dk.menu, act: "desk:menu" })
                 out.push({ label: qsTr("Open at login"), detail: qsTr("Starts Noonix TV when you sign in to this PC"), checkable: true, checked: !!dk.login, act: "desk:login" })
                 out.push({ label: qsTr("Show the title bar"), detail: qsTr("A normal window with the title bar and its buttons"), checkable: true, checked: app.title_bar === true, act: "titlebar" })
+                // more than one screen: which one it opens on
+                var outs = Remote.screens()
+                if (outs.length > 1 || app.screen) {
+                    var onOut = outs.find(function (o) { return o.name === app.screen })
+                    out.push({ label: qsTr("Screen"), detail: qsTr("Which screen Noonix TV opens on"), checkable: false,
+                               value: onOut ? onOut.label : qsTr("Main screen"), act: "screen" })
+                }
             }
             if (!Theme.android || Desktop.tv)
                 out.push({ label: qsTr("Match the TV's refresh rate"), detail: qsTr("Switches the TV to 24 / 25 / 50 / 60 Hz for each video (never the resolution or HDR)"), checkable: true, checked: app.refresh_match === true, act: "app:refresh_match" })
@@ -300,6 +307,15 @@ FocusScope {
                            current: app.hdr_screen || "auto",
                            options: [{ id: "auto", label: seen ? qsTr("Automatic (%1)").arg(seen) : qsTr("Automatic") }, { id: "on", label: qsTr("On") }, { id: "off", label: qsTr("Off") }],
                            pick: function (id) { settings.setApp("hdr_screen", id) } })
+        } else if (a === "screen") {
+            var outList = Remote.screens(), mainOut = outList.find(function (o) { return o.main })
+            var outOpts = [{ id: "", label: mainOut ? qsTr("Main screen (%1)").arg(mainOut.label) : qsTr("Main screen") }]
+            // the main one is the first choice already (unless it was picked by name before)
+            outList.forEach(function (o) { if (!o.main || o.name === app.screen) outOpts.push({ id: o.name, label: o.label }) })
+            choices.open({ title: qsTr("Screen"), detail: qsTr("Which screen Noonix TV opens on. Unplugged, it opens on the main screen"),
+                           current: outList.some(function (o) { return o.name === app.screen }) ? app.screen : "",
+                           options: outOpts,
+                           pick: function (id) { settings.setApp("screen", id); Remote.useScreen(id) } })
         } else if (a === "lowmem") {
             var la = Desktop.lowRam ? qsTr("On") : qsTr("Off")
             choices.open({ title: qsTr("Low memory mode"), detail: qsTr("For phones and older PCs with little memory: plays up to Full HD and keeps fewer pages and pictures ready"),

@@ -36,6 +36,7 @@
 #endif
 #include <QJsonObject>
 #include <QGuiApplication>
+#include <QScreen>
 #include <QHash>
 #include <QKeyEvent>
 #include <QLocale>
@@ -383,12 +384,79 @@ void Remote::setTitleBar(bool on)
         return;
     }
     // three quarters of the screen, in its middle
-    const QRect screen = m_window->screen()->geometry();
-    QRect r(QPoint(), screen.size() * 3 / 4);
-    r.moveCenter(screen.center());
+    windowOn(m_window->screen(), m_window->screen()->geometry().size() * 3 / 4);
+}
+
+// a window in the middle of a screen. wayland leaves where a window goes to the compositor, but a
+// full screen one goes to the output asked for: full screen there first, then the window (it stays)
+void Remote::windowOn(QScreen *to, QSize size)
+{
+    QRect r(QPoint(), size.boundedTo(to->geometry().size()));
+    r.moveCenter(to->geometry().center());
     m_window->setMinimumSize(QSize(960, 540));
+    const bool moving = m_window->isVisible() && m_window->screen() != to;
+    // one screen: nothing to pick, no detour (it would flash full screen)
+    if (!QGuiApplication::platformName().startsWith(QLatin1String("wayland")) || QGuiApplication::screens().size() < 2) {
+        m_window->setScreen(to);
+        m_window->setGeometry(r);
+        m_window->showNormal();
+        return;
+    }
+    // leaving full screen, kwin puts a window back where it was before: a new one has no before
+    if (moving)
+        m_window->hide();
+    m_window->setScreen(to);
     m_window->setGeometry(r);
+    QTimer::singleShot(150, m_window, [w = m_window, r] {
+        if (!w)
+            return;
+        w->showFullScreen();
+        // shown again, kwin doesn't hand it the keys by itself
+        w->requestActivate();
+        QTimer::singleShot(250, w, [w, r] {
+            if (!w)
+                return;
+            w->showNormal();
+            w->requestActivate();
+            // the size only once it's a window again
+            QTimer::singleShot(150, w, [w, r] { if (w) w->resize(r.size()); });
+        });
+    });
+}
+
+QVariantList Remote::screens() const
+{
+    QVariantList out;
+    for (QScreen *s : QGuiApplication::screens()) {
+        // the maker and model where the system knows them ("LG TV"), the connector after it
+        QString label = (s->manufacturer() + QLatin1Char(' ') + s->model()).simplified();
+        label = label.isEmpty() ? s->name() : label + QStringLiteral(" (") + s->name() + QLatin1Char(')');
+        out.append(QVariantMap{{QStringLiteral("name"), s->name()}, {QStringLiteral("label"), label},
+                               {QStringLiteral("main"), s == QGuiApplication::primaryScreen()}});
+    }
+    return out;
+}
+
+void Remote::useScreen(const QString &name)
+{
+    if (!m_window)
+        return;
+    QScreen *to = QGuiApplication::primaryScreen();
+    for (QScreen *s : QGuiApplication::screens())
+        if (s->name() == name)
+            to = s;
+    if (!to || to == m_window->screen())
+        return;
+    if (!fullScreen()) {
+        windowOn(to, m_window->size());
+        return;
+    }
+    // full screen goes to the window's screen when it's asked for: leave it, move, ask again
     m_window->showNormal();
+    m_window->setScreen(to);
+    m_window->setGeometry(to->geometry());
+    // asked in the same turn, the compositor keeps the window as it was: once it has moved
+    QTimer::singleShot(150, m_window, [w = m_window] { if (w) w->showFullScreen(); });
 }
 
 bool Remote::fullScreen() const

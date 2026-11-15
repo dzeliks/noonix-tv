@@ -44,6 +44,8 @@
 #ifdef Q_OS_ANDROID
 extern "C" int av_jni_set_java_vm(void *vm, void *log_ctx);   // libavcodec/jni.h
 #endif
+// core/src/bridge.rs
+extern "C" size_t noonix_app_text(const char *key, char *buf, size_t len);
 
 namespace {
 
@@ -68,13 +70,21 @@ void stderrToLogcat()
 }
 #endif
 
+QString appText(const char *key)
+{
+    char buf[256];
+    const size_t n = noonix_app_text(key, buf, sizeof buf);
+    return n <= sizeof buf ? QString::fromUtf8(buf, qsizetype(n)) : QString();
+}
+
+// settings › playback › screen, else NOONIX_OUTPUT (dev runs), else the main screen
 QScreen *pickScreen()
 {
-    const QString want = qEnvironmentVariable("NOONIX_OUTPUT");
-    if (!want.isEmpty())
-        for (QScreen *s : QGuiApplication::screens())
-            if (s->name() == want)
-                return s;
+    for (const QString &want : {appText("screen"), qEnvironmentVariable("NOONIX_OUTPUT")})
+        if (!want.isEmpty())
+            for (QScreen *s : QGuiApplication::screens())
+                if (s->name() == want)
+                    return s;
     return QGuiApplication::primaryScreen();
 }
 

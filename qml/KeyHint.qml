@@ -47,6 +47,8 @@ Row {
             Text {
                 id: capLabel
                 anchors.centerIn: parent
+                // the spacing trails the last letter too: half of it back keeps the letters in the middle
+                anchors.horizontalCenterOffset: font.letterSpacing / 2
                 text: h.mode === "pad" ? String(h.look.value).toUpperCase() : h.look.value
                 font.family: Theme.display; font.pixelSize: 24 * h.u; font.weight: Font.Bold
                 font.letterSpacing: 0.8 * h.u

@@ -164,7 +164,8 @@ pub(super) async fn call(method: &str, args: &Value) -> Result<Value> {
         }
         "setup.setBalkan" => {
             let on = args.get("on").and_then(Value::as_bool).unwrap_or(true);
-            setup::set_balkan(on).await?;
+            let first = args.get("first").and_then(Value::as_bool).unwrap_or(false);
+            setup::set_balkan(on, first).await?;
             crate::local::changed("balkan");
             Ok(json!({ "balkanSubtitles": on }))
         }

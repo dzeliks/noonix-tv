@@ -58,7 +58,7 @@ struct MatchTipView: View {
                 HStack(spacing: 24 * u) {
                     ForEach(Array([L("OK"), L("Don't show again")].enumerated()), id: \.offset) { i, t in
                         GlassButton(text: t, primary: i == 0 && Theme.touch, focused: choice == i, u: u, width: 360 * u)
-                            .onContinuousHover { phase in if case .active = phase, Input.pointerLive { app.tipChoice = i } }
+                            .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if app.tipChoice != i { app.tipChoice = i } } }
                             .onTapGesture { app.closeTip(forever: i == 1) }
                     }
                 }

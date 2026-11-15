@@ -7,9 +7,11 @@
 #include <QObject>
 #include <QPointer>
 #include <QTranslator>
+#include <QVariant>
 #include <QWindow>
 
 class QQmlEngine;
+class QScreen;
 
 // on a posted key event: the mouse stands behind it (Remote::pointerKey)
 inline constexpr quint32 pointerKeyMark = 0x4e58;
@@ -27,6 +29,10 @@ public:
     // the pointer's fullscreen button / double click: fullscreen or a normal window, for now only
     // (the title bar setting stays what it is)
     Q_INVOKABLE void toggleFullScreen();
+    // settings › playback › screen: the screens there are ({name, label, main}), and going to one
+    // now ("" = the main screen); the choice itself is saved by the page
+    Q_INVOKABLE QVariantList screens() const;
+    Q_INVOKABLE void useScreen(const QString &name);
     Q_PROPERTY(bool fullScreen READ fullScreen NOTIFY fullScreenChanged)
     // the title bar setting is on: the window has its own buttons (no fullscreen button of ours)
     Q_PROPERTY(bool titleBar READ titleBar NOTIFY fullScreenChanged)
@@ -51,6 +57,7 @@ protected:
 private:
     // raise() on purpose (a second start, the quick menu): take the keyboard too. keys never do
     void activate();
+    void windowOn(QScreen *to, QSize size);
 
 public slots:
     Q_SCRIPTABLE void Key(const QString &button);

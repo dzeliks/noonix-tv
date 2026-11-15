@@ -5,6 +5,12 @@ import sys
 import xml.etree.ElementTree as ET
 
 T = {
+    # ---- 0.7.1: which screen
+    "Screen": "Ekran",
+    "Which screen Noonix TV opens on": "Na kom ekranu se Noonix TV otvara",
+    "Which screen Noonix TV opens on. Unplugged, it opens on the main screen": "Na kom ekranu se Noonix TV otvara. Ako je isključen, otvara se na glavnom ekranu",
+    "Main screen": "Glavni ekran",
+    "Main screen (%1)": "Glavni ekran (%1)",
     # ---- the db file that won't open
     "Noonix TV can't open its data": "Noonix TV ne može da otvori svoje podatke",
     "Your profiles and settings are still on this device, they just couldn't be read. Close Noonix TV and open it again. If this comes back, the storage may be full or the file damaged.": "Tvoji profili i podešavanja su i dalje na ovom uređaju, samo nisu mogli da se pročitaju. Zatvori Noonix TV i otvori ga ponovo. Ako se ovo ponovi, možda je memorija puna ili je fajl oštećen.",

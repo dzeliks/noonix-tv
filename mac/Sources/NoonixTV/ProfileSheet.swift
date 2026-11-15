@@ -181,7 +181,7 @@ struct ProfileSheetView: View {
                         ForEach(Array(opts.enumerated()), id: \.offset) { i, l in
                             SettingsRow(line: l, focused: model.index == i, u: u, grow: 1)
                                 .opacity(model.busy ? 0.5 : 1)
-                                .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.index = i } }
+                                .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.index != i { model.index = i } } }
                                 .onTapGesture { model.index = i; model.toggle(l.act) }
                         }
                     }
@@ -195,7 +195,7 @@ struct ProfileSheetView: View {
                     ForEach(Array(model.buttons.enumerated()), id: \.offset) { i, b in
                         GlassButton(text: b.text, primary: b.primary, focused: model.index == opts.count && model.button == i, u: u, flat: true)
                             .opacity(model.busy ? 0.5 : 1)
-                            .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.index = opts.count; model.button = i } }
+                            .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.index != opts.count { model.index = opts.count }; if model.button != i { model.button = i } } }
                             .onTapGesture { model.act(b.act, app: app) }
                     }
                 }

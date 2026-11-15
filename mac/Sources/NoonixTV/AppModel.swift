@@ -134,9 +134,10 @@ final class Rails {
     }
 
     func point(_ row: RowModel, _ index: Int) {
-        if let i = shown.firstIndex(where: { $0 === row }) { current = i }
-        focusedId = row.id
-        row.index = index
+        // the hover calls this on every move: only real changes, or the whole page lays out again
+        if let i = shown.firstIndex(where: { $0 === row }), current != i { current = i }
+        if focusedId != row.id { focusedId = row.id }
+        if row.index != index { row.index = index }
     }
 
     func leaveMouse(_ active: Bool) -> Bool {

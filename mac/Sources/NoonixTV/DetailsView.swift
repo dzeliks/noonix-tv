@@ -308,7 +308,7 @@ struct DetailsView: View {
                 }
                 if !model.more.items.isEmpty {
                     MediaRowView(model: model.more, active: app.sources == nil && model.zone == .more, u: u, width: W,
-                                 point: { i in model.zone = .more; model.more.index = i },
+                                 point: { i in if model.zone != .more { model.zone = .more }; if model.more.index != i { model.more.index = i } },
                                  activate: { i in if let it = model.more.items[safe: i] { app.open(it) } })
                 }
                 Color.clear.frame(width: 1, height: 80 * u)
@@ -432,7 +432,7 @@ struct DetailsView: View {
                     GlassButton(text: label(a), icon: icon(a), primary: a == .play && Theme.touch, focused: focused, u: u * (tight ? 0.85 : 1))
                         .opacity(a == .library && (!model.libraryReady || model.libraryBusy) ? 0.5 : 1)
                         .onContinuousHover { phase in
-                            if case .active = phase, Input.pointerLive { model.zone = .actions; model.action = i }
+                            if case .active = phase, Input.hoverLive { if model.zone != .actions { model.zone = .actions }; if model.action != i { model.action = i } }
                         }
                         .onTapGesture { model.zone = .actions; model.action = i; model.act(a) }
                 }
@@ -481,7 +481,7 @@ struct DetailsView: View {
                     .background { Capsule().fill(foc ? Color.white : sel ? Color.white.opacity(0.22) : .clear) }
                     .contentShape(.capsule)
                     .onContinuousHover { phase in
-                        if case .active = phase, Input.pointerLive { model.zone = .seasons; model.seasonIndex = i }
+                        if case .active = phase, Input.hoverLive { if model.zone != .seasons { model.zone = .seasons }; if model.seasonIndex != i { model.seasonIndex = i } }
                     }
                     .onTapGesture { model.seasonIndex = i; Task { await model.loadSeason(s.number) } }
                     .id(i)
@@ -507,7 +507,7 @@ struct DetailsView: View {
                          },
                          badge: { $0.watched == true },
                          pastEnd: { model.stepSeason($0) },
-                         point: { i in model.zone = .episodes; model.episodeIndex = i },
+                         point: { i in if model.zone != .episodes { model.zone = .episodes }; if model.episodeIndex != i { model.episodeIndex = i } },
                          activate: { i in model.playEpisode(i) })
             .frame(height: height, alignment: .top)
     }
@@ -684,18 +684,23 @@ struct RoundButton: View {
     var body: some View {
         // under the mouse while it's the one in use (a key leaves it unlit, qml Theme.hover)
         let white = (hover && Theme.mouse) || lit
+        let glyph = 26 * size / 64 * u
         Image(systemName: icon)
-            .font(.system(size: 26 * size / 64 * u, weight: .semibold))
+            .font(.system(size: glyph, weight: .semibold))
             .foregroundStyle(white ? Theme.focusFg : Theme.fg)
-            .offset(x: (icon == "chevron.left" ? -2 : icon == "chevron.right" ? 2 : 0) * u)
+            // the chevrons' drawing sits off their box toward the point (measured: 8 % of the size)
+            .offset(x: (icon == "chevron.left" ? 0.08 : icon == "chevron.right" ? -0.08 : 0) * glyph)
             .frame(width: size * u, height: size * u)
             .background { Circle().fill(Color.white).opacity(white ? 1 : 0) }
             .overlay { GlassRim(shape: Circle(), u: u, glint: false).opacity(white ? 0 : 1) }
             .animation(.easeOut(duration: 0.16), value: white)
             .scaleEffect(white ? 1.08 : 1)
             .animation(Theme.lift, value: white)
-            .glassEffect(.regular.tint(.black.opacity(0.25)), in: .circle)
+            // the buttons' glass (GlassButton), not the bar's darker panel: it read greyer beside them
+            .glassEffect(.regular.tint(.white.opacity(0.12)), in: .circle)
             .contentShape(.circle)
+            .shadow(color: .black.opacity(white ? 0.5 : 0), radius: 18 * size / 76 * u, y: 14 * size / 76 * u)
+            .animation(.easeOut(duration: 0.16), value: white)
             .onContinuousHover { phase in
                 if case .active = phase { hover = true } else { hover = false }
             }

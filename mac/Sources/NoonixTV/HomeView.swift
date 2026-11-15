@@ -37,7 +37,7 @@ struct RailsPage: View {
                              point: { idx in
                                  // a row behind the hero or fading out under the bar doesn't take the pointer
                                  guard wheelY != nil || i >= top, y + heights[i] / 2 >= 210 * u else { return }
-                                 app.navFocused = false
+                                 if app.navFocused { app.navFocused = false }
                                  rails.point(row, idx)
                              },
                              activate: { idx in

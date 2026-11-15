@@ -239,7 +239,7 @@ struct CardStrip: View {
                     .contentShape(.rect)
                     // one faded out at the edge doesn't take the pointer
                     .onContinuousHover { phase in
-                        if case .active = phase, Input.pointerLive, i >= first { point(i) }
+                        if case .active = phase, Input.hoverLive, i >= first { point(i) }
                     }
                     .onTapGesture { point(i); activate(i) }
                     #if os(iOS)

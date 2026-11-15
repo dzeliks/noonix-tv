@@ -25,7 +25,7 @@ struct ExitPromptView: View {
                 HStack(spacing: 28 * u) {
                     ForEach(Array([L("Exit"), L("Stay")].enumerated()), id: \.offset) { i, t in
                         GlassButton(text: t, focused: choice == i, u: u, flat: true, width: 300 * u)
-                            .onContinuousHover { phase in if case .active = phase, Input.pointerLive { app.exitChoice = i } }
+                            .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if app.exitChoice != i { app.exitChoice = i } } }
                             .onTapGesture { i == 0 ? Platform.quit() : (app.exitChoice = nil) }
                     }
                 }
@@ -145,7 +145,7 @@ struct ConfirmView: View {
                 HStack(spacing: 28 * u) {
                     ForEach(Array([model.ok, model.cancel].enumerated()), id: \.offset) { i, t in
                         GlassButton(text: t, focused: model.choice == i, u: u, flat: true, width: bw)
-                            .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.choice = i } }
+                            .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.choice != i { model.choice = i } } }
                             .onTapGesture { i == 0 ? app.confirmYes() : (app.confirm = nil) }
                     }
                 }

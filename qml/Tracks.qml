@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 
 // subtitle or audio picker during playback: a small glass popover above the button that opened it
 FocusScope {
@@ -115,11 +116,15 @@ FocusScope {
     }
     MouseArea { anchors.fill: panel; hoverEnabled: true; acceptedButtons: Qt.AllButtons }
     ListWheel { view: list }
+    Rectangle { id: listMask; anchors.fill: list; radius: 24 * tr.u; visible: false; layer.enabled: true }
     ListView {
         id: list
         // 16 all round: the rows' 24 radius + 16 = the panel's 40, corners stay concentric
         anchors { fill: panel; margins: 16 * tr.u }
         clip: true
+        // the clip follows the panel's round corners (a flat one cut a lit row square); a layer only while cut
+        layer.enabled: contentHeight > height + 1
+        layer.effect: MultiEffect { maskEnabled: true; maskSource: listMask; maskThresholdMin: 0.5; maskSpreadAtMin: 1.0 }
         model: tr.lines
         // tracks arriving rebuild the list: stay on the same line
         property var keep: null

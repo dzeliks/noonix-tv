@@ -1451,6 +1451,10 @@ Ono što ne valja sređuje se automatski.</translation>
         <translation>.noonix fajl sa drugog uređaja, kao novi profil</translation>
     </message>
     <message>
+        <source>Which screen Noonix TV opens on</source>
+        <translation>Na kom ekranu se Noonix TV otvara</translation>
+    </message>
+    <message>
         <source>Built in</source>
         <translation>Ugrađeno</translation>
     </message>
@@ -1477,6 +1481,10 @@ Ono što ne valja sređuje se automatski.</translation>
     <message>
         <source>Saved</source>
         <translation>Sačuvano</translation>
+    </message>
+    <message>
+        <source>Which screen Noonix TV opens on. Unplugged, it opens on the main screen</source>
+        <translation>Na kom ekranu se Noonix TV otvara. Ako je isključen, otvara se na glavnom ekranu</translation>
     </message>
     <message>
         <source>Version %1</source>
@@ -1711,6 +1719,14 @@ Ono što ne valja sređuje se automatski.</translation>
         <translation>Običan prozor sa naslovnom trakom i njenim dugmićima</translation>
     </message>
     <message>
+        <source>Screen</source>
+        <translation>Ekran</translation>
+    </message>
+    <message>
+        <source>Main screen</source>
+        <translation>Glavni ekran</translation>
+    </message>
+    <message>
         <source>Match the TV&apos;s refresh rate</source>
         <translation>Uskladi osvežavanje TV-a</translation>
     </message>
@@ -1933,6 +1949,10 @@ Ono što ne valja sređuje se automatski.</translation>
     <message>
         <source>Every bundled library with its license and source: THIRD-PARTY.txt in the app&apos;s files</source>
         <translation>Sve uključene biblioteke sa licencama i izvorima: THIRD-PARTY.txt među fajlovima aplikacije</translation>
+    </message>
+    <message>
+        <source>Main screen (%1)</source>
+        <translation>Glavni ekran (%1)</translation>
     </message>
     <message>
         <source>Couldn&apos;t update</source>

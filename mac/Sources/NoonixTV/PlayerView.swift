@@ -755,7 +755,7 @@ struct MatchSheet: View {
                 .frame(maxWidth: .infinity, minHeight: (Theme.touch ? 90 : 108) * u, alignment: .leading)
                 .background { RoundedRectangle(cornerRadius: 24 * u).fill(foc ? Color.white : .clear) }
                 .contentShape(.rect)
-                .onContinuousHover { phase in if case .active = phase, Input.pointerLive, model.index != i { model.index = i } }
+                .onContinuousHover { phase in if case .active = phase, Input.hoverLive, model.index != i { model.index = i } }
                 .onTapGesture { osd.choose(l.id) }
                 #if os(iOS)
                 .simultaneousGesture(DragGesture(minimumDistance: 0).updating($downAt) { _, d, _ in d = i })
@@ -1322,7 +1322,7 @@ struct TrackPicker: View {
                             SettingsRow(line: SettingsModel.Line(label: l.label, detail: l.detail, value: value, dim: l.dim),
                                         focused: osd.pickerIndex == i, u: u, grow: 1)
                                 .id(i)
-                                .onContinuousHover { phase in if case .active = phase, Input.pointerLive, osd.pickerIndex != i { osd.pickerIndex = i } }
+                                .onContinuousHover { phase in if case .active = phase, Input.hoverLive, osd.pickerIndex != i { osd.pickerIndex = i } }
                                 .onTapGesture { osd.pickerIndex = i; osd.pick(i) }
                         }
                     }

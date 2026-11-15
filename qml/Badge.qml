@@ -17,6 +17,7 @@ Rectangle {
     Text {
         id: label
         anchors.centerIn: parent
+        anchors.horizontalCenterOffset: font.letterSpacing / 2
         text: badge.text
         color: badge.strong ? (badge.onLight ? "white" : Theme.focusFg) : (badge.onLight ? Theme.focusFg : Theme.fg)
         font { family: Theme.text; pixelSize: 19 * badge.u; weight: Font.Bold; letterSpacing: 0.4 * badge.u }

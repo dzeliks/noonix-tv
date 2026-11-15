@@ -683,6 +683,7 @@ FocusScope {
         y: 40 * page.u
         size: 72
         icon: "chevronleft"
+        source: artGlass
         lit: activeFocus && !Theme.pointing
         onClicked: page.back()
         Keys.onReturnPressed: page.back()

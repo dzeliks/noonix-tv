@@ -527,20 +527,22 @@ struct SettingsPage: View {
                             SettingsRow(line: .init(label: s.name, value: "›"), focused: active && !m.inPage && m.section == i, u: u)
                                 .opacity(m.section == i || (active && !m.inPage) ? 1 : 0.6)
                                 .onContinuousHover { phase in
-                                    if case .active = phase, Input.pointerLive { app.navFocused = false; m.inPage = false; m.section = i }
+                                    if case .active = phase, Input.hoverLive { if app.navFocused { app.navFocused = false }; if m.inPage { m.inPage = false }; if m.section != i { m.section = i } }
                                 }
                                 .onTapGesture { m.section = i; m.showNow() }
                                 .id(i)
                         }
                     }
+                    // room for the lit row's lift: the scroll view clips at its own edge
+                    .padding(.horizontal, 24 * u)
                     .padding(.bottom, 40 * u + Theme.safeBottom)
                 }
                 .scrollIndicators(.never)
                 .scrollBounceBehavior(.basedOnSize)
                 .onChange(of: m.section) { if !Input.pointerHolds { withAnimation(.easeOut(duration: 0.18)) { proxy.scrollTo(m.section) } } }
             }
-            .frame(width: 420 * u, height: H - 200 * u)
-            .offset(x: margin, y: 200 * u)
+            .frame(width: 420 * u + 48 * u, height: H - 200 * u)
+            .offset(x: margin - 24 * u, y: 200 * u)
 
             ScrollViewReader { proxy in
                 ScrollView(.vertical) {
@@ -553,13 +555,13 @@ struct SettingsPage: View {
                                 } else if l.kind == "brand" {
                                     BrandRow(version: l.value, focused: active && m.inPage && m.index == i, u: u)
                                         .onContinuousHover { phase in
-                                            if case .active = phase, Input.pointerLive { app.navFocused = false; m.inPage = true; m.index = i }
+                                            if case .active = phase, Input.hoverLive { if app.navFocused { app.navFocused = false }; if !m.inPage { m.inPage = true }; if m.index != i { m.index = i } }
                                         }
                                         .onTapGesture { m.inPage = true; m.index = i; m.run(l, app: app) }
                                 } else {
                                     SettingsRow(line: l, focused: active && m.inPage && m.index == i, u: u)
                                         .onContinuousHover { phase in
-                                            if case .active = phase, Input.pointerLive { app.navFocused = false; m.inPage = true; m.index = i }
+                                            if case .active = phase, Input.hoverLive { if app.navFocused { app.navFocused = false }; if !m.inPage { m.inPage = true }; if m.index != i { m.index = i } }
                                         }
                                         .onTapGesture { m.inPage = true; m.index = i; m.run(l, app: app) }
                                 }

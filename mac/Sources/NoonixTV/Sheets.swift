@@ -128,7 +128,7 @@ struct ChoicesView: View {
                     .frame(height: 84 * u)
                     .background { RoundedRectangle(cornerRadius: 24 * u).fill(foc ? Color.white : .clear) }
                     .contentShape(.rect)
-                    .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.index = i } }
+                    .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.index != i { model.index = i } } }
                     .onTapGesture { model.choose(i, app: app) }
                 }
             }
@@ -219,12 +219,12 @@ struct BindSheetView: View {
                 HStack(spacing: 20 * u) {
                     GlassButton(text: L("Back"), icon: "arrow.left", focused: model.zone == 1 && model.choice == 0, u: u, flat: true)
                         .contentShape(.capsule)
-                        .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.zone = 1; model.choice = 0 } }
+                        .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.zone != 1 { model.zone = 1 }; if model.choice != 0 { model.choice = 0 } } }
                         .onTapGesture { model.close(app: app) }
                     GlassButton(text: L("Clear Slot %1", model.slot + 1), focused: model.zone == 1 && model.choice == 1, u: u, flat: true)
                         .contentShape(.capsule)
                         .opacity(model.bound.indices.contains(model.slot) ? 1 : 0.45)
-                        .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.zone = 1; model.choice = 1 } }
+                        .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.zone != 1 { model.zone = 1 }; if model.choice != 1 { model.choice = 1 } } }
                         .onTapGesture { model.clearSlot(app: app) }
                 }
                 .padding(.top, 30 * u)
@@ -255,7 +255,7 @@ struct BindSheetView: View {
         }
         .contentShape(.rect)
         .onContinuousHover { phase in
-            if case .active = phase, Input.pointerLive, model.waiting < 0 { model.zone = 0; model.slot = i }
+            if case .active = phase, Input.hoverLive, model.waiting < 0 { if model.zone != 0 { model.zone = 0 }; if model.slot != i { model.slot = i } }
         }
         .onTapGesture { model.listen(i) }
     }
@@ -545,11 +545,11 @@ struct SpeedCheckView: View {
                     GlassButton(text: live ? L("Skip") : L("Run Again"), focused: model.choice == 0, u: u, flat: true)
                         .contentShape(.capsule)
                         .opacity(model.running && !live ? 0.45 : 1)
-                        .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.choice = 0 } }
+                        .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.choice != 0 { model.choice = 0 } } }
                         .onTapGesture { model.left(app: app) }
                     GlassButton(text: L("Done"), primary: true, focused: model.choice == 1, u: u, flat: true)
                         .contentShape(.capsule)
-                        .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.choice = 1 } }
+                        .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.choice != 1 { model.choice = 1 } } }
                         .onTapGesture { app.speed = nil }
                 }
                 .padding(.top, 44 * u)

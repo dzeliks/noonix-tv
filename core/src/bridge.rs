@@ -97,3 +97,22 @@ impl qobject::Core {
         id
     }
 }
+
+/// an app setting that is text (the screen to open on), for the window before qml is up: writes at
+/// most `len` bytes of it into `buf`, no nul, and returns its whole length (0: not set)
+///
+/// # Safety
+/// `key` is a nul-terminated string or null; `buf` holds `len` bytes or is null
+#[no_mangle]
+pub unsafe extern "C" fn noonix_app_text(key: *const std::ffi::c_char, buf: *mut u8, len: usize) -> usize {
+    if key.is_null() {
+        return 0;
+    }
+    let key = unsafe { std::ffi::CStr::from_ptr(key) }.to_string_lossy().into_owned();
+    let v = crate::store::DB.lock().ok().and_then(|c| crate::store::get_setting(&c, "app", &key).ok().flatten());
+    let Some(serde_json::Value::String(s)) = v else { return 0 };
+    if !buf.is_null() {
+        unsafe { std::ptr::copy_nonoverlapping(s.as_ptr(), buf, s.len().min(len)) };
+    }
+    s.len()
+}

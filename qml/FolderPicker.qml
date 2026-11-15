@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 
 // picking a library folder, or a noonix file (files: true), with the remote (the system's dialog
 // wants a mouse): the places to start from (home, its video or downloads folder, the drives), then
@@ -153,10 +154,14 @@ FocusScope {
             // a click outside the list closes the sheet; on it, it doesn't
             MouseArea { anchors.fill: parent; acceptedButtons: Qt.AllButtons }
             ListWheel { view: list }
+            Rectangle { id: listMask; anchors.fill: list; radius: 24 * picker.u; visible: false; layer.enabled: true }
             ListView {
                 id: list
                 anchors { fill: parent; margins: 16 * picker.u }
                 clip: true
+                // the clip follows the panel's round corners (a flat one cut a lit row square); a layer only while cut
+                layer.enabled: contentHeight > height + 1
+                layer.effect: MultiEffect { maskEnabled: true; maskSource: listMask; maskThresholdMin: 0.5; maskSpreadAtMin: 1.0 }
                 focus: true
                 model: picker.lines
                 keyNavigationEnabled: true

@@ -54,7 +54,8 @@
   users.
 - **A real player**: mpv with HDR support, refresh rate matching per video, intro and credits
   skipping, and a next-episode prompt at the end. With a mouse, a double click or the corner
-  button goes full screen, and Esc comes back out.
+  button goes full screen, and Esc comes back out. On a PC with more than one screen,
+  Settings › Playback › Screen picks the one Noonix TV opens on, full screen or in a window.
 - **Fixes in one step**: report a source as out of sync, wrong subtitles or a picture problem and
   Noonix TV finds a better one, resuming at the same spot. The choice carries over to the next
   episodes.

@@ -502,7 +502,7 @@ struct ExtensionSheetView: View {
                                     focused: model.button == i, u: u, flat: true)
                             .opacity(model.busy ? 0.5 : 1)
                             .contentShape(.capsule)
-                            .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.button = i } }
+                            .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.button != i { model.button = i } } }
                             .onTapGesture { model.act(b.act, app: app) }
                     }
                 }

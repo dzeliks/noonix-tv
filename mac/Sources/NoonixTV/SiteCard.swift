@@ -68,10 +68,10 @@ struct SiteCardView: View {
                     .padding(.top, 10 * u)
                 HStack(spacing: 20 * u) {
                     GlassButton(text: L("Open in Browser"), primary: true, focused: model.index == 0, u: u)
-                        .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.index = 0 } }
+                        .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.index != 0 { model.index = 0 } } }
                         .onTapGesture { model.activate(0, app: app) }
                     GlassButton(text: L("Close"), focused: model.index == 1, u: u)
-                        .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.index = 1 } }
+                        .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.index != 1 { model.index = 1 } } }
                         .onTapGesture { model.activate(1, app: app) }
                 }
                 .padding(.top, 38 * u)

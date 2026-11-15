@@ -74,11 +74,11 @@ struct SourcesHelpView: View {
                 }
                 HStack(spacing: 24 * u) {
                     GlassButton(text: model.asking ? L("Allow Torrents") : L("Got It"), primary: true, focused: model.button == 0, u: u, flat: true, width: 340 * u)
-                        .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.button = 0 } }
+                        .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.button != 0 { model.button = 0 } } }
                         .onTapGesture { if model.asking { model.answer(true, app: app) } else { app.help = nil } }
                     if model.asking {
                         GlassButton(text: L("Not Now"), focused: model.button == 1, u: u, flat: true, width: 300 * u)
-                            .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.button = 1 } }
+                            .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.button != 1 { model.button = 1 } } }
                             .onTapGesture { model.answer(false, app: app) }
                     }
                 }

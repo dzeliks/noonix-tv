@@ -150,6 +150,9 @@ enum Input {
     /// the pointer really moved just now (a list sliding under a resting cursor doesn't count, unless
     /// the wheel slid it: then the hover is the mouse's)
     static var pointerLive: Bool { Date().timeIntervalSince(lastMove) < 0.15 || Date().timeIntervalSince(lastWheel) < 0.4 }
+    /// the hover may move the focus: not while a scroll is still going (each new row under the mouse
+    /// rebuilt the page mid-scroll); rehover's late move picks the row once it lands
+    static var hoverLive: Bool { pointerLive && Date().timeIntervalSince(lastWheel) > 0.15 }
     private static var lastWheel = Date.distantPast
     /// the row of cards under the mouse: sideways, the wheel moves it
     static var row: PageScroll?
@@ -553,6 +556,9 @@ enum DevKeys {
                             #if os(macOS)
                             for what in ["move", "click", "dbl"] where line.hasPrefix(what + ":") { mouse(what, String(line.dropFirst(what.count + 1))) }
                             if line.hasPrefix("cursor:") { try? (PlayerCursor.hidden ? "hidden" : "shown").write(toFile: String(line.dropFirst(7)), atomically: true, encoding: .utf8) }
+                            // main thread stalls: "probe" starts counting, "probe:<file>" writes what it saw since
+                            if line == "probe" { Probe.start() }
+                            if line.hasPrefix("probe:") { Probe.dump(String(line.dropFirst(6))) }
                             #endif
 
                         }
@@ -563,3 +569,29 @@ enum DevKeys {
         }
     }
 }
+
+#if os(macOS)
+/// dev (keys fifo only): a 4 ms tick on the main thread; a late tick is a frame the ui couldn't draw
+@MainActor enum Probe {
+    private static var timer: Timer?
+    private static var last = 0.0, ticks = 0, over25 = 0, over50 = 0, worst = 0.0
+    static func start() {
+        timer?.invalidate()
+        (last, ticks, over25, over50, worst) = (CACurrentMediaTime(), 0, 0, 0, 0)
+        let t = Timer(timeInterval: 0.004, repeats: true) { _ in
+            MainActor.assumeIsolated {
+                let now = CACurrentMediaTime(), gap = (now - last) * 1000
+                last = now; ticks += 1; worst = max(worst, gap)
+                if gap > 25 { over25 += 1 }
+                if gap > 50 { over50 += 1 }
+            }
+        }
+        RunLoop.main.add(t, forMode: .common)
+        timer = t
+    }
+    static func dump(_ path: String) {
+        try? String(format: "ticks %d  >25ms %d  >50ms %d  worst %.0fms\n", ticks, over25, over50, worst).write(toFile: path, atomically: true, encoding: .utf8)
+        timer?.invalidate(); timer = nil
+    }
+}
+#endif

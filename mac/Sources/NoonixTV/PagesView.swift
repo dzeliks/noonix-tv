@@ -58,7 +58,7 @@ struct LibraryPage: View {
                         GlassButton(text: s == "history" ? L("History") : s == "files" ? L("On This Mac") : L("Watchlist"), primary: m.section == s,
                                     focused: active && m.head && m.headIndex == i, u: u)
                             .onContinuousHover { phase in
-                                if case .active = phase, Input.pointerLive { app.navFocused = false; m.head = true; m.headIndex = i }
+                                if case .active = phase, Input.hoverLive { if app.navFocused { app.navFocused = false }; if !m.head { m.head = true }; if m.headIndex != i { m.headIndex = i } }
                             }
                             .onTapGesture { m.pickSection(s) }
                     }
@@ -179,7 +179,7 @@ struct PosterGrid: View {
                 Card(media: it, style: style, focused: active && model.index == i, u: u, posterW: posterW)
                     .contentShape(.rect)
                     .onContinuousHover { phase in
-                        if case .active = phase, Input.pointerLive { app.navFocused = false; model.head = false; model.index = i; if app.page == .search { app.search.zone = "grid" } }
+                        if case .active = phase, Input.hoverLive { if app.navFocused { app.navFocused = false }; if model.head { model.head = false }; if model.index != i { model.index = i }; if app.page == .search, app.search.zone != "grid" { app.search.zone = "grid" } }
                     }
                     .onTapGesture { model.index = i; app.open(it) }
                     #if os(iOS)
@@ -318,7 +318,7 @@ struct SearchPage: View {
                     ForEach(showRows, id: \.0) { r, model, title in
                         MediaRowView(model: model, active: active && s.zone == "rows" && s.lastRow == r, u: u, width: areaRight,
                                      posterW: rowPoster * u, title: title, fadeEnd: fadeEnd,
-                                     point: { i in app.navFocused = false; s.zone = "rows"; s.lastRow = r; model.index = i },
+                                     point: { i in if app.navFocused { app.navFocused = false }; if s.zone != "rows" { s.zone = "rows" }; if s.lastRow != r { s.lastRow = r }; if model.index != i { model.index = i } },
                                      activate: { i in
                                          guard model.items.indices.contains(i) else { return }
                                          model.index = i
@@ -435,7 +435,7 @@ struct SearchPage: View {
                                 SearchChip(text: t, focused: !ime && active && s.zone == "chips" && s.chip == i, u: u, height: chipsH)
                                     .id(i)
                                     .onContinuousHover { phase in
-                                        if case .active = phase, Input.pointerLive { app.navFocused = false; s.zone = "chips"; s.chip = i }
+                                        if case .active = phase, Input.hoverLive { if app.navFocused { app.navFocused = false }; if s.zone != "chips" { s.zone = "chips" }; if s.chip != i { s.chip = i } }
                                     }
                                     .onTapGesture { s.query = t; Platform.hideKeyboard() }
                             }
@@ -455,14 +455,14 @@ struct SearchPage: View {
                             .frame(width: columnW, height: chipH)
                             .offset(x: columnX, y: sugY + titleH + 12 * u + CGFloat(i) * (chipH + 8 * u))
                             .onContinuousHover { phase in
-                                if case .active = phase, Input.pointerLive { app.navFocused = false; s.zone = "suggestions"; s.suggestion = i }
+                                if case .active = phase, Input.hoverLive { if app.navFocused { app.navFocused = false }; if s.zone != "suggestions" { s.zone = "suggestions" }; if s.suggestion != i { s.suggestion = i } }
                             }
                             .onTapGesture { s.query = t }
                     }
                 }
                 KeyboardView(model: s.kb, u: ku, width: columnW, active: active && s.zone == "keys")
                     .offset(x: columnX, y: bottomY - kbH)
-                    .onContinuousHover { phase in if case .active = phase, Input.pointerLive { app.navFocused = false; s.zone = "keys" } }
+                    .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if app.navFocused { app.navFocused = false }; if s.zone != "keys" { s.zone = "keys" } } }
             }
         }
         .frame(width: W, height: H, alignment: .topLeading)

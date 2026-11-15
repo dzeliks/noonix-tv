@@ -97,8 +97,9 @@ final class KeyboardModel {
     }
 
     func point(_ r: Int, _ i: Int) {
-        row = r
-        col = max(0, keys(r).firstIndex { $0.i == i } ?? 0)
+        let c = max(0, keys(r).firstIndex { $0.i == i } ?? 0)
+        if row != r { row = r }
+        if col != c { col = c }
     }
 
     /// backspace held down: it keeps deleting, faster and faster
@@ -171,7 +172,7 @@ struct KeyboardView: View {
                             .frame(width: k.w * (unit + gap) - gap, height: keyH)
                             .offset(x: pad + start * (unit + gap), y: pad + CGFloat(r) * (keyH + gap))
                             .zIndex(active && model.row == r && model.focusIndex == i ? 1 : 0)
-                            .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.point(r, i) } }
+                            .onContinuousHover { phase in if case .active = phase, Input.hoverLive { model.point(r, i) } }
                             .gesture(k.v == "backspace" ? nil : TapGesture().onEnded { model.point(r, i); model.press(k, at: (r, i)) })
                             // no tap here: it would hold the press back for about a second
                             #if !os(tvOS)

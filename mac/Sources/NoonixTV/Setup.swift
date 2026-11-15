@@ -233,8 +233,9 @@ final class SetupModel {
         Task { _ = await json("settings.setApp", ["key": k, "value": v]) }
     }
 
-    private func balkan(_ on: Bool) async {
-        _ = await json("setup.setBalkan", ["on": on])
+    /// first: set up in serbian, balkan mode leads the subtitles and english follows
+    private func balkan(_ on: Bool, first: Bool = false) async {
+        _ = await json("setup.setBalkan", ["on": on, "first": first])
         await refresh()
         langOptions = await json("languages.options") as? [String: Any] ?? langOptions
         if let p = await json("sources.prefs") as? [String: Any] {
@@ -251,8 +252,8 @@ final class SetupModel {
             let c = String(a.dropFirst(7))
             UILang.shared.set(c)
             setApp("ui_lang", c)
-            // serbian: balkan mode on, so the subtitles step already shows it picked
-            if c == "sr", info?["balkanOn"] as? Bool != true { Task { await balkan(true) } }
+            // serbian: balkan mode on (and first), so the subtitles step already shows it picked
+            if c == "sr", info?["balkanOn"] as? Bool != true { Task { await balkan(true, first: true) } }
         } else if a == "refresh" {
             setApp("refresh_match", appS["refresh_match"] as? Bool != true)
         } else if a == "add" {
@@ -334,6 +335,10 @@ final class SetupModel {
 
     // ---- steps
     func next(app: AppModel) {
+        // opened in serbian (the system's language) and left as it was
+        if name == "language", UILang.shared.code == "sr", let info, info["balkanOn"] as? Bool != true {
+            Task { await balkan(true, first: true) }
+        }
         if name == "profiles", profiles.isEmpty {
             app.addProfile { [weak self] in Task { await self?.refresh() } }
             return
@@ -558,11 +563,11 @@ struct SetupView: View {
         HStack(spacing: 24 * u) {
             GlassButton(text: model.name == "done" ? L("Start Watching") : model.name == "welcome" ? L("Get Started") : model.name == "terms" ? L("I Agree") : model.skippable ? L("Skip for Now") : L("Continue"),
                         primary: true, focused: model.onButtons && model.button == 0, u: u, flat: true)
-                .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.onButtons = true; model.button = 0 } }
+                .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if !model.onButtons { model.onButtons = true }; if model.button != 0 { model.button = 0 } } }
                 .onTapGesture { model.next(app: app) }
             if model.step > 0 {
                 GlassButton(text: L("Back"), focused: model.onButtons && model.button == 1, u: u, flat: true)
-                    .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.onButtons = true; model.button = 1 } }
+                    .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if !model.onButtons { model.onButtons = true }; if model.button != 1 { model.button = 1 } } }
                     .onTapGesture { model.back(app: app) }
             }
         }
@@ -581,7 +586,7 @@ struct SetupView: View {
                                     .frame(maxWidth: .infinity, minHeight: 76 * u, alignment: .bottomLeading)
                             } else {
                                 SettingsRow(line: l, focused: !model.onButtons && model.index == i && app.profileEdit == nil, u: u, grow: 1)
-                                    .onContinuousHover { phase in if case .active = phase, Input.pointerLive { model.onButtons = false; model.index = i } }
+                                    .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.onButtons { model.onButtons = false }; if model.index != i { model.index = i } } }
                                     .onTapGesture { model.onButtons = false; model.index = i; model.run(l, app: app) }
                             }
                         }
@@ -618,7 +623,7 @@ struct SetupView: View {
     private func codePanel(_ c: TraktCodeModel, _ u: CGFloat) -> some View {
         VStack(spacing: 12 * u) {
             TraktCodeLine(code: c.userCode, url: c.url, u: u)
-            Text(c.userCode ?? "· · · ·").font(Theme.rounded(84 * u, .bold)).tracking(8 * u).foregroundStyle(Theme.fg)
+            Text(c.userCode ?? "· · · ·").font(Theme.rounded(84 * u, .bold)).tracking(8 * u).padding(.leading, 8 * u).foregroundStyle(Theme.fg)
                 .selectable()
             Spinner(size: 44 * u)
         }
