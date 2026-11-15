@@ -151,9 +151,10 @@ struct KeyboardView: View {
         let unit = (width - 2 * pad - 9 * gap) / 10
         let keyH = unit * 1.36
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 48 * u)
+            // round the corner keys' corners (20) at the pad's distance
+            RoundedRectangle(cornerRadius: pad + 20 * u)
                 .fill(Color.white.opacity(0.055))
-                .overlay { RoundedRectangle(cornerRadius: 48 * u).stroke(Color.white.opacity(0.1), lineWidth: 2 * u) }
+                .overlay { RoundedRectangle(cornerRadius: pad + 20 * u).stroke(Color.white.opacity(0.1), lineWidth: 2 * u) }
             ForEach(Array(model.rows.enumerated()), id: \.offset) { r, caps in
                 ForEach(Array(caps.enumerated()), id: \.offset) { i, k in
                     if k.kind != .gap {

@@ -159,10 +159,10 @@ Item {
         onTriggered: { interval = Math.max(45, interval * 0.8); kb.skipTap = kb.backHeld; kb.special("backspace") }
     }
 
-    // the glass the keys sit on
+    // the glass the keys sit on: its corners round the corner keys' (20) at the pad's distance
     Rectangle {
         anchors.fill: parent
-        radius: 48 * kb.u
+        radius: kb.pad + 20 * kb.u
         color: Qt.rgba(1, 1, 1, 0.055)
         border.width: 2 * kb.u
         border.color: Qt.rgba(1, 1, 1, 0.10)

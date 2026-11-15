@@ -34,7 +34,8 @@ FocusScope {
     Item {
         anchors.centerIn: parent
         width: 800 * ch.u
-        height: body.height + 2 * 44 * ch.u
+        // the rows' 24 + 28 at the sides and the bottom: the panel's 52, corners round each other
+        height: body.height + (44 + 28) * ch.u
         Resize on height {}
         scale: ch.opacity > 0.5 ? 1 : 0.96
         Behavior on scale { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }

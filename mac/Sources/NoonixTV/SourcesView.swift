@@ -479,7 +479,7 @@ struct SourceRow: View {
         }
         .padding(.horizontal, 26 * u)
         .frame(height: 116 * u)
-        .background { RoundedRectangle(cornerRadius: 26 * u).fill(lit ? Color.white : .clear) }
+        .background { RoundedRectangle(cornerRadius: 28 * u).fill(lit ? Color.white : .clear) }   // + 28 = the panel's 56
         .scaleEffect(lit ? 1.02 : 1)
         .animation(Theme.lift, value: lit)
         .padding(.horizontal, 28 * u)

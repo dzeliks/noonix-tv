@@ -280,7 +280,7 @@ FocusScope {
     ListWheel { view: list }
     ListView {
         id: list
-        anchors { left: panel.left; right: panel.right; top: head.bottom; bottom: panel.bottom; topMargin: 24 * sheet.u; bottomMargin: 30 * sheet.u }
+        anchors { left: panel.left; right: panel.right; top: head.bottom; bottom: panel.bottom; topMargin: 24 * sheet.u; bottomMargin: 28 * sheet.u }
         clip: true
         focus: true
         topMargin: 8 * sheet.u
@@ -316,7 +316,7 @@ FocusScope {
             Pointer { id: rowPt; okKey: false; onTapped: if (rowItem.s.addon !== undefined) sheet.pick(rowItem.s) }
             Rectangle {
                 anchors { fill: parent; leftMargin: 28 * sheet.u; rightMargin: 28 * sheet.u }
-                radius: 26 * sheet.u
+                radius: 28 * sheet.u   // + 28 = the panel's 56
                 color: rowItem.foc ? "white" : "transparent"
                 scale: rowItem.foc ? 1.02 : 1
                 Behavior on scale { SpringAnimation { spring: Theme.springK; damping: Theme.springDamp; epsilon: 0.0005 } }

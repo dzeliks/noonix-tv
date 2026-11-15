@@ -58,7 +58,7 @@ FocusScope {
         // bottom sits just above the osd's button row, like the track picker
         y: sheet.height - 140 * sheet.u - height
         // a phone's short screen: never past the top, the lines scroll instead
-        height: Math.min(head.height + sheet.lines.length * sheet.rowH + 44 * sheet.u, sheet.height - 180 * sheet.u)
+        height: Math.min(head.height + sheet.lines.length * sheet.rowH + 46 * sheet.u, sheet.height - 180 * sheet.u)
         radius: 40 * sheet.u
     }
     MouseArea { anchors.fill: panel; hoverEnabled: true; acceptedButtons: Qt.AllButtons }
@@ -95,7 +95,8 @@ FocusScope {
         x: panel.x + 16 * sheet.u
         y: head.y + head.height
         width: panel.width - 32 * sheet.u
-        height: panel.y + panel.height - 28 * sheet.u - y
+        // 16 below as at the sides: the rows' 24 + 16 = the panel's 40
+        height: panel.y + panel.height - 16 * sheet.u - y
         clip: contentHeight > height + 1
         interactive: clip
         model: sheet.lines.length

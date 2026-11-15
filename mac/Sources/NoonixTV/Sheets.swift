@@ -109,9 +109,11 @@ struct ChoicesView: View {
             SheetFloor { app.choices = nil }
             VStack(alignment: .leading, spacing: 8 * u) {
                 Text(model.title).font(Theme.display(40 * u, .bold)).foregroundStyle(Theme.fg)
+                    .padding(.horizontal, 30 * u)
                 if !model.detail.isEmpty {
                     Text(model.detail).font(Theme.text(24 * u)).foregroundStyle(Theme.fg2)
                         .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 30 * u)
                         .padding(.bottom, 18 * u)
                 }
                 ForEach(Array(model.options.enumerated()), id: \.offset) { i, o in
@@ -126,13 +128,16 @@ struct ChoicesView: View {
                     .foregroundStyle(foc ? Theme.focusFg : Theme.fg)
                     .padding(.horizontal, 30 * u)
                     .frame(height: 84 * u)
-                    .background { RoundedRectangle(cornerRadius: 24 * u).fill(foc ? Color.white : .clear) }
+                    // 32 + 28 = the panel's 60: the corners round each other
+                    .background { RoundedRectangle(cornerRadius: 32 * u).fill(foc ? Color.white : .clear) }
                     .contentShape(.rect)
                     .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.index != i { model.index = i } } }
                     .onTapGesture { model.choose(i, app: app) }
                 }
             }
-            .padding(48 * u)
+            .padding(.horizontal, 28 * u)
+            .padding(.top, 48 * u)
+            .padding(.bottom, 28 * u)
             .frame(width: 860 * u, alignment: .leading)
             .panelGlass(60 * u, u: u)
             .scaleEffect(shown ? 1 : 0.96)
