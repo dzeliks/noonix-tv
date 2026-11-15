@@ -1,6 +1,6 @@
 pkgbase = noonix-tv-bin
 	pkgdesc = Movies and shows on the TV, made for a remote or a controller (release build)
-	pkgver = 0.7.1
+	pkgver = 0.7.2
 	pkgrel = 1
 	url = https://github.com/dzeliks/noonix-tv
 	arch = x86_64
@@ -12,12 +12,12 @@ pkgbase = noonix-tv-bin
 	depends = hicolor-icon-theme
 	provides = noonix-tv
 	conflicts = noonix-tv
-	noextract = Noonix-TV-0.7.1-x86_64.AppImage
+	noextract = Noonix-TV-0.7.2-x86_64.AppImage
 	options = !strip
 	options = !debug
-	source_x86_64 = https://github.com/dzeliks/noonix-tv/releases/download/v0.7.1/Noonix-TV-0.7.1-x86_64.AppImage
-	sha256sums_x86_64 = f0e85ed842118dab9b6d67680ca8a03b67bbabed0486da83d68500e804ced5a7
-	source_aarch64 = https://github.com/dzeliks/noonix-tv/releases/download/v0.7.1/Noonix-TV-0.7.1-aarch64.AppImage
-	sha256sums_aarch64 = 3bb124becbacdab030852a477cc8e7b3a77c90d669bc6545baae51914893080b
+	source_x86_64 = https://github.com/dzeliks/noonix-tv/releases/download/v0.7.2/Noonix-TV-0.7.2-x86_64.AppImage
+	sha256sums_x86_64 = 6a7494642c38b43bf8b9d88e288822553f1213e40ddf66e6590a9431919abc3d
+	source_aarch64 = https://github.com/dzeliks/noonix-tv/releases/download/v0.7.2/Noonix-TV-0.7.2-aarch64.AppImage
+	sha256sums_aarch64 = 5aa21181347319dcf0613be8936b5ae2827cd38d830eb1a80fab89c1c863476f
 
 pkgname = noonix-tv-bin

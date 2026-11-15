@@ -1,7 +1,7 @@
 # Maintainer: dzeliks <127214601+dzeliks@users.noreply.github.com>
 pkgname=noonix-tv-bin
 _name=noonix-tv
-pkgver=0.7.1
+pkgver=0.7.2
 pkgrel=1
 pkgdesc='Movies and shows on the TV, made for a remote or a controller (release build)'
 arch=(x86_64 aarch64)
@@ -14,8 +14,8 @@ options=(!strip !debug)
 source_x86_64=("$url/releases/download/v$pkgver/Noonix-TV-$pkgver-x86_64.AppImage")
 source_aarch64=("$url/releases/download/v$pkgver/Noonix-TV-$pkgver-aarch64.AppImage")
 noextract=("Noonix-TV-$pkgver-$CARCH.AppImage")
-sha256sums_x86_64=('f0e85ed842118dab9b6d67680ca8a03b67bbabed0486da83d68500e804ced5a7')
-sha256sums_aarch64=('3bb124becbacdab030852a477cc8e7b3a77c90d669bc6545baae51914893080b')
+sha256sums_x86_64=('6a7494642c38b43bf8b9d88e288822553f1213e40ddf66e6590a9431919abc3d')
+sha256sums_aarch64=('5aa21181347319dcf0613be8936b5ae2827cd38d830eb1a80fab89c1c863476f')
 
 prepare() {
     chmod +x Noonix-TV-$pkgver-$CARCH.AppImage
