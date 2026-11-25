@@ -24,7 +24,8 @@ const entry = join(out, "entry.ts")
 writeFileSync(entry, `export * as memory from ${JSON.stringify(join(here, "../src/data/memory.ts"))}
 export * as sources from ${JSON.stringify(join(here, "../src/data/sources.ts"))}
 `)
-await build({ entryPoints: [entry], bundle: true, format: "esm", platform: "node", outfile: join(out, "t.mjs"), logLevel: "silent" })
+await build({ entryPoints: [entry], bundle: true, format: "esm", platform: "node", outfile: join(out, "t.mjs"), logLevel: "silent",
+    define: { __SR__: "{}", __TMDB_KEY__: "\"\"", __TMDB_TOKEN__: "\"\"", __HIDE__: "\"\"", __VERSION__: "\"test\"" } })
 const { memory, sources } = await import(pathToFileURL(join(out, "t.mjs")).href)
 rmSync(out, { recursive: true, force: true })
 
@@ -73,4 +74,19 @@ test("ranking: ready links first, then sharper, a cam never", function () {
     const shared = stream("Shared", { resolution: 1080, torrent: true, seeders: 80, cached: undefined })
     const got = sources.rank([lonely, shared, cam, sd, hd, hdr, stream("Hd", { resolution: 1080, cached: true })]).map(function (s) { return s.title.split("\n")[0] })
     assert.deepEqual(got, ["Hdr", "Hd", "Sd", "Shared", "Lonely"])
+})
+
+test("a library file on a share comes first, with no addons and no imdb id", async function () {
+    localStorage.setItem("noonix:libraryFiles", JSON.stringify([
+        { path: "smb://nas/Media/Movies/Sintel.2010.1080p.mkv", size: 3e9, mtime: 1, kind: "movie", tmdb: 45745, season: null, episode: null, name: "Sintel", year: 2010 },
+        { path: "smb://nas/Media/Shows/X/S01E02.ts", size: 1e9, mtime: 1, kind: "episode", tmdb: 7, season: 1, episode: 2, name: "X", year: null },
+    ]))
+    const got = await sources.streams({ kind: "movie", imdb: "", tmdb: 45745 })
+    assert.equal(got.length, 1)
+    assert.deepEqual([got[0].share, got[0].addon, got[0].resolution, got[0].url], [true, "Network share", 1080, "smb://nas/Media/Movies/Sintel.2010.1080p.mkv"])
+    // a .ts file isn't a cam copy
+    const ep = await sources.streams({ kind: "show", imdb: "", tmdb: 7, season: 1, episode: 2 })
+    assert.equal(ep.length, 1)
+    assert.equal((await sources.streams({ kind: "show", imdb: "", tmdb: 7, season: 1, episode: 3 })).length, 0)
+    localStorage.removeItem("noonix:libraryFiles")
 })

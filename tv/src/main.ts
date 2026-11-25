@@ -4,6 +4,7 @@ import { listen, Action } from "./keys"
 import { setLanguage, tr } from "./i18n"
 import * as settings from "./data/settings"
 import * as updates from "./data/updates"
+import * as library from "./data/library"
 import * as tmdb from "./data/tmdb"
 import * as look from "./ui/look"
 import { nextFrame } from "./ui/dom"
@@ -166,6 +167,8 @@ function boot(): void {
         ready = true
         // a while after start, once: a newer release on github
         setTimeout(function () { updates.announce(function (v) { app.toast(tr("%1 is out", "Noonix TV " + v)) }) }, 15000)
+        // the library's folders on network shares: new videos, every start
+        if (library.on() && library.folders().length) setTimeout(function () { library.scan().catch(function () { /* a toast is too much here */ }) }, 4000)
     })
     listen(function (a: Action) {
         if (!ready) return

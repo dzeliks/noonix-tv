@@ -9,6 +9,7 @@ import * as home from "../data/home"
 import * as tmdb from "../data/tmdb"
 import * as progress from "../data/progress"
 import * as trakt from "../data/trakt"
+import * as library from "../data/library"
 import { App, Screen } from "./app"
 import { icon } from "./icons"
 
@@ -312,6 +313,8 @@ export function homeScreen(app: App): Screen {
     }
 
     build(home.rows())
+    // a scan found new videos: their row
+    library.onChange(function () { if (!library.isScanning()) refreshLocal() })
     return {
         el,
         action,

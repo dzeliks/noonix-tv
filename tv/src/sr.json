@@ -126,5 +126,19 @@
     "Torrents on this TV (MIT and ISC licenses: engine/NOTICES.txt in the app)": "Torenti na ovom TV-u (MIT i ISC licence: engine/NOTICES.txt u aplikaciji)",
     "Checking %1… If it's Noonix TV, allow this TV there": "Proveravam %1… Ako je to Noonix TV, dozvoli ovaj TV tamo",
     "The computer didn't allow this TV. Turn its Stream torrents to TVs off and on to ask again": "Računar nije dozvolio ovaj TV. Isključi i uključi tamo Strimuj torente na TV-e da opet pita",
-    "On this TV they play through a small engine inside Noonix TV: it only downloads, keeps the video in the TV's memory and saves nothing. The TV's IP address is the one others see.": "Na ovom TV-u se puštaju preko malog pogona u Noonix TV-u: samo preuzima, drži video u memoriji TV-a i ništa ne čuva. Drugi vide IP adresu TV-a."
+    "On this TV they play through a small engine inside Noonix TV: it only downloads, keeps the video in the TV's memory and saves nothing. The TV's IP address is the one others see.": "Na ovom TV-u se puštaju preko malog pogona u Noonix TV-u: samo preuzima, drži video u memoriji TV-a i ništa ne čuva. Drugi vide IP adresu TV-a.",
+    "%n video(s)": [
+        "%n snimak",
+        "%n snimka",
+        "%n snimaka"
+    ],
+    "Off: only your addons' sources play": "Isključeno: puštaju se samo izvori tvojih dodataka",
+    "Movies and shows on a NAS or another computer: add the folder they're in": "Filmovi i serije na NAS-u ili drugom računaru: dodaj folder u kom su",
+    "Opening…": "Otvaram…",
+    "Checking %1…": "Proveravam %1…",
+    "The server's certificate isn't valid": "Sertifikat servera nije ispravan",
+    "The server wants encryption this TV can't do": "Server traži šifrovanje koje ovaj TV ne ume",
+    "Network shares need Noonix TV on an LG or Samsung TV": "Mrežna deljenja traže Noonix TV na LG ili Samsung TV-u",
+    "Movies and shows on a NAS or another computer: SMB, WebDAV or FTP": "Filmovi i serije na NAS-u ili drugom računaru: SMB, WebDAV ili FTP",
+    "On Your Network": "Na tvojoj mreži"
 }

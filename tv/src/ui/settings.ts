@@ -17,21 +17,25 @@ import * as store from "../data/store"
 import * as trakt from "../data/trakt"
 import * as subtitles from "../data/subs"
 import * as updates from "../data/updates"
+import { libraryScreen, librarySummary } from "./library"
 
 declare const __VERSION__: string
 
-interface Row { label: string; value(): string; ok(): void; hint?: string }
+export interface Row { label: string; value(): string; ok(): void; hint?: string }
+
+export type ListScreen = Screen & { redraw(): void; top(title?: string): void }
 
 /** a titled list of rows, value on the right; ok runs the row */
-function listScreen(title: string, rows: () => Row[]): Screen & { redraw(): void } {
+export function listScreen(title: string, rows: () => Row[]): ListScreen {
     let at = 0
     let current: Row[] = []
     const track = h("div.ltrack")
     const hint = h("div.lhint")
-    const el = h("div.list", null, h("div.ltitle", { text: title }), h("div.lbox", null, track), hint)
+    const titleEl = h("div.ltitle", { text: title })
+    const el = h("div.list", null, titleEl, h("div.lbox", null, track), hint)
     function redraw(): void {
         current = rows()
-        at = Math.min(at, current.length - 1)
+        at = Math.max(0, Math.min(at, current.length - 1))
         clear(track)
         current.forEach(function (r, i) {
             track.appendChild(h("div.lrow" + (i === at ? ".lit" : ""), null, h("span.llabel", { text: r.label }), h("span.lvalue", { text: r.value() })))
@@ -44,6 +48,8 @@ function listScreen(title: string, rows: () => Row[]): Screen & { redraw(): void
     return {
         el,
         redraw,
+        /** back to the first row (a new list in it), with a new title */
+        top(t?: string): void { at = 0; if (t !== undefined) titleEl.textContent = t; redraw() },
         action(a: Action): boolean {
             if (a === "up" && at > 0) at--
             else if (a === "down" && at < current.length - 1) at++
@@ -158,6 +164,11 @@ export function settingsScreen(app: App): Screen {
             { label: tr("Fast intro"), value: function () { return settings.all().fastIntro ? tr("On") : tr("Off") },
                 hint: tr("Opens without the launch animation"),
                 ok: function () { settings.put("fastIntro", !settings.all().fastIntro) } },
+        ].concat(engine.onTv() ? [
+            { label: tr("Library"), value: librarySummary,
+                hint: tr("Movies and shows on a NAS or another computer: SMB, WebDAV or FTP"),
+                ok: function () { app.push(libraryScreen(app), false) } },
+        ] : [], [
             { label: tr("Addons"), value: function () { return n ? trn("%n installed", n) : tr("None") },
                 hint: tr("Sources come from Stremio addons: a debrid one plays best on a TV"),
                 ok: function () { app.push(addonsScreen(app), false) } },
@@ -216,7 +227,7 @@ export function settingsScreen(app: App): Screen {
                 ok: function () { /* nothing */ } },
             { label: tr("Credits"), value: function () { return "TMDB · Trakt · OpenSubtitles" },
                 ok: function () { app.push(creditsScreen(), false) } },
-        ]
+        ])
     })
     updates.latest().then(function (v) { latestSeen = v; screen.redraw() })
     return screen

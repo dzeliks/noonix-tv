@@ -37,15 +37,18 @@ export function sourcesScreen(app: App, req: PlayReq): Screen {
     const el = h("div.sources", null, h("div.spanel", null, head, status, listEl))
 
     const imdb = req.imdb ? Promise.resolve(req.imdb) : tmdb.details(req.item.kind, req.item.id).then(function (d) { return d.imdb })
+    let noImdb = false
     imdb.then(function (id) {
-        if (!id) throw new Error(tr("This title has no imdb id: addons can't look it up"))
+        // no imdb id: only the library's files of it
+        noImdb = !id
         req.imdb = id
-        return sources.streams({ kind: req.item.kind, imdb: id, tmdb: req.item.id, season: req.season, episode: req.episode })
+        return sources.streams({ kind: req.item.kind, imdb: id || "", tmdb: req.item.id, season: req.season, episode: req.episode })
     }).then(function (got) {
         if (!alive) return
         list = got
         const skipped = sources.skippedTorrents()
-        status.textContent = !sources.addons().length ? tr("No addons yet: add one in Settings")
+        status.textContent = noImdb && !got.length ? tr("This title has no imdb id: addons can't look it up")
+            : !sources.addons().length && !got.length ? tr("No addons yet: add one in Settings")
             : skipped ? (got.length ? "" : tr("No sources found") + ". ") + (sources.skippedWhy() === "allow"
                 ? trn("%n torrent source is hidden: allow torrents in Settings", skipped)
                 : trn("%n torrent source needs a streaming server (Settings)", skipped))
@@ -67,7 +70,7 @@ export function sourcesScreen(app: App, req: PlayReq): Screen {
             s.hdr.forEach(function (x) { badges.appendChild(badge(x, "hdr")) })
             if (s.cached === true) badges.appendChild(badge("⚡", "fast"))
             if (s.torrent) badges.appendChild(badge(s.seeders !== null ? "P2P · " + s.seeders : "P2P", ""))
-            const line = [s.addon, sources.sizeText(s.size), s.codec || "", s.audio.slice(0, 2).join(" "), s.source || "",
+            const line = [s.share ? tr(s.addon) : s.addon, sources.sizeText(s.size), s.codec || "", s.audio.slice(0, 2).join(" "), s.source || "",
                 s.languages.filter(function (l) { return l !== "en" }).join(" ").toUpperCase()].filter(function (x) { return !!x }).join("  ·  ")
             // what the viewers said (how's this one?) before the tv's own warning
             const said = memory.isBad(s) ? h("span.warn", { text: "  ·  " + tr("Picture or sound problem") })

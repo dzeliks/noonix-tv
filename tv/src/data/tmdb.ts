@@ -324,3 +324,16 @@ export function season(show: number, n: number): Promise<{ number: number; name:
         return { number: n, name: v.name, episodes: (v.episodes || []).map(function (e: any) { return episode(show, e) }) }
     })
 }
+
+/** the best match for a name read from a file, and its year (core tmdb.rs find): the library's matching.
+ *  a month in the cache: the same names come back every scan */
+export function find(kind: Kind, name: string, year: number | null): Promise<number | null> {
+    const path = kind === "movie" ? "/search/movie" : "/search/tv"
+    const first = function (v: any): number | null { return v && v.results && v.results[0] ? v.results[0].id : null }
+    const q: [string, string | number][] = [["query", name], ["include_adult", "false"]]
+    const plain = function (): Promise<number | null> { return get(path, q, 30 * 86400).then(first) }
+    if (!year) return plain()
+    return get(path, q.concat([[kind === "movie" ? "year" : "first_air_date_year", year]]), 30 * 86400).then(function (v) {
+        return first(v) || plain()
+    })
+}

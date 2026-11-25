@@ -16,6 +16,7 @@ import * as subtitles from "../data/subs"
 import * as memory from "../data/memory"
 import * as skip from "../data/skip"
 import * as engine from "../data/engine"
+import * as shares from "../data/shares"
 import * as platform from "../platform"
 
 const osdMs = 4500
@@ -122,14 +123,15 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         imdbOf(r).then(function (imdb) {
             if (!alive || req !== r) return
             r.imdb = imdb
-            if (!imdb) throw new Error(tr("This title has no imdb id: addons can't look it up"))
-            return sources.streams({ kind: r.item.kind, imdb: imdb, tmdb: r.item.id, season: r.season, episode: r.episode }).then(function (got) {
+            // no imdb id: only the library's files of it
+            return sources.streams({ kind: r.item.kind, imdb: imdb || "", tmdb: r.item.id, season: r.season, episode: r.episode }).then(function (got) {
                 if (!alive || req !== r) return
                 list = pickOrder(got)
                 at = 0
                 if (!list.length) {
                     spinner.style.display = "none"
-                    say(sources.addons().length ? tr("No sources found") : tr("No addons yet: add one in Settings"))
+                    say(!imdb ? tr("This title has no imdb id: addons can't look it up")
+                        : sources.addons().length ? tr("No sources found") : tr("No addons yet: add one in Settings"))
                     return
                 }
                 start()
@@ -163,7 +165,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         }
         say(at ? tr("Trying another source…") : "")
         srcEl.textContent = [s.resolution ? (s.resolution >= 2160 ? "4K" : s.resolution + "p") : "", s.hdr.join(" "), s.codec || "",
-            s.audio.slice(0, 2).join(" "), s.addon, sources.sizeText(s.size)].filter(function (x) { return !!x }).join("  ·  ")
+            s.audio.slice(0, 2).join(" "), s.share ? tr(s.addon) : s.addon, sources.sizeText(s.size)].filter(function (x) { return !!x }).join("  ·  ")
         spinner.style.display = ""
         ended = false
         subs.textContent = ""
@@ -172,10 +174,22 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         segs = []
         showSkip(null)
         clearTimeout(startTimer)
-        const open = function () {
-            video.open(s.url)
+        const open = function (url?: string) {
+            video.open(url || s.url)
             // a torrent first finds people and its file list on the server
             startTimer = window.setTimeout(function () { if (!started) fail("no start") }, s.torrent ? startWait * 3 : startWait)
+        }
+        // a file on a network share: the engine opens it and hands a link
+        if (s.share) {
+            shares.playUrl(s.url).then(function (url) {
+                if (alive && list[at] === s) open(url)
+            }, function (e) {
+                if (!alive || list[at] !== s) return
+                // what the server said (the name or password, a share gone), then the next source
+                app.toast(String(e.message || e))
+                fail(String(e.message || e))
+            })
+            return
         }
         if (!s.torrent) return open()
         // this tv's own engine is started first (a server set in settings is already running)

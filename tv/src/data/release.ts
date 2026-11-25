@@ -36,7 +36,7 @@ export function parseRelease(text: string): Stream {
         ["multi", "multi"]].forEach(function (l) { if (has(text, "(" + l[1] + ")")) langs.push(l[0]) })
     return {
         addon: "", title: "", url: "", filename: null, size: null, resolution: resolution, hdr: hdr, codec: codec, audio: audio,
-        source: source, cached: null, service: null, torrent: false, seeders: null, bingeGroup: null, languages: langs, warn: null,
+        source: source, cached: null, service: null, torrent: false, share: false, seeders: null, bingeGroup: null, languages: langs, warn: null,
     }
 }
 

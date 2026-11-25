@@ -1,11 +1,13 @@
 // the torrent engine the lg and samsung apps carry: a node service on 127.0.0.1:11470 with the
 // streaming server's api, as the desktop core's tvserver.rs: GET /<infohash>/<file index>[?tr=&f=] plays a file of it (-1: the biggest video).
+// network shares go through it too (shares.js)
 // download only (no upload slots, no listening port), one torrent at a time, pieces kept in memory
 // (a tv has little flash): the ones far behind what plays are dropped and fetched again if needed.
 "use strict"
 var http = require("http")
 var os = require("os")
 var torrentStream = require("torrent-stream")
+var shares = require("./shares")
 
 var PORT = 11470
 var IDLE = 10 * 60 * 1000
@@ -249,9 +251,12 @@ function handle(req, res) {
     var p = q < 0 ? req.url : req.url.slice(0, q)
     var query = parseQuery(q < 0 ? "" : req.url.slice(q + 1))
     if (req.method === "OPTIONS") {
-        res.writeHead(204, { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "*", "Access-Control-Allow-Methods": "GET, HEAD, OPTIONS" })
+        // old browsers don't know "*" for headers: the asked ones are named back
+        res.writeHead(204, { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": req.headers["access-control-request-headers"] || "range",
+            "Access-Control-Allow-Methods": "GET, HEAD, POST, OPTIONS" })
         return res.end()
     }
+    if (shares.handle(req, res, p)) return
     if (p === "/settings") return reply(res, 200, "application/json", JSON.stringify({ options: [], values: { serverVersion: "noonix-tv-engine " + version, cacheSize: CAP } }))
     if (p === "/heartbeat" || p === "/stats.json") return reply(res, 200, "application/json", "{}")
     var m = /^\/([0-9a-fA-F]{40})\/(-?\d+)(?:\/.*)?$/.exec(p)
@@ -295,6 +300,8 @@ function handle(req, res) {
 
 function tick() {
     var now = Date.now()
+    // a file of a share playing counts as asked
+    if (shares.busy()) lastAsk = now
     if (current && !current.readers.length && now - current.last > IDLE) drop()
     if (!current && now - lastAsk > IDLE && onIdle) {
         log("idle: stopping")

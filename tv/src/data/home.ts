@@ -2,6 +2,7 @@
 import * as tmdb from "./tmdb"
 import * as progress from "./progress"
 import * as trakt from "./trakt"
+import * as library from "./library"
 
 export interface RowDef {
     id: string
@@ -11,12 +12,13 @@ export interface RowDef {
 }
 
 /** rows filled from what's kept on the tv (and trakt): asked again whenever home comes back */
-export function isLocal(id: string): boolean { return /^(continue|upnext|library|watchlist|history)/.test(id) }
+export function isLocal(id: string): boolean { return /^(continue|upnext|library|watchlist|history|files)/.test(id) }
 
 export function rows(): RowDef[] {
     return [
         { id: "continue", title: "Continue Watching", style: "landscape" },
         { id: "upnext", title: "Up Next", style: "episode" },
+        { id: "files", title: "On Your Network", style: "poster" },
         { id: "library", title: "My List", style: "poster" },
         { id: "popular-tv", title: "Popular TV Shows", style: "poster" },
         { id: "popular-movie", title: "Popular Movies", style: "poster" },
@@ -31,6 +33,7 @@ export function rows(): RowDef[] {
 
 export function movieRows(): RowDef[] {
     return [
+        { id: "files-movie", title: "On Your Network", style: "poster" },
         { id: "popular-movie", title: "Popular", style: "poster" },
         { id: "trending-movie", title: "Trending", style: "poster" },
         { id: "netflix-movie", title: "Netflix", style: "poster", brand: "netflix" },
@@ -45,6 +48,7 @@ export function movieRows(): RowDef[] {
 
 export function showRows(): RowDef[] {
     return [
+        { id: "files-show", title: "On Your Network", style: "poster" },
         { id: "popular-tv", title: "Popular", style: "poster" },
         { id: "trending-tv", title: "Trending", style: "poster" },
         { id: "netflix-tv", title: "Netflix", style: "poster", brand: "netflix" },
@@ -62,6 +66,7 @@ export function libraryRows(): RowDef[] {
         { id: "continue", title: "Continue Watching", style: "landscape" },
         { id: "library-show", title: "Shows", style: "poster" },
         { id: "library-movie", title: "Movies", style: "poster" },
+        { id: "files", title: "On Your Network", style: "poster" },
     ]
     if (trakt.user()) out.push({ id: "watchlist", title: "Watchlist", style: "poster" })
     out.push({ id: "history", title: "Recently watched", style: "poster" })
@@ -91,8 +96,20 @@ function continuing(): Promise<tmdb.Item[]> {
     })
 }
 
+/** the library's titles (files on network shares), newest first */
+function files(kind?: tmdb.Kind): Promise<tmdb.Item[]> {
+    return Promise.all(library.items(kind).slice(0, 40).map(function (x) {
+        return tmdb.details(x.kind, x.id).then(function (d) { return d as tmdb.Item }, function () { return null })
+    })).then(function (got: (tmdb.Item | null)[]) {
+        return got.filter(function (x): x is tmdb.Item { return !!x })
+    })
+}
+
 export function row(id: string): Promise<tmdb.Item[]> {
     if (id === "continue") return continuing()
+    if (id === "files") return files()
+    if (id === "files-movie") return files("movie")
+    if (id === "files-show") return files("show")
     if (id === "upnext") {
         const going: { [k: string]: boolean } = {}
         progress.continuing().forEach(function (p) { going[p.item.kind + ":" + p.item.id] = true })

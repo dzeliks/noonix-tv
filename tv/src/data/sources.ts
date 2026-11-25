@@ -7,6 +7,7 @@ import * as settings from "./settings"
 import * as engine from "./engine"
 import * as speed from "./speed"
 import * as memory from "./memory"
+import * as library from "./library"
 import { platform } from "../platform"
 import * as look from "../ui/look"
 import { address, parseRelease, parseSize, pattern } from "./release"
@@ -38,6 +39,8 @@ export interface Stream {
     service: string | null
     /** played through the streaming server */
     torrent: boolean
+    /** a library file on a network share: url is its share path, played through the tv's engine */
+    share: boolean
     seeders: number | null
     bingeGroup: string | null
     languages: string[]
@@ -102,11 +105,13 @@ function provides(a: Addon, kind: string, id: string): boolean {
 
 // ---- streams
 
-/** every addon that serves this, side by side; one that fails or is slow is left out */
+/** the library's files of it, then every addon that serves it, side by side; one that fails or is slow is
+ *  left out (a title without an imdb id: the library's only) */
 export function streams(t: Target): Promise<Stream[]> {
     const kind = t.kind === "movie" ? "movie" : "series"
     const id = t.kind === "movie" ? t.imdb : t.imdb + ":" + t.season + ":" + t.episode
-    const asked = addons().filter(function (a) { return provides(a, kind, id) })
+    const asked = t.imdb ? addons().filter(function (a) { return provides(a, kind, id) }) : []
+    const own = library.streams(t)
     let skipped = 0
     return Promise.all(asked.map(function (a) {
         const key = "streams:" + a.url + ":" + id
@@ -126,7 +131,7 @@ export function streams(t: Target): Promise<Stream[]> {
     })).then(function (lists) {
         torrentsSkipped = skipped
         torrentsWhy = settings.all().torrents !== true ? "allow" : "server"
-        const ranked = rank(([] as Stream[]).concat.apply([], lists))
+        const ranked = rank(own.concat.apply(own, lists))
         return t.tmdb ? memory.order(t.kind, t.tmdb, ranked) : ranked
     })
 }
@@ -254,6 +259,8 @@ export function rank(list: Stream[]): Stream[] {
     })
     const score = function (s: Stream): number {
         let n = 0
+        // your own file first, as the core's local ones
+        if (s.share) n += 1e8
         if (!s.warn) n += 1e7
         if (s.cached === true) n += 4e6
         // a torrent comes after the links that are ready: it has to find people first; nearly nobody sharing, last
