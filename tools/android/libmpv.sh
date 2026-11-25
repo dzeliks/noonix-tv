@@ -24,8 +24,10 @@ esac
 [[ -f "$dest/.stamp" && "$(cat "$dest/.stamp")" == "$abi $aar_v $mpv_v $ssl_rev" ]] && exit 0
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-curl -fsSL -o "$tmp/libmpv.aar" "https://repo1.maven.org/maven2/dev/jdtech/mpv/libmpv/$aar_v/libmpv-$aar_v.aar"
-curl -fsSL -o "$tmp/mpv.tar.gz" "https://github.com/mpv-player/mpv/archive/refs/tags/v$mpv_v.tar.gz"
+# ci runners share addresses, so these hosts answer 429 now and then
+get() { curl -fsSL --retry 6 --retry-delay 20 --retry-connrefused "$@"; }
+get -o "$tmp/libmpv.aar" "https://repo1.maven.org/maven2/dev/jdtech/mpv/libmpv/$aar_v/libmpv-$aar_v.aar"
+get -o "$tmp/mpv.tar.gz" "https://github.com/mpv-player/mpv/archive/refs/tags/v$mpv_v.tar.gz"
 echo "$aar_sum  $tmp/libmpv.aar" | shasum -a 256 -c - >/dev/null
 echo "$mpv_sum  $tmp/mpv.tar.gz" | shasum -a 256 -c - >/dev/null
 rm -rf "$dest"
@@ -36,7 +38,7 @@ mkdir -p "$dest/lib" "$dest/include"
 cp "$tmp/jni/$abi"/lib*.so "$dest/lib/"
 rm -f "$dest/lib/libplayer.so"
 for f in libcrypto_3.so libssl_3.so; do
-    curl -fsSL -o "$dest/lib/$f" "https://raw.githubusercontent.com/KDAB/android_openssl/$ssl_rev/ssl_3/$abi/$f"
+    get -o "$dest/lib/$f" "https://raw.githubusercontent.com/KDAB/android_openssl/$ssl_rev/ssl_3/$abi/$f"
 done
 (cd "$dest/lib" && shasum -a 256 -c - <<< "$ssl_sums" >/dev/null)
 tar -xzf "$tmp/mpv.tar.gz" -C "$tmp" "mpv-$mpv_v/include/mpv"
