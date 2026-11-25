@@ -26,7 +26,10 @@ tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
 # ci runners share addresses, so these hosts answer 429 now and then
 get() { curl -fsSL --retry 6 --retry-delay 20 --retry-connrefused "$@"; }
-get -o "$tmp/libmpv.aar" "https://repo1.maven.org/maven2/dev/jdtech/mpv/libmpv/$aar_v/libmpv-$aar_v.aar"
+aar="dev/jdtech/mpv/libmpv/$aar_v/libmpv-$aar_v.aar"
+# maven central turns runners away for minutes at a time: google's mirror of it next (the sum is checked either way)
+curl -fsSL -o "$tmp/libmpv.aar" "https://repo1.maven.org/maven2/$aar" ||
+    get -o "$tmp/libmpv.aar" "https://maven-central.storage-download.googleapis.com/maven2/$aar"
 get -o "$tmp/mpv.tar.gz" "https://github.com/mpv-player/mpv/archive/refs/tags/v$mpv_v.tar.gz"
 echo "$aar_sum  $tmp/libmpv.aar" | shasum -a 256 -c - >/dev/null
 echo "$mpv_sum  $tmp/mpv.tar.gz" | shasum -a 256 -c - >/dev/null
