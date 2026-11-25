@@ -121,7 +121,7 @@ html, body {
 }
 .hero .sub { font-size: 31px; font-weight: 600; margin-bottom: 12px; }
 .hero .sub:empty { display: none; }
-.hero .meta { font-size: 24px; color: rgba(255, 255, 255, 0.66); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hero .meta { font-size: 24px; color: #adadb0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hero .meta b { color: #fff; font-weight: 600; }
 .hero .side { position: absolute; left: 1017px; top: 246px; width: 806px; }
 .hero .overview {
@@ -241,7 +241,7 @@ html, body {
     font-size: 84px; font-weight: 700; line-height: 1.02; letter-spacing: -1px;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
-.details .meta { font-size: 24px; color: rgba(255, 255, 255, 0.66); white-space: nowrap; overflow: hidden; }
+.details .meta { font-size: 24px; color: #adadb0; white-space: nowrap; overflow: hidden; }
 .details .meta b { color: #fff; font-weight: 600; }
 .details .story { position: relative; width: 691px; }
 .details .tagline { font-size: 26px; font-weight: 600; margin-bottom: 14px; }
@@ -408,7 +408,7 @@ html, body {
 .sources { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: linear-gradient(to right, rgba(0, 0, 0, 0.2), rgba(0, 0, 0, 0.6)); }
 .sources .spanel {
     position: absolute; left: 920px; top: 40px; width: 960px; height: 1000px; overflow: hidden;
-    border-radius: 56px; background: rgba(30, 30, 34, 0.95); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), inset 0 0 0 1.5px rgba(255, 255, 255, 0.1);
+    border-radius: 56px; background: rgb(30, 30, 34); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), inset 0 0 0 1.5px rgba(255, 255, 255, 0.1);
 }
 .blur .sources .spanel { background: rgba(44, 44, 50, 0.72); -webkit-backdrop-filter: blur(40px) saturate(1.6); backdrop-filter: blur(40px) saturate(1.6); }
 .sources .shead { position: absolute; left: 56px; top: 52px; right: 56px; }
@@ -449,7 +449,7 @@ html, body {
 .menu .mbox {
     position: absolute; left: 50%; top: 50%; min-width: 592px; max-width: 1072px; padding: 30px 24px 18px; border-radius: 34px;
     -webkit-transform: translate(-50%, -50%); transform: translate(-50%, -50%);
-    background: rgba(32, 32, 36, 0.97); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.12);
+    background: rgb(32, 32, 36); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.12);
 }
 .blur .menu .mbox { background: rgba(40, 40, 46, 0.72); -webkit-backdrop-filter: blur(40px); backdrop-filter: blur(40px); }
 .menu .mtitle { padding: 0 20px 18px; font-size: 25px; font-weight: 600; color: rgba(255, 255, 255, 0.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
