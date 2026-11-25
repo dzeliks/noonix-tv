@@ -341,11 +341,13 @@ async fn smb_client(a: &At, share_name: Option<&str>) -> Result<Arc<smb::Client>
 fn smb_error(e: smb::Error) -> anyhow::Error {
     let t = e.to_string();
     tracing::debug!("smb: {t}");
-    if t.contains("LOGON_FAILURE") || t.contains("ACCESS_DENIED") || t.to_lowercase().contains("logon") {
+    // the crate words a status as "Access Denied (0xc0000022)"
+    let l = t.to_lowercase();
+    if l.contains("logon") || l.contains("access denied") || l.contains("0xc000006d") || l.contains("0xc0000022") {
         anyhow!("The name or password isn't right")
-    } else if t.contains("BAD_NETWORK_NAME") {
+    } else if l.contains("bad network name") || l.contains("0xc00000cc") {
         anyhow!("That share isn't on the server")
-    } else if t.contains("NOT_FOUND") {
+    } else if l.contains("not found") || l.contains("0xc0000034") || l.contains("0xc000003a") {
         anyhow!("That folder isn't there")
     } else {
         anyhow!("Couldn't reach the server")
@@ -372,18 +374,23 @@ async fn smb_list(a: &At) -> Result<Vec<Entry>> {
     let Some(share) = share else {
         // the server: its shares
         let client = smb_client(a, None).await?;
-        // samba can't list its shares to this client (ndr64): the share's name has to be typed
-        let shares = client.list_shares(&a.share.host).await.map_err(|e| {
-            tracing::debug!("smb shares of {}: {e}", a.share.host);
-            anyhow!("Add the share's name to the address, like nas.local/Media")
-        })?;
-        return Ok(shares
-            .iter()
-            .filter(|s| !s.share_type.special())
-            .filter_map(|s| s.netname.as_ref().map(|n| n.to_string()))
-            .filter(|n| !n.ends_with('$'))
-            .map(|name| Entry { name, dir: true, size: 0, mtime: 0 })
-            .collect());
+        // ndr20 first (samba answers only that, windows both), the crate's ndr64 after
+        let names = match srvsvc_shares(&client, &a.share.host).await {
+            Ok(n) => n,
+            Err(e) => {
+                tracing::debug!("smb shares of {} (ndr20): {e:#}", a.share.host);
+                let shares = client.list_shares(&a.share.host).await.map_err(|e| {
+                    tracing::debug!("smb shares of {}: {e}", a.share.host);
+                    anyhow!("Add the share's name to the address, like nas.local/Media")
+                })?;
+                shares
+                    .iter()
+                    .filter(|s| !s.share_type.special())
+                    .filter_map(|s| s.netname.as_ref().map(|n| n.to_string()))
+                    .collect()
+            }
+        };
+        return Ok(names.into_iter().filter(|n| !n.ends_with('$')).map(|name| Entry { name, dir: true, size: 0, mtime: 0 }).collect());
     };
     let client = smb_client(a, Some(&share)).await?;
     let args = smb::FileCreateArgs::make_open_existing(smb::DirAccessMask::new().with_list_directory(true).with_synchronize(true).into());
@@ -403,6 +410,135 @@ async fn smb_list(a: &At) -> Result<Vec<Entry>> {
     }
     dir.close().await.ok();
     Ok(out)
+}
+
+// ---- the server's shares over srvsvc in ndr20, by hand (the tv engine's smb.js does the same)
+
+fn rpc_pdu(kind: u8, call: u32, body: &[u8]) -> Vec<u8> {
+    let mut h = vec![5, 0, kind, 3, 0x10, 0, 0, 0];
+    h.extend_from_slice(&(16 + body.len() as u16).to_le_bytes());
+    h.extend_from_slice(&[0, 0]);
+    h.extend_from_slice(&call.to_le_bytes());
+    h.extend_from_slice(body);
+    h
+}
+
+/// a uuid as dce/rpc writes it (the first three fields little endian)
+fn rpc_uuid(s: &str) -> Vec<u8> {
+    let b: Vec<u8> = (0..16).map(|i| u8::from_str_radix(&s.replace('-', "")[i * 2..i * 2 + 2], 16).unwrap_or(0)).collect();
+    let mut out = vec![b[3], b[2], b[1], b[0], b[5], b[4], b[7], b[6]];
+    out.extend_from_slice(&b[8..]);
+    out
+}
+
+fn srvsvc_bind() -> Vec<u8> {
+    let mut b = Vec::new();
+    b.extend_from_slice(&4280u16.to_le_bytes());
+    b.extend_from_slice(&4280u16.to_le_bytes());
+    b.extend_from_slice(&[0, 0, 0, 0, 1, 0, 0, 0]);
+    // context 0, one transfer syntax: srvsvc 3.0 over ndr 2.0
+    b.extend_from_slice(&[0, 0, 1, 0]);
+    b.extend(rpc_uuid("4b324fc8-1670-01d3-1278-5a47bf6ee188"));
+    b.extend_from_slice(&3u32.to_le_bytes());
+    b.extend(rpc_uuid("8a885d04-1ceb-11c9-9fe8-08002b104860"));
+    b.extend_from_slice(&2u32.to_le_bytes());
+    rpc_pdu(11, 1, &b)
+}
+
+fn ndr_string(s: &str) -> Vec<u8> {
+    let chars: Vec<u8> = s.encode_utf16().chain(std::iter::once(0)).flat_map(|c| c.to_le_bytes()).collect();
+    let n = (chars.len() / 2) as u32;
+    let mut out = Vec::new();
+    for v in [n, 0, n] {
+        out.extend_from_slice(&v.to_le_bytes());
+    }
+    out.extend_from_slice(&chars);
+    out.resize(out.len() + (4 - chars.len() % 4) % 4, 0);
+    out
+}
+
+/// NetrShareEnum (opnum 15), level 1
+fn srvsvc_enum(host: &str) -> Vec<u8> {
+    let mut stub = 0x20000u32.to_le_bytes().to_vec();
+    stub.extend(ndr_string(host));
+    // level, union switch, container pointer, entries, null buffer, max length, resume handle pointer, its value
+    for v in [1u32, 1, 0x20004, 0, 0, 0xffff_ffff, 0x20008, 0] {
+        stub.extend_from_slice(&v.to_le_bytes());
+    }
+    let mut body = (stub.len() as u32).to_le_bytes().to_vec();
+    body.extend_from_slice(&[0, 0, 15, 0]);
+    body.extend(stub);
+    rpc_pdu(0, 2, &body)
+}
+
+/// the disk shares in a NetrShareEnum answer
+fn srvsvc_parse(resp: &[u8]) -> Result<Vec<String>> {
+    if resp.len() < 24 || resp[2] != 2 {
+        bail!("share list refused");
+    }
+    let s = &resp[24..];
+    let mut at = 0usize;
+    let mut u32_ = || -> Result<u32> {
+        let v = s.get(at..at + 4).context("share list cut short")?;
+        at += 4;
+        Ok(u32::from_le_bytes([v[0], v[1], v[2], v[3]]))
+    };
+    u32_()?;
+    u32_()?;
+    if u32_()? == 0 {
+        return Ok(Vec::new());
+    }
+    let count = u32_()? as usize;
+    if u32_()? == 0 {
+        return Ok(Vec::new());
+    }
+    u32_()?;
+    let mut entries = Vec::new();
+    for _ in 0..count.min(4096) {
+        entries.push((u32_()?, u32_()?, u32_()?));
+    }
+    let read_str = |at: &mut usize| -> Result<String> {
+        let word = |i: usize| s.get(i..i + 4).map(|v| u32::from_le_bytes([v[0], v[1], v[2], v[3]])).context("share list cut short");
+        let n = word(*at + 8)? as usize;
+        *at += 12;
+        let raw = s.get(*at..*at + n * 2).context("share list cut short")?;
+        let t = String::from_utf16_lossy(&raw.chunks(2).map(|c| u16::from_le_bytes([c[0], c[1]])).collect::<Vec<_>>());
+        *at += n * 2;
+        *at += (4 - *at % 4) % 4;
+        Ok(t.trim_end_matches('\0').to_owned())
+    };
+    let mut out = Vec::new();
+    for (name, kind, remark) in entries {
+        let n = if name != 0 { read_str(&mut at)? } else { String::new() };
+        if remark != 0 {
+            read_str(&mut at)?;
+        }
+        if kind & 0xff == 0 && kind & 0x8000_0000 == 0 && !n.is_empty() {
+            out.push(n);
+        }
+    }
+    Ok(out)
+}
+
+async fn srvsvc_shares(client: &smb::Client, host: &str) -> Result<Vec<String>> {
+    let pipe = client.open_pipe(host, "srvsvc").await.map_err(|e| anyhow!("{e}"))?;
+    let call = |pdu: Vec<u8>| {
+        let pipe = &pipe;
+        async move {
+            let r = pipe.fsctl_with_options(smb::PipeTransceiveRequest::from(smb::IoctlBuffer::from(pdu)), 65536).await.map_err(|e| anyhow!("{e}"))?;
+            Ok::<Vec<u8>, anyhow::Error>(r.to_vec())
+        }
+    };
+    let r = async {
+        let ack = call(srvsvc_bind()).await?;
+        if ack.get(2) != Some(&12) {
+            bail!("bind refused");
+        }
+        srvsvc_parse(&call(srvsvc_enum(host)).await?)
+    }
+    .await;
+    pipe.close().await.ok();
+    r
 }
 
 async fn smb_open(a: &At) -> Result<smb::File> {
@@ -822,6 +958,66 @@ mod tests {
     }
 
     #[test]
+    fn srvsvc_pdus() {
+        let b = srvsvc_bind();
+        assert_eq!((b.len(), b[2], u16::from_le_bytes([b[8], b[9]])), (72, 11, 72));
+        assert_eq!(&b[32..36], &[0xc8, 0x4f, 0x32, 0x4b]);
+        let e = srvsvc_enum("nas");
+        assert_eq!((e[2], e[22], e.len() % 4), (0, 15, 0));
+        // an answer with Media (disk), IPC$ (ipc) and print$ (hidden)
+        let mut stub = vec![];
+        let w = |v: &mut Vec<u8>, x: u32| v.extend_from_slice(&x.to_le_bytes());
+        for x in [1, 1, 0x20000, 3, 0x20004, 3] {
+            w(&mut stub, x);
+        }
+        for (n, t, r) in [(1, 0, 0), (2, 0x8000_0003, 3), (4, 0x8000_0000, 0)] {
+            for x in [n, t, r] {
+                w(&mut stub, x);
+            }
+        }
+        stub.extend(ndr_string("Media"));
+        stub.extend(ndr_string("IPC$"));
+        stub.extend(ndr_string("IPC Service"));
+        stub.extend(ndr_string("print$"));
+        let mut resp = rpc_pdu(2, 2, &[0; 8]);
+        resp.extend(stub);
+        assert_eq!(srvsvc_parse(&resp).unwrap(), vec!["Media".to_owned()]);
+        assert!(srvsvc_parse(&rpc_pdu(3, 2, &[0; 8])).is_err());
+    }
+
+    /// against a real server: NOONIX_SMB_TEST="host:port:user:password" cargo test lists_smb_shares -- --ignored
+    #[tokio::test]
+    #[ignore]
+    async fn lists_smb_shares() {
+        let t = std::env::var("NOONIX_SMB_TEST").unwrap();
+        let p: Vec<&str> = t.splitn(4, ':').collect();
+        let a = At {
+            share: Share { id: "t".into(), kind: "smb".into(), host: p[0].into(), port: p[1].parse().ok(), user: p[2].into(), base: String::new() },
+            password: p[3].into(),
+            rest: String::new(),
+        };
+        let client = smb_client(&a, None).await.unwrap();
+        let names = srvsvc_shares(&client, p[0]).await.unwrap();
+        println!("shares: {names:?}");
+        assert!(!names.is_empty());
+        let l = smb_list(&a).await.unwrap();
+        assert!(l.iter().all(|e| e.dir && !e.name.ends_with('$')));
+        // each share the login may open lists (a guest only the guest ones)
+        let mut opened = 0;
+        for n in &names {
+            let at = At { share: a.share.clone(), password: a.password.clone(), rest: n.clone() };
+            match smb_list(&at).await {
+                Ok(l) => {
+                    opened += 1;
+                    println!("{n}: {} entries", l.len())
+                }
+                Err(e) => println!("{n}: {e}"),
+            }
+        }
+        assert!(opened > 0);
+    }
+
+    #[test]
     fn reads_propfind() {
         let xml = r#"<?xml version="1.0"?><d:multistatus xmlns:d="DAV:">
           <d:response><d:href>/dav/Movies/</d:href><d:propstat><d:prop><d:resourcetype><d:collection/></d:resourcetype></d:prop></d:propstat></d:response>
@@ -840,10 +1036,16 @@ mod tests {
 #[cfg(test)]
 mod live {
     // against test servers: NOONIX_SHARE_TEST="<share path>|<the same file on disk>;..." (shares
-    // already added in this XDG home): cargo test shares::live -- --ignored
+    // already added in this XDG home, or added first from NOONIX_SHARE_ADD="kind|address|user|password;...",
+    // with NOONIX_DB pointing at a scratch db): cargo test shares::live -- --ignored
     #[tokio::test(flavor = "multi_thread")]
     #[ignore]
     async fn serves_ranges() {
+        for add in std::env::var("NOONIX_SHARE_ADD").unwrap_or_default().split(';').filter(|s| !s.is_empty()) {
+            let p: Vec<&str> = add.splitn(4, '|').collect();
+            let r = super::add(p[0], p[1], p.get(2).copied().unwrap_or(""), p.get(3).copied().unwrap_or("")).await.unwrap();
+            println!("added {r}");
+        }
         let spec = std::env::var("NOONIX_SHARE_TEST").expect("NOONIX_SHARE_TEST");
         let c = reqwest::Client::new();
         for pair in spec.split(';') {

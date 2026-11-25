@@ -58,6 +58,9 @@ lto = "thin"
 codegen-units = 4
 debug = 1
 
-# ios: the published one has no ios branch for binding to a device (its macos one works there)
 [patch.crates-io]
+# ios: the published one has no ios branch for binding to a device (its macos one works there)
 librqbit-dualstack-sockets = { path = "vendor/librqbit-dualstack-sockets" }
+# 0.12.1 with two fixes: a guest login to samba (map to guest) failed the session setup, and an async
+# answer's credits were dropped (reads samba answers late stalled the connection after a few MB)
+smb = { path = "vendor/smb" }
