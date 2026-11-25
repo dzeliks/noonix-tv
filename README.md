@@ -69,6 +69,26 @@
 - **For the whole household**: multiple profiles, each with its own Trakt account and
   history, in English and Serbian.
 
+## Platforms
+
+|                                      | Linux | Windows | macOS | iPhone, iPad | Apple TV | Android | LG, Samsung |
+|--------------------------------------|:-----:|:-------:|:-----:|:------------:|:--------:|:-------:|:-----------:|
+| Videos on the device                 |   ✓   |    ✓    |   ✓   |    ✓ ¹       |    –     |    ✓    |      –      |
+| Network shares (SMB, WebDAV, FTP)    |   ✓   |    ✓    |   ✓   |      ✓       |    ✓     |    ✓    |      ✓      |
+| Stremio addons                       |   ✓   |    ✓    |   ✓   |      ✓       |    ✓     |    ✓    |      ✓      |
+| Extensions (`.noonix`)               |   ✓   |    ✓    |   ✓   |      ✓       |  ✓ ²     |    ✓    |      –      |
+| Torrents                             |   ✓   |    ✓    |   ✓   |      ✓       |    ✓     |    ✓    |      ✓      |
+| Trakt, profiles, Up Next             |   ✓   |    ✓    |   ✓   |      ✓       |    ✓     |    ✓    |      ✓      |
+| Subtitles online, skip intro         |   ✓   |    ✓    |   ✓   |      ✓       |    ✓     |    ✓    |      ✓      |
+| HDR                                  |   ✓   |    –    |   ✓   |      ✓       |    ✓     |    –    |      ✓      |
+| Refresh rate matching                |   ✓   |    ✓    |   ✓   |      –       |    –     |  TV ³   |      –      |
+| Remappable controls                  |   ✓   |    ✓    |   ✓   |      ✓       |    ✓     |    ✓    |      –      |
+| Low memory mode                      |   ✓   |    ✓    |   –   |      –       |    –     |    ✓    |      ✓      |
+| Updates itself                       |   ✓   |    ✓    |   –   |      –       |    –     |    –    |      –      |
+
+¹ the app's folder in the Files app · ² from an address · ³ on Android TV boxes.
+Everything but Linux, Windows and macOS is a preview; the LG and Samsung app hasn't run on a real TV yet.
+
 ## Extensions
 
 An extension is one small `.noonix` file that sets up Stremio addons, torrents and release
