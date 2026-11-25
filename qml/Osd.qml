@@ -369,8 +369,19 @@ FocusScope {
             }
         }
 
+        // a soft shade behind the logo: a blue one on a bright meadow still reads
+        Scrim {
+            x: Theme.margin - 380 * osd.u
+            y: parent.height - 411 * osd.u - 290 * osd.u
+            width: 1280 * osd.u
+            height: 580 * osd.u
+            strength: 0.8
+            opacity: osdLogo.opacity
+            visible: osdLogo.ready || osdLogo.noLogo
+        }
         // logo / title in a fixed box, bottom edge at H-336
         Logo {
+            id: osdLogo
             opacity: chipBox.on || osd.pickerOpen ? 0 : 1
             Behavior on opacity { NumberAnimation { duration: 160 } }
             x: Theme.margin

@@ -1007,6 +1007,12 @@ struct OsdView: View {
             }
             .offset(x: margin, y: WindowState.shared.belowLights(56 * u))
 
+            // a soft shade behind the logo: a blue one on a bright meadow still reads (qml Osd)
+            Scrim(strength: 0.8)
+                .frame(width: 1280 * u, height: 580 * u)
+                .offset(x: margin - 380 * u, y: H - 411 * u - 290 * u)
+                .opacity(picking || chip ? 0 : 1)
+                .animation(.easeInOut(duration: 0.16), value: picking || chip)
             // logo / title in a fixed box, bottom edge at H-336, the episode line under it
             LogoBox(url: p.logo, title: p.title, titleSize: 54 * u, leading: true)
                 .frame(width: 520 * u, height: 150 * u)
