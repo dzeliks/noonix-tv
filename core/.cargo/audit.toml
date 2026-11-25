@@ -7,4 +7,7 @@ ignore = [
     # rsa (smb -> sspi -> picky): timing of rsa decryption. shares log in with a user and password
     # (ntlm), which uses no rsa; no picky release takes the fixed rsa yet
     "RUSTSEC-2023-0071",
+    # url: stack overflow in Url::origin() on nested blob: urls. nothing in the app or its crates calls
+    # origin() (only url's own quirks), no fixed url release yet
+    "RUSTSEC-2026-0592",
 ]

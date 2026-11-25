@@ -82,7 +82,7 @@ async fn general(method: &str, args: Value) -> Result<Value> {
         "display.state" => Ok(json!(ranking::display())),
         // a qr code as svg, black on white with the quiet zone (a phone opens the link)
         "qr" => {
-            let code = qrcode::QrCode::new(arg_str(&args, "text")?.as_bytes())?;
+            let code = qrcode::QrCode::new(arg_str(&args, "text")?.as_bytes()).map_err(|e| anyhow::anyhow!("qr code: {e:?}"))?;
             let svg = code.render::<qrcode::render::svg::Color>().min_dimensions(256, 256).quiet_zone(true).build();
             Ok(json!({ "svg": svg }))
         }
