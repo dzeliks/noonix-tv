@@ -447,14 +447,17 @@ html, body {
 /* ---- the options menu and notes (qml OptionsMenu, Toast) */
 .menu { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: rgba(0, 0, 0, 0.6); }
 .menu .mbox {
-    position: absolute; left: 50%; top: 50%; width: 640px; padding: 30px 24px 18px; border-radius: 34px;
+    position: absolute; left: 50%; top: 50%; min-width: 592px; max-width: 1072px; padding: 30px 24px 18px; border-radius: 34px;
     -webkit-transform: translate(-50%, -50%); transform: translate(-50%, -50%);
     background: rgba(32, 32, 36, 0.97); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.12);
 }
 .blur .menu .mbox { background: rgba(40, 40, 46, 0.72); -webkit-backdrop-filter: blur(40px); backdrop-filter: blur(40px); }
 .menu .mtitle { padding: 0 20px 18px; font-size: 25px; font-weight: 600; color: rgba(255, 255, 255, 0.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.menu .mrow { height: 76px; padding: 0 20px; margin-bottom: 8px; border-radius: 22px; font-size: 28px; font-weight: 600; line-height: 76px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.menu .mrow .ico { display: inline-block; vertical-align: top; margin: 23px 18px 0 0; }
+.menu .mrow { display: -webkit-flex; display: flex; -webkit-align-items: center; align-items: center; height: 76px; padding: 0 20px; margin-bottom: 8px; border-radius: 22px; font-size: 28px; font-weight: 600; line-height: 76px; white-space: nowrap; }
+.menu .mrow .ico { -webkit-flex: none; flex: none; margin: 0 18px 0 0; }
+.menu .mtext { -webkit-flex: 1; flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.menu .mtext.run { text-overflow: clip; }
+.menu .mtext.run span { display: inline-block; }
 .menu .mrow .ico svg { display: block; }
 .menu .mrow.lit { background: #fff; color: #1c1c1e; }
 .toast {

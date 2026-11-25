@@ -6,7 +6,8 @@ import { Action } from "../keys"
 import { keyboard } from "./keyboard"
 import { Screen } from "./app"
 
-export function inputScreen(title: string, hint: string, value: string, done: (text: string) => void, close: () => void): Screen {
+/** secret: a password, shown as dots */
+export function inputScreen(title: string, hint: string, value: string, done: (text: string) => void, close: () => void, secret?: boolean): Screen {
     let text = value
     const shown = h("span.text")
     const field = h("div.field.wide", null, shown, h("span.caret"))
@@ -21,7 +22,7 @@ export function inputScreen(title: string, hint: string, value: string, done: (t
 
     function set(t: string): void {
         text = t
-        shown.textContent = t
+        shown.textContent = secret ? new Array(t.length + 1).join("•") : t
         // a long line shows its end, where the typing is
         field.scrollLeft = field.scrollWidth
     }

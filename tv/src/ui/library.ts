@@ -86,7 +86,7 @@ function pickerScreen(app: App, start: string): Screen {
         if (!path) {
             const rows: Row[] = shares.list().map(function (s): Row {
                 const r = shares.root(s)
-                return { label: s.host + (s.base ? "/" + s.base : ""), value: function () { return "›" },
+                return { label: shares.authority(s) + (s.base ? "/" + s.base : ""), value: function () { return "›" },
                     hint: shares.label(r) + (s.user ? "  ·  " + s.user : ""), ok: function () { go(r) } }
             })
             rows.push({ label: tr("Add a network share"), value: function () { return "+" },
@@ -181,7 +181,7 @@ function addShare(app: App, then: (root: string) => void): void {
                     }, function (e) {
                         app.toast(String(e && e.message || e) || tr("That didn't work"))
                     })
-                }, app.pop), false)
+                }, app.pop, true), false)
             }, app.pop), false)
         }, app.pop), false)
     }

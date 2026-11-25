@@ -34,7 +34,7 @@ Stremio Service on a computer works too. Noonix TV isn't affiliated with Stremio
 `engine/` is that server, our own: [torrent-stream](https://github.com/mafintosh/torrent-stream)
 (MIT) and a small HTTP front. It runs beside the app as a webOS JS service
 (`io.github.dzeliks.noonixtv.engine`) or a Tizen web service (`<package>.Engine`), started when a
-torrent plays and gone after 10 idle minutes. It only downloads (it never uploads or tells peers
+torrent plays or a network share is opened, and gone after 10 idle minutes. It only downloads (it never uploads or tells peers
 what it has), keeps the video in memory only (220 MB, 96 MB in low memory mode, mostly ahead of
 where you are) and writes nothing to disk: seeking back further fetches those pieces again. One
 torrent at a time.
@@ -42,6 +42,16 @@ torrent at a time.
 Settings › Streaming server can point the TV at a computer instead (Noonix TV with Stream torrents
 to TVs on, or Stremio Service), which has more memory and a disk. Noonix TV on the computer asks
 there before a new TV can use it (Allow / Cancel), and keeps the TVs you allowed by address.
+
+## Network shares
+
+As on the desktop, Settings › Library takes folders on a NAS or another computer: SMB (2.0 to 3.1.1,
+with signing and encryption, as on Windows, macOS and Samba), WebDAV (http or https) and FTP. The
+videos in them are read from their names (`Show/Season 1/Show S01E02.mkv`, `Movie (2010).mkv`),
+matched on TMDB, shown in an On Your Network row, and come first among a title's sources. The TV's
+browser can't open a share itself, so the engine above does: it lists the folders and serves a file
+to the player with ranges (`engine/smb.js`, `dav.js`, `ftp.js`, plain Node.js, nothing bundled from
+npm). The shares and their passwords stay on the TV, in the app's storage.
 
 `engine/NOTICES.txt` in each package holds the licenses of everything the engine bundles; the build
 stops if one isn't MIT or ISC.

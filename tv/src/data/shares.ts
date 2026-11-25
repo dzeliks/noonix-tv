@@ -48,7 +48,7 @@ function message(kind: string): string {
 export function list(): Share[] { return store.get<Share[]>("shares", []) }
 function save(l: Share[]): void { store.set("shares", l) }
 
-function authority(s: { host: string; port: number | null }): string { return s.port ? s.host + ":" + s.port : s.host }
+export function authority(s: { host: string; port: number | null }): string { return s.port ? s.host + ":" + s.port : s.host }
 
 export function root(s: Share): string {
     const base = s.base.replace(/^\/+|\/+$/g, "")
@@ -195,7 +195,8 @@ export function browse(path: string): Promise<Folder> {
         const top = path.toLowerCase() === root(a.share).toLowerCase()
         return {
             path: path,
-            name: top ? a.share.host : path.split("/").pop() || path,
+            // a share's top is named after its folder on the server (nas/Media: Media), else the server
+            name: top ? a.share.base.replace(/\/+$/, "").split("/").pop() || authority(a.share) : path.split("/").pop() || path,
             label: label(path),
             parent: top ? "" : path.slice(0, path.lastIndexOf("/")),
             videos: l.filter(function (e) { return !e.dir && VIDEO.test(e.name) }).length,
