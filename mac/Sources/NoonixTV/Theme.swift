@@ -181,12 +181,14 @@ struct LogoBox: View {
     var loading = false
     var titleSize: CGFloat
     var leading = false
+    /// sits on the box's bottom edge (the player: on the line under it)
+    var bottom = false
 
     @State private var img: NSImage?
     @State private var failed = false
 
     var body: some View {
-        let align: Alignment = leading ? .leading : .center
+        let align: Alignment = leading ? (bottom ? .bottomLeading : .leading) : (bottom ? .bottom : .center)
         ZStack(alignment: align) {
             if let img {
                 Image(nsImage: img).resizable().interpolation(.high).scaledToFit()
@@ -217,22 +219,22 @@ struct LogoBox: View {
 /// blurred, under the text. set on a stack, every text in it gets one
 struct TextShade: TextRenderer {
     var u: CGFloat
-    var strength: Double = 0.32
+    var strength: Double = 0.26
     /// the bars without the text (a clipped plot's shade, drawn outside its clip)
     var shadeOnly = false
     /// only the lines in this band (in the text's own coordinates) get a bar
     var window: ClosedRange<CGFloat>? = nil
-    var displayPadding: EdgeInsets { EdgeInsets(top: 90 * u, leading: 90 * u, bottom: 90 * u, trailing: 90 * u) }
+    var displayPadding: EdgeInsets { EdgeInsets(top: 150 * u, leading: 150 * u, bottom: 150 * u, trailing: 150 * u) }
 
     func draw(layout: Text.Layout, in ctx: inout GraphicsContext) {
         if strength > 0 {
             ctx.drawLayer { l in
                 l.opacity = strength
-                l.addFilter(.blur(radius: 22 * u))
+                l.addFilter(.blur(radius: 32 * u))
                 for line in layout {
                     let r = line.typographicBounds.rect
                     if let w = window, !w.contains(r.midY) { continue }
-                    l.fill(Capsule().path(in: r.insetBy(dx: -18 * u, dy: -6 * u)), with: .color(.black))
+                    l.fill(Capsule().path(in: r.insetBy(dx: -22 * u, dy: -8 * u)), with: .color(.black))
                 }
             }
         }

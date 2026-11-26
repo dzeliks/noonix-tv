@@ -168,7 +168,7 @@ FocusScope {
 
     TextShade {
         anchors.fill: parent
-        strength: 0.3
+        strength: 0.24
         texts: [navClock]
     }
     Text {

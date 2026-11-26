@@ -6,13 +6,13 @@ import QtQuick.Effects
 // a wrapped Text tells its rows: property var shadeRows: [] + onLineLaidOut: TextShade.row(shadeRows, line)
 Item {
     id: shade
-    property real strength: 0.32
+    property real strength: 0.26
     property var texts: []
     property var images: []
     readonly property real u: Theme.u
-    readonly property real padX: 18 * u
-    readonly property real padY: 6 * u
-    readonly property real edge: padX + 70 * u
+    readonly property real padX: 22 * u
+    readonly property real padY: 8 * u
+    readonly property real edge: padX + 130 * u
 
     // a wrapped text's row, from its onLineLaidOut
     function row(rows, line) {
@@ -126,7 +126,8 @@ Item {
         brightness: -1.0
         blurEnabled: true
         blur: 1.0
-        blurMax: 64
+        blurMax: Math.round(100 * shade.u)
+        blurMultiplier: 0.3
         autoPaddingEnabled: false
     }
 }

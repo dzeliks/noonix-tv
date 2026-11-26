@@ -72,6 +72,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
     const logoImg = h("img", { alt: "" }) as HTMLImageElement
     const titleEl = h("div.ptitle")
     const subEl = h("div.psub")
+    const logoBox = h("div.ologo", null, logoImg, titleEl)
     const fill = h("div.fill")
     const buffered = h("div.buffered")
     const knob = h("div.knob")
@@ -90,7 +91,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
     const playBtn = h("div.tbtn.play")
     const fwdBtn = h("div.tbtn", null, icon("fwd10", 38))
     const osd = h("div.osd", null, h("div.ograd"), h("div.ogradtop"), backBtn, h("div.pclockbox", null, clockEl, endsEl),
-        h("div.ologo", null, logoImg, titleEl), subEl, bar, posEl, leftEl,
+        logoBox, subEl, bar, posEl, leftEl,
         h("div.orow", null, subsBtn, audioBtn, matchBtn), h("div.transport", null, rewBtn, playBtn, fwdBtn))
     // a soft shade behind the logo (its own shape), the line under it and the clock
     const logoShade = textShade(osd, function () { return [logoImg, titleEl, subEl] }, 0.5)
@@ -109,7 +110,9 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         titleEl.textContent = it.title
         subEl.textContent = it.kind === "show" && req.season !== undefined
             ? "S" + req.season + " E" + req.episode + (req.episodeTitle ? "  ·  " + req.episodeTitle : "")
-            : it.year ? String(it.year) : ""
+            : ""
+        // on the episode line, or down in its place when there's none (a movie)
+        logoBox.className = "ologo" + (subEl.textContent ? "" : " low")
         const b = look.backdrop(it.backdrop)
         if (b) poster.src = b
         // the logo over the bar, the title until it's in (or when there's none)

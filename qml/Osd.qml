@@ -352,7 +352,7 @@ FocusScope {
         // clock + ends at (top right, like an mpv osc)
         TextShade {
             anchors.fill: parent
-            strength: 0.3
+            strength: 0.24
             texts: [osdClock, osdEnds]
         }
         Column {
@@ -379,7 +379,7 @@ FocusScope {
         // a soft shade behind the logo (its own shape) and the line under it
         TextShade {
             anchors.fill: parent
-            strength: 0.5
+            strength: 0.4
             images: [osdLogo]
             texts: [osdSub]
             opacity: osdLogo.opacity
@@ -390,10 +390,12 @@ FocusScope {
             opacity: chipBox.on || osd.pickerOpen ? 0 : 1
             Behavior on opacity { NumberAnimation { duration: 160 } }
             x: Theme.margin
-            y: parent.height - 336 * osd.u - height
+            // on the episode line, or down in its place when there's none (a movie): never floating over a gap
+            y: parent.height - (osd.item && osd.item.subtitle ? 336 : 258) * osd.u - height
             width: 520 * osd.u
             height: 150 * osd.u
             align: Qt.AlignLeft
+            bottomAligned: true
             titleSize: 54 * osd.u
             source: osd.item && osd.item.logo ? osd.item.logo : ""
             title: osd.item ? osd.item.title || "" : ""

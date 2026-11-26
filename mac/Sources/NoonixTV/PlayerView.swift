@@ -998,7 +998,7 @@ struct OsdView: View {
                     }
                 }
             }
-            .textRenderer(TextShade(u: u, strength: 0.3))
+            .textRenderer(TextShade(u: u, strength: 0.24))
             .frame(width: W - margin, alignment: .trailing)
             .padding(.top, 56 * u)
 
@@ -1010,15 +1010,16 @@ struct OsdView: View {
 
             // logo / title in a fixed box, bottom edge at H-336, the episode line under it
             // a soft shade under it by its own shape (qml Osd TextShade): a blue one on a bright meadow still reads
-            LogoBox(url: p.logo, title: p.title, titleSize: 54 * u, leading: true)
+            LogoBox(url: p.logo, title: p.title, titleSize: 54 * u, leading: true, bottom: true)
                 .frame(width: 520 * u, height: 150 * u)
-                .shadow(color: .black.opacity(0.5), radius: 22 * u)
-                .offset(x: margin, y: H - 336 * u - 150 * u)
+                .shadow(color: .black.opacity(0.4), radius: 32 * u)
+                // on the episode line, or down in its place when there's none (a movie)
+                .offset(x: margin, y: H - ((p.subtitle ?? "").isEmpty ? 258 : 336) * u - 150 * u)
                 .opacity(picking || chip ? 0 : 1)
                 .animation(.easeInOut(duration: 0.16), value: picking || chip)
             if let sub = p.subtitle {
                 Text(sub).font(Theme.display(30 * u, .semibold)).foregroundStyle(Theme.fg)
-                    .textRenderer(TextShade(u: u, strength: 0.5))
+                    .textRenderer(TextShade(u: u, strength: 0.4))
                     .offset(x: margin, y: H - 298 * u)
                     .opacity(picking || chip ? 0 : 1)
                     .animation(.easeInOut(duration: 0.16), value: picking || chip)

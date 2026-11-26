@@ -242,7 +242,7 @@ struct TopNav: View {
                         .font(Theme.rounded(40 * u, .bold))
                         .foregroundStyle(Theme.fg)
                         .monospacedDigit()
-                        .textRenderer(TextShade(u: u, strength: 0.3))
+                        .textRenderer(TextShade(u: u, strength: 0.24))
                 }
             }
             .padding(.horizontal, margin)

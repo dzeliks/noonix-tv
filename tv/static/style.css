@@ -376,6 +376,7 @@ html, body {
 .player .pends { margin-top: 2px; font-size: 25px; font-weight: 500; color: rgba(255, 255, 255, 0.72); }
 .player .pends:empty { display: none; }
 .player .ologo { position: absolute; left: 96px; bottom: 336px; width: 520px; }
+.player .ologo.low { bottom: 258px; }
 .player .ologo img { display: block; max-width: 520px; max-height: 150px; }
 .player .ptitle {
     font-size: 54px; font-weight: 700; line-height: 1.08; letter-spacing: -0.5px;
