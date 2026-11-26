@@ -80,6 +80,7 @@
 | Torrents                             |   ✓   |    ✓    |   ✓   |      ✓       |    ✓     |    ✓    |      ✓      |
 | Trakt, profiles, Up Next             |   ✓   |    ✓    |   ✓   |      ✓       |    ✓     |    ✓    |      ✓      |
 | Subtitles online, skip intro         |   ✓   |    ✓    |   ✓   |      ✓       |    ✓     |    ✓    |      ✓      |
+| "How's this one?" (fix, remember)    |   ✓   |    ✓    |   ✓   |      ✓       |    ✓     |    ✓    |      ✓      |
 | HDR                                  |   ✓   |    –    |   ✓   |      ✓       |    ✓     |    –    |      ✓      |
 | Refresh rate matching                |   ✓   |    ✓    |   ✓   |      –       |    –     |  TV ³   |      –      |
 | Remappable controls                  |   ✓   |    ✓    |   ✓   |      ✓       |    ✓     |    ✓    |      –      |
