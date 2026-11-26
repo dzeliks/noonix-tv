@@ -203,13 +203,10 @@ Item {
     }
 
     // the story always reads, whatever the artwork is doing behind it
-    Scrim {
-        x: story.x - story.width * 0.45
-        y: story.y - story.height * 0.8 - 80 * hero.u
-        width: story.width * 1.9 + Theme.margin
-        height: story.height * 2.6 + 160 * hero.u
-        // (a white backdrop under the plot still has to read)
-        strength: 0.7
+    TextShade {
+        id: storyShade
+        anchors.fill: parent
+        texts: [overviewText, castText, factsText]
         opacity: story.opacity
     }
     Column {
@@ -219,6 +216,9 @@ Item {
         spacing: 14 * hero.u
         opacity: hero.cur && hero.overview ? hero.textOpacity : 0
         Text {
+            id: overviewText
+            property var shadeRows: []
+            onLineLaidOut: function (line) { storyShade.row(shadeRows, line) }
             width: parent.width
             text: hero.overview
             color: Theme.fg
@@ -232,6 +232,7 @@ Item {
             styleColor: Qt.rgba(0, 0, 0, 0.45)
         }
         Text {
+            id: castText
             width: parent.width
             visible: text !== ""
             text: hero.cast
@@ -240,6 +241,7 @@ Item {
             font { family: Theme.text; pixelSize: 21 * hero.u }
         }
         Text {
+            id: factsText
             width: parent.width
             visible: text !== ""
             text: hero.facts

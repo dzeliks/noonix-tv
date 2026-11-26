@@ -213,16 +213,30 @@ struct LogoBox: View {
     }
 }
 
-/// a soft shade behind text over artwork (qml Scrim): darkest in the middle, gone at the edges
-struct Scrim: View {
-    var strength: Double = 0.55
-    var body: some View {
-        EllipticalGradient(stops: [
-            .init(color: .black.opacity(strength), location: 0),
-            .init(color: .black.opacity(strength * 0.55), location: 0.45),
-            .init(color: .black.opacity(0), location: 1),
-        ])
-        .allowsHitTesting(false)
+/// a soft shade behind text over artwork (qml TextShade): each line a rounded bar its own length,
+/// blurred, under the text. set on a stack, every text in it gets one
+struct TextShade: TextRenderer {
+    var u: CGFloat
+    var strength: Double = 0.32
+    /// the bars without the text (a clipped plot's shade, drawn outside its clip)
+    var shadeOnly = false
+    /// only the lines in this band (in the text's own coordinates) get a bar
+    var window: ClosedRange<CGFloat>? = nil
+    var displayPadding: EdgeInsets { EdgeInsets(top: 90 * u, leading: 90 * u, bottom: 90 * u, trailing: 90 * u) }
+
+    func draw(layout: Text.Layout, in ctx: inout GraphicsContext) {
+        if strength > 0 {
+            ctx.drawLayer { l in
+                l.opacity = strength
+                l.addFilter(.blur(radius: 22 * u))
+                for line in layout {
+                    let r = line.typographicBounds.rect
+                    if let w = window, !w.contains(r.midY) { continue }
+                    l.fill(Capsule().path(in: r.insetBy(dx: -18 * u, dy: -6 * u)), with: .color(.black))
+                }
+            }
+        }
+        if !shadeOnly { for line in layout { ctx.draw(line) } }
     }
 }
 

@@ -404,7 +404,7 @@ struct DetailsView: View {
                 }
             }
             .frame(width: W * 0.36, alignment: .leading)
-            .background(alignment: .topLeading) { StoryScrim(u: u, margin: margin, extra: plotSpare) }
+            .textRenderer(TextShade(u: u))
             .padding(.bottom, -lend)
             .padding(.trailing, margin)
         }
@@ -547,6 +547,8 @@ struct PlotBox: View {
         let over = max(0, need - h)
         line(text)
             .foregroundStyle(Theme.fg.opacity(0.86))
+            // its shade is drawn outside the clip, below
+            .textRenderer(TextShade(u: u, strength: 0))
             .frame(maxWidth: .infinity, alignment: .leading)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { tall = $0 }
             .padding(.vertical, pad)
@@ -560,6 +562,15 @@ struct PlotBox: View {
                     edges(e, from: e * 0.999).opacity(1 - soft)
                     edges(e, from: 0).opacity(soft)
                 }
+            }
+            // the shade of the lines in view, not cut by the clip
+            .background(alignment: .top) {
+                line(text)
+                    .textRenderer(TextShade(u: u, shadeOnly: true, window: -(pad + y)...(h - pad - y)))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, pad)
+                    .offset(y: y)
+                    .allowsHitTesting(false)
             }
             .background(alignment: .topLeading) {
                 line(Array(repeating: "x", count: lines).joined(separator: "\n")).hidden()

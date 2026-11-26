@@ -321,14 +321,10 @@ FocusScope {
                     }
                 }
 
-                Scrim {
-                    // sized for the tallest plot: a shorter one doesn't make the shade jump
-                    readonly property real h: story.height - plot.height + plot.full
-                    x: story.x - story.width * 0.45
-                    y: story.y + story.height - h * 1.8 - 80 * page.u
-                    width: story.width * 1.9 + Theme.margin
-                    height: h * 2.6 + 160 * page.u
-                    strength: 0.55
+                TextShade {
+                    id: storyShade
+                    anchors.fill: parent
+                    texts: [tagLine, plotText, starLine, netLine]
                 }
                 Column {
                     id: story
@@ -342,6 +338,8 @@ FocusScope {
                     // a show keeps this line's place whether an episode is on or not
                     Text {
                         id: tagLine
+                        property var shadeRows: []
+                        onLineLaidOut: function (line) { storyShade.row(shadeRows, line) }
                         visible: seasonsRow.visible || text !== ""
                         width: parent.width
                         height: seasonsRow.visible ? 34 * page.u : implicitHeight
@@ -386,6 +384,8 @@ FocusScope {
                             height: plotText.implicitHeight + 2 * plot.pad
                             Text {
                                 id: plotText
+                                property var shadeRows: []
+                                onLineLaidOut: function (line) { storyShade.row(shadeRows, line) }
                                 y: plot.pad
                                 width: parent.width
                                 text: page.episodeShown && page.episodeShown.overview ? page.episodeShown.overview : page.details ? page.details.overview || "" : ""

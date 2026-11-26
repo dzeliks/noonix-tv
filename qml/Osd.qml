@@ -350,16 +350,23 @@ FocusScope {
         }
 
         // clock + ends at (top right, like an mpv osc)
+        TextShade {
+            anchors.fill: parent
+            strength: 0.3
+            texts: [osdClock, osdEnds]
+        }
         Column {
             anchors { right: parent.right; rightMargin: Theme.margin; top: parent.top; topMargin: 56 * osd.u }
             spacing: 2 * osd.u
             Text {
+                id: osdClock
                 anchors.right: parent.right
                 text: Clock.hhmm
                 color: Theme.fg
                 font { family: Theme.rounded; pixelSize: 46 * osd.u; weight: Font.Bold }
             }
             Text {
+                id: osdEnds
                 anchors.right: parent.right
                 visible: osd.dur - osd.pos > 1
                 // follows seeks (position) and the clock: paused, the end moves on every minute
@@ -369,15 +376,13 @@ FocusScope {
             }
         }
 
-        // a soft shade behind the logo: a blue one on a bright meadow still reads
-        Scrim {
-            x: Theme.margin - 380 * osd.u
-            y: parent.height - 411 * osd.u - 290 * osd.u
-            width: 1280 * osd.u
-            height: 580 * osd.u
-            strength: 0.8
+        // a soft shade behind the logo (its own shape) and the line under it
+        TextShade {
+            anchors.fill: parent
+            strength: 0.5
+            images: [osdLogo]
+            texts: [osdSub]
             opacity: osdLogo.opacity
-            visible: osdLogo.ready || osdLogo.noLogo
         }
         // logo / title in a fixed box, bottom edge at H-336
         Logo {
@@ -394,6 +399,7 @@ FocusScope {
             title: osd.item ? osd.item.title || "" : ""
         }
         Text {
+            id: osdSub
             x: Theme.margin
             y: parent.height - 298 * osd.u
             opacity: chipBox.on || osd.pickerOpen ? 0 : 1

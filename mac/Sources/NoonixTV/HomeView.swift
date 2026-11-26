@@ -219,7 +219,7 @@ struct Hero: View {
             }
         }
         .frame(width: size.width * 0.42, alignment: .leading)
-        .background(alignment: .topLeading) { StoryScrim(u: u, margin: margin, strength: 0.7) }
+        .textRenderer(TextShade(u: u))
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.trailing, margin)
         .padding(.bottom, infoBottom)
@@ -358,19 +358,3 @@ struct MetaLine: View {
     }
 }
 
-/// the story always reads, whatever the artwork does behind it (qml: scrim around the story column)
-struct StoryScrim: View {
-    let u: CGFloat
-    let margin: CGFloat
-    /// height the story could still grow by: the shade is sized for the tallest
-    var extra: CGFloat = 0
-    var strength = 0.55
-    var body: some View {
-        GeometryReader { g in
-            let h = g.size.height + extra
-            Scrim(strength: strength)
-                .frame(width: g.size.width * 1.9 + margin, height: h * 2.6 + 160 * u)
-                .offset(x: -g.size.width * 0.45, y: g.size.height - h * 1.8 - 80 * u)
-        }
-    }
-}

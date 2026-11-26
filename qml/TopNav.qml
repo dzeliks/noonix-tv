@@ -166,7 +166,13 @@ FocusScope {
         readonly property alias rep: rep
     }
 
+    TextShade {
+        anchors.fill: parent
+        strength: 0.3
+        texts: [navClock]
+    }
     Text {
+        id: navClock
         anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: pill.verticalCenter }
         text: Clock.hhmm
         color: Theme.fg
