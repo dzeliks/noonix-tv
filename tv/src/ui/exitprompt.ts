@@ -1,6 +1,7 @@
 // a question over everything, two answers: leave noonix tv? allow torrents? (the safe answer is
 // focused, so a stray ok or back is harmless)
 import { h, nextFrame } from "./dom"
+import * as frost from "./frost"
 import { tr } from "../i18n"
 import { Action } from "../keys"
 import { Screen } from "./home"
@@ -18,6 +19,7 @@ export function askPrompt(question: string, lines: string[], yes: string, no: st
         noBtn.className = "button" + (choice === 1 ? " lit" : "")
     }
     light()
+    frost.glass(el)
     nextFrame(function () { el.className += " in" })
     const close = function (then: () => void) {
         el.className = el.className.replace(" in", "")

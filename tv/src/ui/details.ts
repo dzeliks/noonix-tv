@@ -1,9 +1,11 @@
 // a movie or a show (qml Details): backdrop, logo, meta, the story, actions, seasons + episodes, more like this
-import { h, clear, fitScrim } from "./dom"
+import { h, clear } from "./dom"
 import { tr } from "../i18n"
 import { Action } from "../keys"
 import * as look from "./look"
 import { icon } from "./icons"
+import * as frost from "./frost"
+import { textShade } from "./textshade"
 import { metaLine, length, day } from "./meta"
 import { strip, step } from "./strip"
 import { posterKind } from "./home"
@@ -38,8 +40,8 @@ export function detailsScreen(item: tmdb.Item, app: App): Screen {
     const identity = h("div.identity", null, h("div.logobox", null, logo, title), meta)
     const story = h("div.story", null, tagline, plot, starring, facts)
     const spacer = h("div.spacer")
-    const scrim = h("div.scrim.s55")
-    const info = h("div.info", null, scrim, identity, story)
+    const info = h("div.info", null, identity, story)
+    const storyShade = textShade(info, function () { return [tagline, plot, starring, facts] }, 0.32)
 
     const buttons = h("div.actions")
     const seasonsEl = h("div.seasons")
@@ -65,6 +67,7 @@ export function detailsScreen(item: tmdb.Item, app: App): Screen {
     // ---- what's on it
 
     metaLine(meta, item, null)
+    storyShade.update()
     setBackdrop(item.backdrop)
     episodesEl.style.display = seasonsEl.style.display = "none"
     moreEl.style.display = "none"
@@ -74,7 +77,7 @@ export function detailsScreen(item: tmdb.Item, app: App): Screen {
         if (!u || back.getAttribute("data-src") === u) return
         back.setAttribute("data-src", u)
         back.className = "backdrop"
-        back.onload = function () { back.className = "backdrop on" }
+        back.onload = function () { back.className = "backdrop on"; frost.source(el, back, frost.detailsShade) }
         back.src = u
     }
 
@@ -92,6 +95,7 @@ export function detailsScreen(item: tmdb.Item, app: App): Screen {
         const cast = d.cast.slice(0, 4).map(function (c) { return c.name }).join(", ")
         starring.textContent = cast ? tr("Starring %1", cast) : ""
         facts.textContent = factLine(d)
+        storyShade.update()
         if (d.seasons && d.seasons.length) {
             buildSeasons(d.seasons)
             // the season of the episode up next
@@ -191,6 +195,7 @@ export function detailsScreen(item: tmdb.Item, app: App): Screen {
             b.appendChild(icon(shownActs[i].icon(), 30))
             b.appendChild(h("span", { text: shownActs[i].label() }))
             b.className = "gbutton" + (part === "actions" && i === button ? " lit" : "")
+            frost.glass(b)
         }
     }
 
@@ -276,7 +281,6 @@ export function detailsScreen(item: tmdb.Item, app: App): Screen {
             ? Math.round(1080 * 0.2)
             : Math.max(60, 1080 - edge - (info.offsetHeight + underInfo))
         spacer.style.height = top + "px"
-        fitScrim(scrim, story, 0, 0)
     }
 
     function place(): void {
@@ -289,7 +293,10 @@ export function detailsScreen(item: tmdb.Item, app: App): Screen {
         more.place(part === "more", part !== "actions" || isMovie)
         const y = part === "more" ? Math.max(0, moreEl.offsetTop - 1080 * 0.3) : 0
         body.style.transform = body.style.webkitTransform = "translate3d(0," + (-y) + "px,0)"
+        // the buttons' glass shows what's behind them once they're still
+        if (y !== bodyY) { bodyY = y; setTimeout(frost.refresh, 340) }
     }
+    let bodyY = 0
 
     // ---- keys
 
@@ -355,6 +362,7 @@ export function detailsScreen(item: tmdb.Item, app: App): Screen {
         el,
         action,
         shown(): void {
+            storyShade.update()
             // back from the player: what's watched and where to go on
             if (episodes.items.length) episodes.fill(episodes.items)
             if (!isMovie && details) findUp()

@@ -7,10 +7,11 @@ import * as updates from "./data/updates"
 import * as library from "./data/library"
 import * as tmdb from "./data/tmdb"
 import * as look from "./ui/look"
+import * as frost from "./ui/frost"
 import { nextFrame } from "./ui/dom"
 import { showSplash } from "./ui/splash"
 import { homeScreen } from "./ui/home"
-import { App, PlayReq, Screen, MenuEntry } from "./ui/app"
+import { App, PlayReq, Screen, MenuEntry, MenuAt } from "./ui/app"
 import { playerScreen } from "./ui/player"
 import { sourcesScreen } from "./ui/sources"
 import { settingsScreen } from "./ui/settings"
@@ -60,6 +61,7 @@ function boot(): void {
         stage.appendChild(s.el)
         nextFrame(function () { s.el.className += " in" })
         // covered: everything under it stops drawing (a panel's page too)
+        glassBase()
         if (!over) setTimeout(function () {
             if (screens[screens.length - 1] !== s) return
             for (let i = 0; i < screens.length - 1; i++) screens[i].el.style.display = "none"
@@ -78,9 +80,16 @@ function boot(): void {
             for (let i = screens.length - 1; i > 0 && overs[i]; i--) screens[i - 1].el.style.display = ""
             if (under.shown) under.shown()
         }
+        glassBase()
         s.el.className = s.el.className.replace(/ in\b/g, "")
         setTimeout(function () { if (s.el.parentNode) s.el.parentNode.removeChild(s.el) }, 260)
         if (s.closed) s.closed()
+    }
+
+    // the page the panels' glass copies (frost.ts): the top one that isn't a panel
+    function glassBase(): void {
+        for (let i = screens.length - 1; i >= 0; i--) if (!overs[i]) { frost.setBase(screens[i].el); return }
+        frost.setBase(null)
     }
 
     let player: Screen | null = null
@@ -106,7 +115,7 @@ function boot(): void {
             push(p, false)
         },
         sources(req: PlayReq): void { push(sourcesScreen(app, req), true) },
-        menu(title: string, entries: MenuEntry[]): void {
+        menu(title: string, entries: MenuEntry[], at?: MenuAt): void {
             if (!entries.length) return
             const under = screens[screens.length - 1]
             // the page under it redraws once the pick has run (the menu closes first)
@@ -116,7 +125,7 @@ function boot(): void {
                     if (screens[screens.length - 1] === under && under.shown) under.shown()
                 } }
             })
-            push(menuScreen(title, after, pop), true)
+            push(menuScreen(title, after, pop, at), true)
         },
         push: push,
         pop: pop,
@@ -146,6 +155,7 @@ function boot(): void {
     screens.push(homeEl)
     overs.push(false)
     stage.appendChild(homeEl.el)
+    glassBase()
     let ready = false
     // more than one profile: who's watching, once a run (a switch reloads past it)
     let picked = false

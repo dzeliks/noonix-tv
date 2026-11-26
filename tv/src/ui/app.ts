@@ -32,6 +32,12 @@ export interface MenuEntry {
     run(): void
 }
 
+/** a menu placed by its bottom left corner (the player's pickers, above its buttons) */
+export interface MenuAt {
+    left: number
+    bottom: number
+}
+
 export interface App {
     open(it: tmdb.Item): void
     /** a page of its own: search, library, settings */
@@ -39,7 +45,7 @@ export interface App {
     play(req: PlayReq): void
     sources(req: PlayReq): void
     /** a small list over the screen (ok held) */
-    menu(title: string, entries: MenuEntry[]): void
+    menu(title: string, entries: MenuEntry[], at?: MenuAt): void
     push(s: Screen, over: boolean): void
     /** closes the top screen */
     pop(): void

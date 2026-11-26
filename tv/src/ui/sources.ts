@@ -1,5 +1,6 @@
 // the sources of a title (qml Sources): every addon's links, best first, with what they are
 import { h, clear } from "./dom"
+import * as frost from "./frost"
 import { tr, trn } from "../i18n"
 import { Action } from "../keys"
 import { App, PlayReq, Screen } from "./app"
@@ -34,7 +35,9 @@ export function sourcesScreen(app: App, req: PlayReq): Screen {
     const status = h("div.sstatus", { text: tr("Looking for sources…") })
     const track = h("div.strack")
     const listEl = h("div.slist", null, track)
-    const el = h("div.sources", null, h("div.spanel", null, head, status, listEl))
+    const panel = h("div.spanel", null, head, status, listEl)
+    const el = h("div.sources", null, panel)
+    frost.glass(panel)
 
     const imdb = req.imdb ? Promise.resolve(req.imdb) : tmdb.details(req.item.kind, req.item.id).then(function (d) { return d.imdb })
     let noImdb = false

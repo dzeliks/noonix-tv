@@ -2,9 +2,10 @@
 import { h } from "./dom"
 import { Action } from "../keys"
 import { icon } from "./icons"
-import { MenuEntry, Screen } from "./app"
+import * as frost from "./frost"
+import { MenuEntry, MenuAt, Screen } from "./app"
 
-export function menuScreen(title: string, entries: MenuEntry[], close: () => void): Screen {
+export function menuScreen(title: string, entries: MenuEntry[], close: () => void, place?: MenuAt): Screen {
     let at = 0
     // the icon column only when one of them has an icon (a check)
     const icons = entries.some(function (e) { return !!e.icon })
@@ -16,7 +17,9 @@ export function menuScreen(title: string, entries: MenuEntry[], close: () => voi
     })
     const track = h("div.mtrack", null, ...rows)
     const box = h("div.mbox", null, h("div.mtitle", { text: title }), h("div.mlist", null, track))
-    const el = h("div.menu", null, box)
+    const el = h("div.menu" + (place ? ".at" : ""), null, box)
+    if (place) { box.style.left = place.left + "px"; box.style.bottom = place.bottom + "px" }
+    frost.glass(box)
     // a long one scrolls: the lit row stays a couple in from the edges
     const shown = 9
     if (rows.length > shown) box.className += " long"

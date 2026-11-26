@@ -299,10 +299,6 @@ html, body {
 
 .details .more { position: relative; height: 439px; margin-top: 34px; }
 
-/* ---- a soft shade behind text over artwork (qml Scrim): darkest in the middle, gone at the edges */
-.scrim { position: absolute; pointer-events: none; transition: opacity 0.3s ease; }
-.scrim.s70 { background: radial-gradient(closest-side, rgba(0, 0, 0, 0.7), rgba(0, 0, 0, 0.5) 25%, rgba(0, 0, 0, 0.175) 50%, rgba(0, 0, 0, 0.017) 75%, rgba(0, 0, 0, 0)); }
-.scrim.s55 { background: radial-gradient(closest-side, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.39) 25%, rgba(0, 0, 0, 0.14) 50%, rgba(0, 0, 0, 0.013) 75%, rgba(0, 0, 0, 0)); }
 .details .spacer { height: 216px; }
 
 /* ---- search (qml Search, the tv terminal) */
@@ -367,31 +363,65 @@ html, body {
 }
 @-webkit-keyframes spin { to { -webkit-transform: rotate(360deg); } }
 @keyframes spin { to { transform: rotate(360deg); } }
-.player .pstate {
-    position: absolute; left: 50%; top: 50%; width: 180px; height: 180px; margin: -90px 0 0 -90px; border-radius: 90px;
-    background: rgba(0, 0, 0, 0.45);
-}
-.player .pstate .ico { position: absolute; left: 42px; top: 42px; }
-.player .pstate svg { display: block; }
-.player .osd { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; opacity: 0; transition: opacity 0.3s ease; }
+.player .osd { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; opacity: 0; transition: opacity 0.26s ease-out; }
 .player .osd.on { opacity: 1; }
+/* the osd (qml Osd), on the 1080 grid: back top left, clock top right, logo, bar at H-214, the row at H-86 */
 .player .ograd {
-    position: absolute; left: 0; right: 0; bottom: 0; height: 520px;
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.55) 55%, rgba(0, 0, 0, 0.82));
+    position: absolute; left: 0; right: 0; bottom: 0; height: 560px;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0), rgba(0, 0, 0, 0.42) 55%, rgba(0, 0, 0, 0.7));
 }
-.player .pclock { position: absolute; right: 96px; top: 56px; font-size: 32px; font-weight: 600; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.6); }
-.player .obottom { position: absolute; left: 96px; right: 96px; bottom: 70px; }
-.player .ptitle { font-size: 54px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.player .psub { margin-top: 6px; font-size: 27px; font-weight: 500; color: rgba(255, 255, 255, 0.75); }
-.player .bar { position: relative; height: 8px; margin-top: 34px; border-radius: 4px; background: rgba(255, 255, 255, 0.22); }
-.player .bar .buffered { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: rgba(255, 255, 255, 0.3); }
-.player .bar .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: #ef6f9b; }
-.player .bar .knob { position: absolute; top: -8px; width: 24px; height: 24px; margin-left: -12px; border-radius: 12px; background: #fff; }
-.player .times { position: relative; height: 40px; margin-top: 16px; font-size: 25px; font-weight: 600; }
-.player .times .pos { position: absolute; left: 0; }
-.player .times .left { position: absolute; right: 0; }
-.player .times .ends { position: absolute; left: 0; right: 0; text-align: center; color: rgba(255, 255, 255, 0.7); font-weight: 500; }
-.player .psrc { margin-top: 10px; font-size: 21px; color: rgba(255, 255, 255, 0.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player .ogradtop { position: absolute; left: 0; right: 0; top: 0; height: 220px; background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0)); }
+.player .pclockbox { position: absolute; right: 96px; top: 56px; text-align: right; }
+.player .pclock { font-size: 46px; font-weight: 700; line-height: 56px; }
+.player .pends { margin-top: 2px; font-size: 25px; font-weight: 500; color: rgba(255, 255, 255, 0.72); }
+.player .pends:empty { display: none; }
+.player .ologo { position: absolute; left: 96px; bottom: 336px; width: 520px; }
+.player .ologo img { display: block; max-width: 520px; max-height: 150px; }
+.player .ptitle {
+    font-size: 54px; font-weight: 700; line-height: 1.08; letter-spacing: -0.5px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.player .psub { position: absolute; left: 96px; right: 96px; top: 782px; font-size: 30px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.player .bar { position: absolute; left: 96px; right: 96px; top: 866px; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.25); }
+.player .bar .buffered { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: rgba(255, 255, 255, 0.22); }
+.player .bar .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: #fff; }
+.player .bar.foc .fill { background: #ef6f9b; }
+.player .bar .knob {
+    position: absolute; top: -9px; width: 26px; height: 26px; margin-left: -13px; border-radius: 13px; background: #fff;
+    opacity: 0; -webkit-transform: scale(0.2); transform: scale(0.2); transition: opacity 0.16s ease, -webkit-transform 0.16s ease, transform 0.16s ease;
+}
+.player .bar.foc .knob { opacity: 1; -webkit-transform: none; transform: none; }
+.player .pos, .player .left { position: absolute; top: 904px; font-size: 25px; font-weight: 500; color: rgba(255, 255, 255, 0.72); }
+.player .pos { left: 96px; }
+.player .left { right: 96px; }
+/* buttons over the video: light glass at rest, white when lit (the tv can't blur a video plane) */
+.player .oback, .player .oround, .player .ochip {
+    position: absolute; height: 76px; border-radius: 38px; background: rgba(255, 255, 255, 0.16);
+    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.14);
+    transition: background-color 0.14s ease, color 0.14s ease, -webkit-transform 0.2s ease, transform 0.2s ease;
+}
+.player .oback { left: 96px; top: 56px; width: 76px; }
+.player .oround, .player .ochip { position: relative; display: inline-block; vertical-align: top; margin-right: 18px; }
+.player .oround { width: 76px; }
+.player .oback .ico, .player .oround .ico { position: absolute; left: 21px; top: 21px; }
+.player .ochip { padding: 0 32px 0 26px; font-size: 27px; font-weight: 600; line-height: 76px; white-space: nowrap; }
+.player .ochip .ico { display: inline-block; vertical-align: top; margin: 21px 12px 0 0; }
+.player .osd svg { display: block; }
+.player .oback.lit, .player .oround.lit, .player .ochip.lit { background: #fff; color: #1c1c1e; -webkit-transform: scale(1.06); transform: scale(1.06); }
+.player .orow { position: absolute; left: 96px; top: 956px; white-space: nowrap; }
+.player .transport {
+    position: absolute; left: 50%; top: 942px; height: 104px; padding: 0 14px; border-radius: 52px; white-space: nowrap;
+    -webkit-transform: translateX(-50%); transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.16); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.14);
+}
+.player .tbtn {
+    position: relative; display: inline-block; vertical-align: middle; width: 76px; height: 76px; margin: 14px 5px 0; border-radius: 38px;
+    transition: background-color 0.14s ease, color 0.14s ease, -webkit-transform 0.2s ease, transform 0.2s ease;
+}
+.player .tbtn .ico { position: absolute; left: 19px; top: 19px; }
+.player .tbtn.play { width: 84px; height: 84px; margin-top: 10px; border-radius: 42px; }
+.player .tbtn.play .ico { left: 19px; top: 19px; }
+.player .tbtn.lit { background: #fff; color: #1c1c1e; -webkit-transform: scale(1.1); transform: scale(1.1); }
 .player .nextcard {
     position: absolute; right: 96px; bottom: 260px; width: 560px; padding: 30px 36px; border-radius: 28px;
     background: rgba(28, 28, 30, 0.92); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.14);
@@ -516,7 +546,7 @@ html, body {
 }
 .player .subs:empty { display: none; }
 .player .osd ~ .subs { transition: -webkit-transform 0.3s ease, transform 0.3s ease; }
-.player .osd.on ~ .subs { -webkit-transform: translate3d(0, -300px, 0); transform: translate3d(0, -300px, 0); }
+.player .osd.on ~ .subs { -webkit-transform: translate3d(0, -214px, 0); transform: translate3d(0, -214px, 0); }
 /* samsung avplay draws under the page */
 .av, .av body, .av .player { background: transparent; }
 .menu .mrow .ico.blank { width: 30px; height: 30px; }
@@ -556,16 +586,40 @@ html, body {
 .card .pfill { height: 100%; border-radius: 3px; background: #ef6f9b; }
 .menu .mlist { position: relative; overflow: hidden; }
 .menu .mbox.long .mlist { height: 756px; }
+/* a picker above the player's buttons: no dim, it sits over the osd's own shade */
+.menu.at { background: none; }
+.menu.at .mbox { top: auto; -webkit-transform: none; transform: none; }
 .menu .mtrack { transition: -webkit-transform 0.18s ease-out, transform 0.18s ease-out; }
 /* skip intro: bottom right, ok presses it while it shows */
 .player .skipbtn {
-    position: absolute; right: 96px; bottom: 96px; height: 84px; padding: 0 44px; border-radius: 42px;
-    background: #fff; color: #1c1c1e; font-size: 30px; font-weight: 700; line-height: 84px; white-space: nowrap;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+    position: absolute; right: 96px; bottom: 150px; height: 84px; padding: 0 44px; border-radius: 42px;
+    background: rgba(255, 255, 255, 0.16); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.14);
+    font-size: 30px; font-weight: 700; line-height: 84px; white-space: nowrap;
     opacity: 0; -webkit-transform: translateY(20px); transform: translateY(20px);
-    transition: opacity 0.25s ease, -webkit-transform 0.25s ease, transform 0.25s ease;
+    transition: opacity 0.25s ease, -webkit-transform 0.25s ease, transform 0.25s ease, bottom 0.26s ease, background-color 0.14s ease, color 0.14s ease;
 }
+.player .skipbtn.lit { background: #fff; color: #1c1c1e; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5); }
+.player .osd.on ~ .skipbtn { bottom: 300px; }
 .player .skipbtn.on { opacity: 1; -webkit-transform: none; transform: none; }
 .card .pdone { position: absolute; right: 12px; top: 12px; width: 42px; height: 42px; border-radius: 21px; background: rgba(0, 0, 0, 0.6); color: #8fe3a5; }
 .card .pdone .ico { display: block; margin: 8px; }
 .card .pdone svg { display: block; }
+
+/* ---- glass where nothing blurs (frost.ts): a small blurred copy of the backdrop under a tint, the .blur colours */
+canvas.frostglass, i.frostline { position: absolute; left: 0; top: 0; width: 100%; height: 100%; z-index: -1; border-radius: inherit; }
+canvas.frostglass { display: block; transition: opacity 0.15s ease; }
+i.frostline { box-shadow: inherit; }
+.lit > canvas.frostglass { opacity: 0; }
+.frost .gbutton { position: relative; }
+.pill { --glass: rgba(80, 80, 84, 0.42); }
+.gbutton { --glass: rgba(255, 255, 255, 0.1); }
+.sources .spanel { --glass: rgba(44, 44, 50, 0.72); --glass-under: rgba(0, 0, 0, 0.45); }
+.menu .mbox { --glass: rgba(40, 40, 46, 0.72); --glass-under: rgba(0, 0, 0, 0.6); }
+.prompt { --glass: rgba(0, 0, 0, 0.5); }
+.prompt.long { --glass: rgba(0, 0, 0, 0.88); }
+.player .ologo, .player .psub, .player .pos { transition: opacity 0.16s ease; }
+.player .osd.picking .ologo, .player .osd.picking .psub, .player .osd.picking .pos { opacity: 0; }
+
+/* a soft shade behind text over artwork (textshade.ts): rows of text as rounded bars, blurred together */
+canvas.tshade { position: absolute; z-index: -1; pointer-events: none; transition: opacity 0.16s ease; }
+.player .osd.picking canvas.ologoshade { visibility: hidden; }

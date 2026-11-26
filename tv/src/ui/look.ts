@@ -1,6 +1,7 @@
 // what the tv can draw well: set once at start as classes on <html> (style.css follows them)
 import { platform } from "../platform"
 import * as settings from "../data/settings"
+import * as frost from "./frost"
 
 /** low memory mode: lighter artwork, no blur, fewer cards kept */
 export let lowMemory = false
@@ -10,7 +11,9 @@ export function apply(): void {
     lowMemory = mode === "on" || (mode === "auto" && platform.lowMemoryDefault)
     const root = document.documentElement
     const blur = !lowMemory && (cssSupports("backdrop-filter", "blur(2px)") || cssSupports("-webkit-backdrop-filter", "blur(2px)"))
-    root.className = [platform.os, lowMemory ? "low" : "", blur ? "blur" : ""].filter(function (c) { return !!c }).join(" ")
+    // no real blur: the cheap copy of the backdrop under each panel (frost.ts)
+    frost.enable(!blur)
+    root.className = [platform.os, lowMemory ? "low" : "", blur ? "blur" : "frost"].filter(function (c) { return !!c }).join(" ")
 }
 
 function cssSupports(prop: string, value: string): boolean {

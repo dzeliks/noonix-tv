@@ -1,6 +1,7 @@
 // the player (qml Player + its osd): the tv's own <video> plays the link, the osd comes and goes over it.
 // a source that won't play hands over to the next one; a show's next episode comes up at the end
 import { h, clear } from "./dom"
+import { textShade } from "./textshade"
 import { tr } from "../i18n"
 import { Action } from "../keys"
 import { icon } from "./icons"
@@ -19,7 +20,6 @@ import * as engine from "../data/engine"
 import * as shares from "../data/shares"
 import * as platform from "../platform"
 
-const osdMs = 4500
 const saveEvery = 10000
 /** the countdown before the next episode, from the end */
 const nextSecs = 10
@@ -68,25 +68,39 @@ export function playerScreen(app: App, first: PlayReq): Screen {
     const poster = h("img.pbackdrop", { alt: "" }) as HTMLImageElement
     const status = h("div.pstatus")
     const spinner = h("div.spinner")
+    // the osd (qml Osd): back top left, the clock top right, the logo over the bar, a row of buttons under it
+    const logoImg = h("img", { alt: "" }) as HTMLImageElement
     const titleEl = h("div.ptitle")
     const subEl = h("div.psub")
     const fill = h("div.fill")
     const buffered = h("div.buffered")
     const knob = h("div.knob")
     const bar = h("div.bar", null, buffered, fill, knob)
-    const posEl = h("span.pos")
-    const leftEl = h("span.left")
-    const endsEl = h("span.ends")
-    const srcEl = h("div.psrc")
-    const stateIco = h("div.pstate")
+    const posEl = h("div.pos")
+    const leftEl = h("div.left")
+    const endsEl = h("div.pends")
     const clockEl = h("div.pclock")
-    const osd = h("div.osd", null, h("div.ograd"), clockEl,
-        h("div.obottom", null, titleEl, subEl, bar, h("div.times", null, posEl, endsEl, leftEl), srcEl))
+    const backBtn = h("div.oback", null, icon("chevronleft", 34))
+    const subsText = h("span")
+    const audioText = h("span")
+    const subsBtn = h("div.ochip", null, icon("subtitles", 34), subsText)
+    const audioBtn = h("div.ochip", null, icon("audio", 34), audioText)
+    const matchBtn = h("div.oround", null, icon("feedback", 34))
+    const rewBtn = h("div.tbtn", null, icon("back10", 38))
+    const playBtn = h("div.tbtn.play")
+    const fwdBtn = h("div.tbtn", null, icon("fwd10", 38))
+    const osd = h("div.osd", null, h("div.ograd"), h("div.ogradtop"), backBtn, h("div.pclockbox", null, clockEl, endsEl),
+        h("div.ologo", null, logoImg, titleEl), subEl, bar, posEl, leftEl,
+        h("div.orow", null, subsBtn, audioBtn, matchBtn), h("div.transport", null, rewBtn, playBtn, fwdBtn))
+    // a soft shade behind the logo (its own shape), the line under it and the clock
+    const logoShade = textShade(osd, function () { return [logoImg, titleEl, subEl] }, 0.5)
+    logoShade.el.className += " ologoshade"
+    const clockShade = textShade(osd, function () { return [clockEl, endsEl] }, 0.3)
     const nextTitle = h("div.ntitle")
     const nextCount = h("div.ncount")
     const nextCard = h("div.nextcard", null, h("div.nlabel", { text: tr("Up Next") }), nextTitle, nextCount,
         h("div.nhint", { text: tr("OK to play now, Back to stay") }))
-    const el = h("div.player", null, poster, spinner, stateIco, status, osd, skipBtn, nextCard)
+    const el = h("div.player", null, poster, spinner, status, osd, skipBtn, nextCard)
 
     // ---- what plays
 
@@ -98,6 +112,16 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             : it.year ? String(it.year) : ""
         const b = look.backdrop(it.backdrop)
         if (b) poster.src = b
+        // the logo over the bar, the title until it's in (or when there's none)
+        logoImg.style.display = "none"
+        titleEl.style.display = ""
+        logoImg.removeAttribute("src")
+        logoShade.update()
+        tmdb.details(it.kind, it.id).then(function (d) {
+            if (!alive || req.item !== it || !d.logo) return
+            logoImg.onload = function () { if (req.item === it) { logoImg.style.display = ""; titleEl.style.display = "none"; logoShade.update() } }
+            logoImg.src = d.logo
+        }, function () { /* the title stays */ })
     }
 
     function target(): trakt.Target {
@@ -164,8 +188,6 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             return
         }
         say(at ? tr("Trying another source…") : "")
-        srcEl.textContent = [s.resolution ? (s.resolution >= 2160 ? "4K" : s.resolution + "p") : "", s.hdr.join(" "), s.codec || "",
-            s.audio.slice(0, 2).join(" "), s.share ? tr(s.addon) : s.addon, sources.sizeText(s.size)].filter(function (x) { return !!x }).join("  ·  ")
         spinner.style.display = ""
         ended = false
         subs.textContent = ""
@@ -204,6 +226,8 @@ export function playerScreen(app: App, first: PlayReq): Screen {
 
     function rate(): void {
         const s = list[at]
+        if (!started || !s) return
+        pick()
         app.menu(tr("How's this one?"), [
             { label: tr("Good match"), icon: "check", run: function () {
                 memory.like(req.item.kind, req.item.id, s)
@@ -212,7 +236,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             { label: tr("Picture or sound problem"), run: function () { memory.report(s); playedGroup = null; otherSource() } },
             { label: tr("Wrong subtitles"), run: findMenu },
             { label: tr("Subtitles out of sync"), run: function () { if (ext) timingMenu(); else findMenu() } },
-        ])
+        ], above)
     }
 
     /** another source, from the same spot */
@@ -249,7 +273,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         playing(): void {
             platform.keepAwake(true)
             spinner.style.display = "none"
-            stateIco.style.display = "none"
+            light()
             if (!started) {
                 started = true
                 clearTimeout(startTimer)
@@ -257,7 +281,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
                 poster.style.display = "none"
                 say("")
                 trakt.scrobble("start", target(), share())
-                showOsd()
+                show()
                 autoAudio()
                 autoSubs()
                 findSegments()
@@ -285,6 +309,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         },
         paused(): void {
             platform.keepAwake(false)
+            light()
             if (!started || ended) return
             save(false)
             trakt.scrobble("pause", target(), share())
@@ -319,28 +344,95 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         buffered.style.width = Math.min(1, b / d) * 100 + "%"
         posEl.textContent = clock(t)
         leftEl.textContent = "-" + clock(d - t)
-        endsEl.textContent = tr("Ends at %1", hhmm(new Date(Date.now() + (d - t) * 1000)))
+        const ends = tr("Ends at %1", hhmm(new Date(Date.now() + (d - t) * 1000)))
+        if (ends !== endsEl.textContent) { endsEl.textContent = ends; clockShade.update() }
     }
 
-    function showOsd(): void {
-        clockEl.textContent = hhmm(new Date())
-        osd.className = "osd on"
+    // zones like the other clients: the bar (left/right seek), the row of buttons, the skip pill, back
+    const buttons = ["subs", "audio", "match", "rew", "play", "fwd"]
+    let shown = false
+    let zone = "bar"
+    let rowAt = 4
+    let exitArmed = false
+    // a picker (subtitles, audio, how's this one) is up over the row: the osd stays
+    let picking = false
+    let playIcon = ""
+    /** where the pickers open: above the left buttons, like the track picker */
+    const above = { left: 96, bottom: 142 }
+
+    /** the controls always come up on play / pause; seeking keeps the bar */
+    function show(secs?: number, z?: string): void {
+        if (!shown) {
+            zone = z || "row"
+            rowAt = buttons.indexOf("play")
+        }
+        shown = true
+        osd.className = "osd on" + (picking ? " picking" : "")
+        const now = hhmm(new Date())
+        if (now !== clockEl.textContent) { clockEl.textContent = now; clockShade.update() }
         drawBar()
+        light()
         clearTimeout(osdTimer)
-        osdTimer = window.setTimeout(function () { if (!video.paused()) osd.className = "osd" }, osdMs)
+        if (!video.paused() && !picking) osdTimer = window.setTimeout(function () { if (!video.paused() && !picking) hide() }, (secs || 5) * 1000)
     }
 
-    function flash(name: string): void {
-        clear(stateIco)
-        stateIco.appendChild(icon(name, 96))
-        stateIco.style.display = ""
+    /** a picker opens over the row: the osd stays, the logo and the times make room */
+    function pick(): void {
+        picking = true
+        clearTimeout(osdTimer)
+        osd.className = "osd on picking"
+    }
+
+    function hide(): void {
+        shown = false
+        zone = "bar"
+        exitArmed = false
+        osd.className = "osd"
+        light()
+    }
+
+    /** what's lit, the labels, play or pause */
+    function light(): void {
+        const foc = function (b: string): string { return shown && zone === "row" && buttons[rowAt] === b ? " lit" : "" }
+        subsBtn.className = "ochip" + foc("subs")
+        audioBtn.className = "ochip" + foc("audio")
+        matchBtn.className = "oround" + foc("match")
+        rewBtn.className = "tbtn" + foc("rew")
+        playBtn.className = "tbtn play" + foc("play")
+        fwdBtn.className = "tbtn" + foc("fwd")
+        backBtn.className = "oback" + (shown && (zone === "back" || exitArmed) ? " lit" : "")
+        bar.className = "bar" + (shown && zone === "bar" ? " foc" : "")
+        skipBtn.className = "skipbtn" + (inSeg ? " on" : "") + (inSeg && (!shown || zone === "skip") ? " lit" : "")
+        const want = started && video.paused() ? "play" : "pause"
+        if (want !== playIcon) { playIcon = want; clear(playBtn); playBtn.appendChild(icon(want, 46)) }
+        subsText.textContent = subLabel()
+        audioText.textContent = audioLabel()
+    }
+
+    function subLabel(): string {
+        if (ext) return extName
+        const t = video.textTracks().filter(function (x) { return x.on })[0]
+        return t ? t.label : tr("Off")
+    }
+
+    function audioLabel(): string {
+        const t = video.audioTracks().filter(function (x) { return x.on })[0]
+        return t ? t.label : tr("Audio")
     }
 
     function toggle(): void {
         if (!started) return
-        if (video.paused()) { video.play(); stateIco.style.display = "none" }
-        else { video.pause(); flash("pause") }
-        showOsd()
+        if (video.paused()) { video.play(); show(2) }
+        else { video.pause(); show() }
+    }
+
+    function act(b: string): void {
+        if (b === "play") toggle()
+        else if (b === "rew") seek(-1, 10)
+        else if (b === "fwd") seek(1, 10)
+        else if (b === "subs") subsMenu()
+        else if (b === "audio") audioMenu()
+        else if (b === "match") rate()
     }
 
     /** presses close together go further each time; the jump lands once they stop */
@@ -352,7 +444,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
         const step = base * (seekRun < 3 ? 1 : seekRun < 8 ? 3 : 6)
         const from = seekTo >= 0 ? seekTo : video.time()
         seekTo = Math.max(0, Math.min(video.duration() - 2, from + dir * step))
-        showOsd()
+        show(5, "bar")
         clearTimeout(seekTimer)
         seekTimer = window.setTimeout(function () {
             video.seek(seekTo)
@@ -416,21 +508,52 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             if (a === "ok" || a === "next") { playNext(); return true }
             if (a === "back") { hideNext(); nextReq = null; nextOff = true; return true }
         }
-        if (a === "ok" && inSeg && !video.paused()) { doSkip(); return true }
-        if (a === "ok" || a === "playpause") toggle()
+        if (a === "playpause") toggle()
         else if (a === "play") { if (video.paused()) toggle() }
         else if (a === "pause") { if (!video.paused()) toggle() }
-        else if (a === "left") seek(-1, 10)
-        else if (a === "right") seek(1, 10)
         else if (a === "rewind") seek(-1, 30)
         else if (a === "forward") seek(1, 30)
-        else if (a === "down" && osd.className === "osd on") tracks()
-        else if (a === "up" || a === "down" || a === "info") showOsd()
-        else if (a === "next") { upNextNow() }
-        else if (a === "menu") { video.pause(); openSources() }
-        else if (a === "stop" || a === "back") { app.pop(); return true }
-        else return true
+        else if (a === "next") upNextNow()
+        else if (a === "stop") app.pop()
+        else if (a === "menu") options()
+        else if (a === "back") {
+            // the controls down: the first back lands on the back button, a second one leaves
+            if (exitArmed) { app.pop(); return true }
+            if (shown) hide()
+            else { show(); zone = "back"; exitArmed = true; light() }
+        } else move(a)
         return true
+    }
+
+    function move(a: Action): void {
+        exitArmed = false
+        if (!shown) {
+            if (a === "left") seek(-1, 10)
+            else if (a === "right") seek(1, 10)
+            else if (a === "ok" && inSeg) doSkip()
+            else show()
+            return
+        }
+        if (zone === "bar") {
+            if (a === "left") { seek(-1, 10); return }
+            if (a === "right") { seek(1, 10); return }
+            if (a === "ok") { toggle(); return }
+            if (a === "down") { zone = "row"; rowAt = buttons.indexOf("play") }
+            else if (a === "up") zone = inSeg ? "skip" : "back"
+        } else if (zone === "row") {
+            if (a === "left") rowAt = Math.max(0, rowAt - 1)
+            else if (a === "right") rowAt = Math.min(buttons.length - 1, rowAt + 1)
+            else if (a === "up") zone = "bar"
+            else if (a === "ok") { act(buttons[rowAt]); if (!picking) show(); return }
+        } else if (zone === "skip") {
+            if (a === "down") zone = "bar"
+            else if (a === "up") zone = "back"
+            else if (a === "ok") { doSkip(); zone = "bar" }
+        } else if (zone === "back") {
+            if (a === "down") zone = inSeg ? "skip" : "bar"
+            else if (a === "ok") { app.pop(); return }
+        }
+        show()
     }
 
     function openSources(): void {
@@ -438,28 +561,41 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             start: started ? video.time() : undefined })
     }
 
-    /** audio and subtitle tracks: the file's own, then the ones found online */
-    function tracks(): void {
-        const audio = video.audioTracks()
-        const text = video.textTracks()
+    /** ok held: what the row doesn't have (qml Osd: the menu key) */
+    function options(): void {
         const entries: MenuEntry[] = []
-        audio.forEach(function (t) {
-            entries.push({ label: tr("Audio") + ": " + t.label, icon: t.on ? "check" : undefined, run: function () { video.setAudio(t.id) } })
-        })
-        const any = !!ext || text.some(function (t) { return t.on })
-        entries.push({ label: tr("Subtitles") + ": " + tr("Off"), icon: any ? undefined : "check", run: function () { dropExt(); video.setText(-1); subs.textContent = "" } })
-        text.forEach(function (t) {
-            entries.push({ label: tr("Subtitles") + ": " + t.label, icon: t.on && !ext ? "check" : undefined, run: function () { dropExt(); video.setText(t.id) } })
-        })
-        if (ext) entries.push({ label: tr("Subtitles") + ": " + extName, icon: "check", run: function () { /* on */ } })
-        if (req.imdb) entries.push({ label: tr("Find subtitles"), icon: "search", run: findMenu })
-        if (ext) entries.push({ label: tr("Subtitle timing") + (delay ? " (" + (delay > 0 ? "+" : "") + delay.toFixed(1) + " s)" : ""), icon: "clock", run: timingMenu })
-        if (started && list[at]) entries.push({ label: tr("How's this one?"), icon: "eye", run: rate })
-        // the osd's other buttons (qml Osd): for remotes without media keys
+        if (started && list[at]) entries.push({ label: tr("How's this one?"), icon: "feedback", run: rate })
         if (req.item.kind === "show") entries.push({ label: tr("Next Episode"), icon: "next", run: upNextNow })
-        entries.push({ label: tr("Start Over"), icon: "restart", run: function () { video.seek(0); showOsd() } })
+        entries.push({ label: tr("Start Over"), icon: "restart", run: function () { video.seek(0); show() } })
         entries.push({ label: tr("Sources"), icon: "list", run: function () { video.pause(); openSources() } })
         app.menu(tr("Options"), entries)
+    }
+
+    /** the subtitles: the file's own, then the ones found online (qml Tracks) */
+    function subsMenu(): void {
+        const text = video.textTracks()
+        const entries: MenuEntry[] = []
+        const any = !!ext || text.some(function (t) { return t.on })
+        entries.push({ label: tr("Off"), icon: any ? undefined : "check", run: function () { dropExt(); video.setText(-1); subs.textContent = "" } })
+        text.forEach(function (t) {
+            entries.push({ label: t.label, icon: t.on && !ext ? "check" : undefined, run: function () { dropExt(); video.setText(t.id) } })
+        })
+        if (ext) entries.push({ label: extName + "  ·  OpenSubtitles", icon: "check", run: function () { /* on */ } })
+        if (req.imdb) entries.push({ label: tr("Search Subtitles"), icon: "search", run: findMenu })
+        if (ext) entries.push({ label: tr("Subtitle timing") + (delay ? " (" + (delay > 0 ? "+" : "") + delay.toFixed(1) + " s)" : ""), icon: "clock", run: timingMenu })
+        pick()
+        app.menu(tr("Subtitles"), entries, above)
+    }
+
+    function audioMenu(): void {
+        const audio = video.audioTracks()
+        const entries: MenuEntry[] = audio.map(function (t): MenuEntry {
+            return { label: t.label, icon: t.on ? "check" : undefined, run: function () { video.setAudio(t.id) } }
+        })
+        // the tv lists no tracks: the one that plays
+        if (!entries.length) entries.push({ label: (list[at] && list[at].audio.join(" ")) || tr("Audio"), icon: "check", run: function () { /* on */ } })
+        pick()
+        app.menu(tr("Audio"), entries, above)
     }
 
     function subTarget(): sources.Target | null {
@@ -549,14 +685,15 @@ export function playerScreen(app: App, first: PlayReq): Screen {
             const langs: { [l: string]: boolean } = {}
             f.forEach(function (x) { if (!order.some(function (c) { return subtitles.matches(c, x.lang) })) langs[x.lang] = true })
             Object.keys(langs).forEach(function (l) { const b = subtitles.best(f, l, release())[0]; if (b) picks.push(b) })
-            app.menu(tr("Find subtitles"), picks.slice(0, 14).map(function (x): MenuEntry {
+            pick()
+            app.menu(tr("Search Subtitles"), picks.slice(0, 14).map(function (x): MenuEntry {
                 const name = x.name.replace(/\.(srt|vtt|sub|ass)$/i, "")
                 return {
                     label: subtitles.languageName(x.lang) + (name ? "  ·  " + (name.length > 42 ? name.slice(0, 41) + "…" : name) : ""),
                     icon: x.id === extId ? "check" : undefined,
                     run: function () { useExt(x, true) },
                 }
-            }))
+            }), above)
         })
     }
 
@@ -569,8 +706,9 @@ export function playerScreen(app: App, first: PlayReq): Screen {
                 timingMenu()
             } }
         }
+        pick()
         app.menu(tr("Subtitle timing") + ": " + (delay > 0 ? "+" : "") + delay.toFixed(1) + " s",
-            [step(-0.5), step(0.5), step(-0.1), step(0.1), { label: tr("Reset"), icon: "restart", run: function () { delay = 0; drawExt() } }])
+            [step(-0.5), step(0.5), step(-0.1), step(0.1), { label: tr("Reset"), icon: "restart", run: function () { delay = 0; drawExt() } }], above)
     }
 
     // ---- skip intro (introdb)
@@ -596,7 +734,8 @@ export function playerScreen(app: App, first: PlayReq): Screen {
     function showSkip(s: skip.Segment | null): void {
         inSeg = s
         if (s) skipBtn.textContent = s.kind === "intro" ? tr("Skip Intro") : s.kind === "recap" ? tr("Skip Recap") : tr("Skip Credits")
-        skipBtn.className = "skipbtn" + (s ? " on" : "")
+        if (!s && zone === "skip") zone = "bar"
+        light()
     }
 
     function doSkip(): void {
@@ -621,7 +760,8 @@ export function playerScreen(app: App, first: PlayReq): Screen {
     return {
         el,
         action,
-        shown(): void { showOsd() },
+        // a picker or a menu closed over it
+        shown(): void { picking = false; show() },
         closed(): void {
             alive = false
             platform.keepAwake(false)

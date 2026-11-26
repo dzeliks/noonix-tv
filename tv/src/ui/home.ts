@@ -1,5 +1,5 @@
 // home: the top nav, the hero (whatever the focus is on) and the rows under it (qml Home, Hero, MediaRow)
-import { h, clear, fitScrim } from "./dom"
+import { h, clear } from "./dom"
 import { tr } from "../i18n"
 import { Action } from "../keys"
 import * as look from "./look"
@@ -12,6 +12,8 @@ import * as trakt from "../data/trakt"
 import * as library from "../data/library"
 import { App, Screen } from "./app"
 import { icon } from "./icons"
+import * as frost from "./frost"
+import { textShade } from "./textshade"
 
 // where the focused row's title rests on the 1080 page, and a row's height (qml MediaRow: title,
 // the gap the grown card needs, the card, room; the rows 8 apart)
@@ -72,7 +74,10 @@ export function homeScreen(app: App): Screen {
         return h("div.tab" + (t.icon ? ".icon." + t.icon : ""), { text: t.label })
     })
     const clock = h("div.clock")
-    const nav = h("div.nav", null, h("div.pill", null, ...tabEls), clock)
+    const pill = h("div.pill", null, ...tabEls)
+    const nav = h("div.nav", null, pill, clock)
+    const clockShade = textShade(nav, function () { return [clock] }, 0.3)
+    frost.glass(pill)
 
     const backA = h("img.backdrop", { alt: "" }) as HTMLImageElement
     const backB = h("img.backdrop", { alt: "" }) as HTMLImageElement
@@ -85,8 +90,8 @@ export function homeScreen(app: App): Screen {
     const overview = h("div.overview")
     const extra = h("div.extra")
     const side = h("div.side", null, overview, extra)
-    const scrim = h("div.scrim.s70")
-    const hero = h("div.hero", null, scrim, h("div.story", null, logo, title, sub, meta), side)
+    const hero = h("div.hero", null, h("div.story", null, logo, title, sub, meta), side)
+    const sideShade = textShade(hero, function () { return [overview, extra] }, 0.32)
 
     const rowsEl = h("div.rows")
     const emptyEl = h("div.homeempty")
@@ -252,7 +257,7 @@ export function homeScreen(app: App): Screen {
         metaLine(meta, it, null)
         overview.textContent = it.overview
         extra.textContent = ""
-        fitScrim(scrim, side, 0, 0)
+        sideShade.update()
         detailTimer = window.setTimeout(function () {
             tmdb.details(it.kind, it.id).then(function (d) {
                 if (shown !== key) return
@@ -265,25 +270,26 @@ export function homeScreen(app: App): Screen {
                 clear(extra)
                 if (cast) extra.appendChild(h("div", { text: tr("Starring %1", cast) }))
                 if (d.network) extra.appendChild(h("div.network", { text: d.network }))
-                fitScrim(scrim, side, 0, 0)
+                sideShade.update()
             }, function () { /* the list's own words stay */ })
         }, 350)
     }
 
     function setBackdrop(url: string | null): void {
         const back = front === backA ? backB : backA
-        if (!url) { front.className = "backdrop"; return }
+        if (!url) { front.className = "backdrop"; frost.source(el, null, frost.homeShade); return }
         back.onload = function () {
             back.className = "backdrop on"
             front.className = "backdrop"
             front = back
+            frost.source(el, back, frost.homeShade)
         }
         back.src = url
     }
 
     // ---- the clock
 
-    function tick(): void { clock.textContent = hhmm(new Date()) }
+    function tick(): void { clock.textContent = hhmm(new Date()); clockShade.update() }
     tick()
     const ticker = setInterval(tick, 15000)
 
@@ -318,7 +324,7 @@ export function homeScreen(app: App): Screen {
     return {
         el,
         action,
-        shown(): void { tick(); refreshLocal() },
+        shown(): void { tick(); sideShade.update(); refreshLocal() },
         closed(): void { clearInterval(ticker); clearTimeout(detailTimer) },
     }
 }
