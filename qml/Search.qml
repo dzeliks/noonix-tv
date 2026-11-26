@@ -75,7 +75,8 @@ FocusScope {
     readonly property real areaRight: osk ? columnX - 56 * u : width
     // the rows fade out where they run on (into the keyboard column, or off the screen)
     readonly property real fadeEnd: (osk ? 150 : 190) * u
-    readonly property real rowGap: (Theme.short ? 18 : 40) * u
+    // MediaRow.gap for its posters: the grown art clears the title
+    readonly property real rowGap: Theme.short ? 214 * u * 1.5 * 0.05 + 14 * u : 40 * u
     readonly property int rowCount: (showList.length ? 1 : 0) + (movieList.length ? 1 : 0)
     // two rows share the height (a lone row gets the same size: nothing jumps between searches)
     readonly property real rowPoster: Math.min(214, ((bottomY - areaTop) / 2 - 38 * u - rowGap - 30 * u) / 1.5 / u)

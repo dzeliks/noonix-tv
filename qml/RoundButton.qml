@@ -47,6 +47,8 @@ Item {
     }
     Symbol {
         anchors.centerIn: parent
+        // a chevron centred by its box looks pushed toward its point: half a unit the other way
+        anchors.horizontalCenterOffset: (rb.icon === "chevronleft" ? 0.5 : rb.icon === "chevronright" ? -0.5 : 0) * width / 24
         width: 34 * rb.size / 64 * rb.u; height: width
         name: rb.icon
         weight: 2.4

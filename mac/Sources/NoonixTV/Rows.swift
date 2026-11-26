@@ -334,16 +334,21 @@ struct MediaRowView: View {
 
     static func height(_ style: String, u: CGFloat, posterW: CGFloat? = nil) -> CGFloat {
         let cardH = style == "poster" ? (posterW ?? 214 * u) * 1.5 : 400 * u * 9 / 16 + 92 * u
-        return 31 * u * 1.2 + gap(u) + cardH + 30 * u
+        return 31 * u * 1.2 + gap(u, style, posterW: posterW) + cardH + 30 * u
     }
-    /// room under the title for the focused card's growth (less on a short screen: the cards come first)
-    static func gap(_ u: CGFloat) -> CGFloat { (AppModel.current?.short == true ? 18 : 40) * u }
+    /// room under the title for the focused card's growth (less on a short screen: the cards come first,
+    /// but the grown art still never touches the title)
+    static func gap(_ u: CGFloat, _ style: String = "poster", posterW: CGFloat? = nil) -> CGFloat {
+        guard AppModel.current?.short == true else { return 40 * u }
+        let artH = style == "poster" ? (posterW ?? 214 * u) * 1.5 : 400 * u * 9 / 16
+        return artH * 0.05 + 14 * u
+    }
 
     var body: some View {
         let style = model.row.style
         let cardW = style == "poster" ? posterW ?? 214 * u : 400 * u
         let spacing = (style == "poster" ? 34 : 44) * u
-        VStack(alignment: .leading, spacing: Self.gap(u)) {
+        VStack(alignment: .leading, spacing: Self.gap(u, style, posterW: posterW)) {
             HStack {
                 // a placeholder row (no title yet) has a placeholder title
                 if (title ?? model.row.title).isEmpty {
@@ -383,7 +388,7 @@ struct MediaRowView: View {
                               posterW: posterW, fadeEnd: fadeEnd, point: point, activate: activate)
                 }
             }
-            .frame(width: width, height: MediaRowView.height(style, u: u, posterW: posterW) - 31 * u * 1.2 - Self.gap(u), alignment: .topLeading)
+            .frame(width: width, height: MediaRowView.height(style, u: u, posterW: posterW) - 31 * u * 1.2 - Self.gap(u, style, posterW: posterW), alignment: .topLeading)
             .animation(.easeOut(duration: 0.14), value: model.loaded)
         }
         .frame(width: width, alignment: .leading)

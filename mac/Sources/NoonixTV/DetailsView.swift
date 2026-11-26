@@ -698,8 +698,9 @@ struct RoundButton: View {
         Image(systemName: icon)
             .font(.system(size: glyph, weight: .semibold))
             .foregroundStyle(white ? Theme.focusFg : Theme.fg)
-            // the chevrons' drawing sits off their box toward the point (measured: 8 % of the size)
-            .offset(x: (icon == "chevron.left" ? 0.08 : icon == "chevron.right" ? -0.08 : 0) * glyph)
+            // the chevrons' drawing sits off their box toward the point (measured: 8 % of the size), and
+            // centred by the box it still looks pushed that way (qml RoundButton): 3 % more
+            .offset(x: (icon == "chevron.left" ? 0.11 : icon == "chevron.right" ? -0.11 : 0) * glyph)
             .frame(width: size * u, height: size * u)
             .background { Circle().fill(Color.white).opacity(white ? 1 : 0) }
             .overlay { GlassRim(shape: Circle(), u: u, glint: false).opacity(white ? 0 : 1) }
