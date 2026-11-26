@@ -68,6 +68,8 @@ QtObject {
     readonly property color fg: "#FFFFFF"
     readonly property color fg2: Qt.rgba(1, 1, 1, 0.66)
     readonly property color fg3: Qt.rgba(1, 1, 1, 0.42)
+    // the info lines under a title: fg2 solid (a see-through grey dimmed to nothing over a light backdrop)
+    readonly property color meta: "#adadb0"
     readonly property color accent: "#A56BFF"          // the mpv skin's purple
     readonly property color focusFg: "#1C1C1E"
     readonly property color cached: "#FFD60A"

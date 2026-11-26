@@ -553,6 +553,11 @@ enum DevKeys {
                             else if line == "erase" { _ = typed(.erase) }
                             else if line == "submit" { _ = typed(.submit) }
                             else if line.hasPrefix("shot:") { shot(String(line.dropFirst(5))) }
+                            // a file straight into the player as a movie (play:<tmdb id>:<path>), no source needed
+                            else if line.hasPrefix("play:"), let colon = line.dropFirst(5).firstIndex(of: ":"), let tmdb = Int(line[line.index(line.startIndex, offsetBy: 5)..<colon]) {
+                                let path = String(line[line.index(after: colon)...])
+                                AppModel.current?.play(PlayTarget(kind: "movie", tmdb: tmdb, title: (path as NSString).lastPathComponent, start: 0), stream: ["addon": "Library", "title": "test", "url": path, "local": true, "headers": [], "resolution": 0, "hdr": [], "audio": [], "languages": [], "score": 0])
+                            }
                             #if os(macOS)
                             for what in ["move", "click", "dbl"] where line.hasPrefix(what + ":") { mouse(what, String(line.dropFirst(what.count + 1))) }
                             if line.hasPrefix("cursor:") { try? (PlayerCursor.hidden ? "hidden" : "shown").write(toFile: String(line.dropFirst(7)), atomically: true, encoding: .utf8) }

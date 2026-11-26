@@ -20,7 +20,9 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ios, tvos]
-    runs-on: macos-26
+    # xcode 27 (ios.sh takes the newest there is): the 27.1+ sdk has iphone duo's fold, and an app
+    # linked against an older sdk runs boxed in on the duo
+    runs-on: xcode-27
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
@@ -70,10 +72,11 @@ jobs:
         run: |
           app="$(mac/ios.sh "$SIM" | tail -1)"
           mac/smoke-sim.sh "${SIM/sim/ios}" "$app" "$RUNNER_TEMP/${{ matrix.platform }}-simulator.png"
+          if [ "$SIM" = sim ]; then mac/smoke-sim.sh duo "$app" "$RUNNER_TEMP/${{ matrix.platform }}-duo-simulator.png"; fi
       - if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: noonix-tv-${{ matrix.platform }}-simulator-shot
-          path: ${{ runner.temp }}/${{ matrix.platform }}-simulator.png
+          path: ${{ runner.temp }}/${{ matrix.platform }}-*simulator.png
           if-no-files-found: ignore
           retention-days: 7

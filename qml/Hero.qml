@@ -236,7 +236,7 @@ Item {
             width: parent.width
             visible: text !== ""
             text: hero.cast
-            color: Theme.fg2
+            color: Theme.meta
             elide: Text.ElideRight
             font { family: Theme.text; pixelSize: 21 * hero.u }
         }
@@ -245,7 +245,7 @@ Item {
             width: parent.width
             visible: text !== ""
             text: hero.facts
-            color: Theme.fg2
+            color: Theme.meta
             elide: Text.ElideRight
             font { family: Theme.text; pixelSize: 21 * hero.u; weight: Font.Medium }
         }

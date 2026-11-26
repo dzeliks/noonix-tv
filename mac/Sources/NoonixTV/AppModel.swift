@@ -164,8 +164,9 @@ final class AppModel {
     /// narrower and shorter
     /// (no floor on a phone, like android: the floor cost an iphone its room under the top bar)
     var u: CGFloat {
-        let fit = Platform.boost * min(size.height / 1080, size.width / 1920)
-        return Platform.phone ? fit : max(0.4 * Platform.boost, fit)
+        let boost = Platform.boost(size)
+        let fit = boost * min(size.height / 1080, size.width / 1920)
+        return Platform.phone ? fit : max(0.4 * boost, fit)
     }
     /// a phone in landscape: the layouts that run short of room (qml Theme.short)
     var short: Bool { size.height / u < 900 }

@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # installs a simulator build in a fresh simulator (the newest runtime), starts it and checks it stays up,
 # then a shot of its screen. the simulator is deleted after
-#   mac/smoke-sim.sh ios|tv <Noonix TV.app> [shot.png]   (the app from mac/ios.sh or mac/ios.sh tv)
+#   mac/smoke-sim.sh ios|duo|tv <Noonix TV.app> [shot.png]   (the app from mac/ios.sh or mac/ios.sh tv;
+#   duo: the foldable iphone, closed, shot of its outer screen)
 set -euo pipefail
-kind="${1:?usage: smoke-sim.sh ios|tv <app> [shot.png]}"
-app="${2:?usage: smoke-sim.sh ios|tv <app> [shot.png]}"
+kind="${1:?usage: smoke-sim.sh ios|duo|tv <app> [shot.png]}"
+app="${2:?usage: smoke-sim.sh ios|duo|tv <app> [shot.png]}"
 shot="${3:-}"
 case $kind in
     ios) platform=iOS; model="iPad Pro 13-inch";;
+    duo) platform=iOS; model="iPhone Duo";;
     tv) platform=tvOS; model="Apple TV 4K";;
     *) echo "ios or tv" >&2; exit 1;;
 esac
@@ -41,5 +43,11 @@ for i in $(seq 25); do
         exit 1
     fi
 done
-[[ -z "$shot" ]] || xcrun simctl io "$udid" screenshot "$shot" > /dev/null || true
+# two screens: the outer one (the one in use while closed) by its width
+display=()
+if [[ $kind == duo ]]; then
+    d=$(xcrun simctl io "$udid" enumerate | awk '/UUID:/{u=$2} /Default width:/{if ($3==1398) {print u; exit}}')
+    [[ -n $d ]] && display=(--display="$d")
+fi
+[[ -z "$shot" ]] || xcrun simctl io "$udid" screenshot "${display[@]}" "$shot" > /dev/null || true
 echo "up for 25 s"

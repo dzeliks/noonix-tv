@@ -26,8 +26,14 @@ enum Platform {
     /// uikit: iphone, ipad and apple tv
     static let ios = true
     static let tv = false
-    /// a phone (not an ipad): drawn larger, like android phones (Desktop.boost)
-    static var phone: Bool { UIDevice.current.userInterfaceIdiom == .phone }
+    /// a phone (not an ipad): touch first, its own hints (dev: NOONIX_PHONE=1|0 forces it, like qml)
+    static var phone: Bool {
+        switch ProcessInfo.processInfo.environment["NOONIX_PHONE"] {
+        case "1": return true
+        case "0": return false
+        default: return UIDevice.current.userInterfaceIdiom == .phone
+        }
+    }
     /// the lines' word for this device
     static func nameDevice() { UILang.deviceWord = phone ? "iPhone" : "iPad" }
     #elseif os(tvOS)
@@ -43,10 +49,12 @@ enum Platform {
     static func nameDevice() {}
     #endif
 
-    /// how much larger than the 1920x1080 grid (qml Desktop.boost; dev: NOONIX_SCALE)
-    static var boost: CGFloat {
+    /// how much larger than the 1920x1080 grid (qml Desktop.boost; dev: NOONIX_SCALE). a phone-sized
+    /// screen only (under 600 pt across, android's rule): iphone duo's inner one is an ipad mini's
+    /// size and is drawn like an ipad, more titles across. folding swaps it with the screen
+    static func boost(_ size: CGSize) -> CGFloat {
         if let s = ProcessInfo.processInfo.environment["NOONIX_SCALE"].flatMap(Double.init), s > 0 { return s }
-        return phone ? 1.4 : 1
+        return phone && min(size.width, size.height) < 600 ? 1.4 : 1
     }
 
     static func open(_ url: URL) {

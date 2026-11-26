@@ -143,6 +143,9 @@ struct Hero: View {
         let room = (size.height - infoBottom) / u - (app.short ? 135 : 165)
         // a very short screen takes a smaller logo rather than one under the bar
         let logoH = max(app.short ? 40 : 96, min(190, room - 95 - (cur?.kind == "episode" ? 45 : 0))) * u
+        // the info left, the story right: each 42 %, or half the room between the margins on a narrow
+        // screen (iphone duo's outer one, its island at a side) so they never run into each other
+        let col = min(size.width * 0.42, (size.width - 2 * margin - 40 * u) / 2)
         ZStack(alignment: .bottomLeading) {
             Backdrop(url: wanted)
                 .frame(width: size.width, height: size.height)
@@ -168,7 +171,7 @@ struct Hero: View {
                 VStack(alignment: .leading, spacing: 16 * u) {
                     LogoBox(url: details?.item.logo, title: (episode ? cur.showTitle : cur.title) ?? "",
                             loading: details == nil, titleSize: 64 * u)
-                        .frame(width: 560 * u, height: logoH)
+                        .frame(width: min(560 * u, col), height: logoH)
                         // room under the logo: a tall one doesn't sit on the line below
                         .padding(.bottom, 16 * u)
                     if episode, let s = cur.season, let e = cur.episode {
@@ -177,14 +180,14 @@ struct Hero: View {
                             .foregroundStyle(Theme.fg)
                             .padding(.top, 4 * u)
                     }
-                    MetaLine(item: cur, details: details, u: u, maxWidth: size.width * 0.42)
+                    MetaLine(item: cur, details: details, u: u, maxWidth: col)
                 }
-                .frame(width: size.width * 0.42, alignment: .leading)
+                .frame(width: col, alignment: .leading)
                 .padding(.leading, margin)
                 .padding(.bottom, infoBottom)
                 .opacity(textOpacity)
 
-                story(cur, margin: margin, infoBottom: infoBottom, lines: max(2, min(7, Int(((room - (app.short ? 108 : 78)) / 28).rounded(.down)))))
+                story(cur, col: col, margin: margin, infoBottom: infoBottom, lines: max(2, min(7, Int(((room - (app.short ? 108 : 78)) / 28).rounded(.down)))))
             }
         }
         .frame(width: size.width, height: size.height)
@@ -192,7 +195,7 @@ struct Hero: View {
     }
 
     @ViewBuilder
-    private func story(_ cur: Item, margin: CGFloat, infoBottom: CGFloat, lines: Int) -> some View {
+    private func story(_ cur: Item, col: CGFloat, margin: CGFloat, infoBottom: CGFloat, lines: Int) -> some View {
         let overview = cur.overview ?? cur.showOverview ?? ""
         let cast = (details?.cast ?? []).prefix(3).compactMap(\.name)
         let facts: String = {
@@ -212,14 +215,14 @@ struct Hero: View {
                 .shadow(color: .black.opacity(0.45), radius: 0, y: 1)
             if !cast.isEmpty {
                 Text(L("Starring %1", cast.joined(separator: ", ")))
-                    .font(Theme.text(21 * u)).foregroundStyle(Theme.fg2).lineLimit(1)
+                    .font(Theme.text(21 * u)).foregroundStyle(Theme.meta).lineLimit(1)
             }
             if !facts.isEmpty {
-                Text(facts).font(Theme.text(21 * u, .medium)).foregroundStyle(Theme.fg2).lineLimit(1)
+                Text(facts).font(Theme.text(21 * u, .medium)).foregroundStyle(Theme.meta).lineLimit(1)
             }
         }
-        .frame(width: size.width * 0.42, alignment: .leading)
-        .textRenderer(TextShade(u: u))
+        .frame(width: col, alignment: .leading)
+        .textShade(TextShade(u: u))
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.trailing, margin)
         .padding(.bottom, infoBottom)

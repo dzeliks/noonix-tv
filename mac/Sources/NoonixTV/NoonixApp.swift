@@ -124,6 +124,22 @@ final class Launch: NSObject, UIApplicationDelegate {
         #endif
         return true
     }
+
+    #if os(iOS)
+    /// landscape, but for the player on a big phone screen (iphone duo open): turned upright, half
+    /// folded like a laptop, the video sits above the fold and the controls below it (PlayerView)
+    static var mask: UIInterfaceOrientationMask = .landscape
+    func application(_ application: UIApplication, supportedInterfaceOrientationsFor window: UIWindow?) -> UIInterfaceOrientationMask { Launch.mask }
+    static func upright(_ on: Bool) {
+        let m: UIInterfaceOrientationMask = on ? .allButUpsideDown : .landscape
+        guard m != mask else { return }
+        mask = m
+        for s in UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }) {
+            s.windows.first?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+            if !on { s.requestGeometryUpdate(.iOS(interfaceOrientations: .landscape)) }
+        }
+    }
+    #endif
 }
 #else
 

@@ -20,6 +20,17 @@ case $kind in
 esac
 core="core-ios"; [[ $tv == 1 ]] && core="core-tvos"
 export IPHONEOS_DEPLOYMENT_TARGET=26.0 TVOS_DEPLOYMENT_TARGET=26.0
+# the newest xcode there is (27.1+ sdk: iphone duo's hinge and fold), not whichever xcode-select names
+if [[ -z ${DEVELOPER_DIR:-} ]]; then
+    best=""; bestv=0
+    for x in /Applications/Xcode*.app; do
+        v=$(/usr/libexec/PlistBuddy -c 'Print CFBundleShortVersionString' "$x/Contents/Info.plist" 2>/dev/null) || continue
+        n=$(awk -F. '{ printf "%d%03d%03d", $1, $2, $3 }' <<< "$v")
+        if (( n > bestv )); then best=$x; bestv=$n; fi
+    done
+    [[ -n $best ]] && export DEVELOPER_DIR="$best/Contents/Developer"
+fi
+echo "xcode: $(xcodebuild -version | head -1) (${DEVELOPER_DIR:-xcode-select})" >&2
 conf=${CONF:-Release}
 
 if [[ ${CORE:-1} != 0 ]]; then
@@ -41,6 +52,12 @@ app="$here/dist-ios/$kind/Noonix TV.app"
 rm -rf "$app"
 mkdir -p "$app"
 cp "$bin" "$app/Noonix TV"
+# swiftpm links the binary with the deployment target as its sdk (26.0): ios then runs it as an old
+# app (iphone duo: boxed in on the outer screen, no fold). the sdk it really was built with
+sdkv=$(xcrun --sdk "$sdk" --show-sdk-version)
+# (by number: vtool has no name for the apple tv simulator) 2 ios, 3 tvos, 7 ios sim, 8 tvos sim
+case $kind in device|ipa) vplat=2;; tv) vplat=8;; tv-device|tv-ipa) vplat=3;; *) vplat=7;; esac
+xcrun vtool -set-build-version "$vplat" 26.0 "$sdkv" -replace -output "$app/Noonix TV" "$app/Noonix TV" 2>/dev/null
 cp "$repo/i18n/noonix-tv_sr_Latn.ts" "$repo/LICENSE" "$app/"
 python3 "$repo/tools/third-party.py" mac "$t" > "$app/THIRD-PARTY.txt" 2>/dev/null || true
 
@@ -91,6 +108,9 @@ $(if [[ $tv == 1 ]]; then echo '    <key>UIDeviceFamily</key><array><integer>3</
 '; else echo '    <key>LSRequiresIPhoneOS</key><true/>
     <key>UIDeviceFamily</key><array><integer>1</integer><integer>2</integer></array>'; fi)
     <key>MinimumOSVersion</key><string>26.0</string>
+    <key>DTSDKName</key><string>$sdk$sdkv</string>
+    <key>DTPlatformName</key><string>$sdk</string>
+    <key>DTPlatformVersion</key><string>$sdkv</string>
 $([[ $tv == 1 ]] || echo '    <key>UILaunchScreen</key><dict><key>UIColorName</key><string>Launch</string></dict>')
     <key>UIRequiresFullScreen</key><true/>
     <key>UIStatusBarHidden</key><true/>

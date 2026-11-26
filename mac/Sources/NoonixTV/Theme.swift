@@ -9,6 +9,8 @@ import SwiftUI
 enum Theme {
     static let fg = Color.white
     static let fg2 = Color.white.opacity(0.66)
+    /// the info lines under a title: fg2 solid (see-through grey dims to nothing over a light backdrop)
+    static let meta = Color(red: 0xad / 255, green: 0xad / 255, blue: 0xb0 / 255)
     static let fg3 = Color.white.opacity(0.42)
     static let accent = Color(red: 0xA5 / 255, green: 0x6B / 255, blue: 1)
     static let focusFg = Color(red: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255)
@@ -217,7 +219,7 @@ struct LogoBox: View {
 
 /// a soft shade behind text over artwork (qml TextShade): each line a rounded bar its own length,
 /// blurred, under the text. set on a stack, every text in it gets one
-struct TextShade: TextRenderer {
+struct TextShade {
     var u: CGFloat
     var strength: Double = 0.26
     /// how far the bars reach past the text and how wide the blur is (a lone short line, a clock,
@@ -226,25 +228,33 @@ struct TextShade: TextRenderer {
     var blur: CGFloat = 32
     /// the clocks: close round the line like a description's rows (qml TopNav/Osd)
     static func clock(u: CGFloat) -> TextShade { TextShade(u: u, strength: 0.17, reach: CGSize(width: 16, height: 6), blur: 16) }
-    /// the bars without the text (a clipped plot's shade, drawn outside its clip)
-    var shadeOnly = false
     /// only the lines in this band (in the text's own coordinates) get a bar
     var window: ClosedRange<CGFloat>? = nil
-    var displayPadding: EdgeInsets { EdgeInsets(top: 150 * u, leading: 150 * u, bottom: 150 * u, trailing: 150 * u) }
+}
 
+/// the bars alone, unblurred: the copy behind the text draws them, the blur is the view's. a renderer's
+/// display padding (room for its own blur) moves the line breaks with the ios 27 sdk
+struct ShadeBars: TextRenderer {
+    let shade: TextShade
     func draw(layout: Text.Layout, in ctx: inout GraphicsContext) {
-        if strength > 0 {
-            ctx.drawLayer { l in
-                l.opacity = strength
-                l.addFilter(.blur(radius: blur * u))
-                for line in layout {
-                    let r = line.typographicBounds.rect
-                    if let w = window, !w.contains(r.midY) { continue }
-                    l.fill(Capsule().path(in: r.insetBy(dx: -reach.width * u, dy: -reach.height * u)), with: .color(.black))
-                }
-            }
+        for line in layout {
+            let r = line.typographicBounds.rect
+            if let w = shade.window, !w.contains(r.midY) { continue }
+            ctx.fill(Capsule().path(in: r.insetBy(dx: -shade.reach.width * shade.u, dy: -shade.reach.height * shade.u)), with: .color(.black))
         }
-        if !shadeOnly { for line in layout { ctx.draw(line) } }
+    }
+}
+
+extension View {
+    /// the text with its shade behind it: a copy of it drawing only the bars, blurred
+    func textShade(_ s: TextShade) -> some View { background { shadeOnly(s) } }
+    /// only the shade (a clipped text's, drawn outside its clip)
+    func shadeOnly(_ s: TextShade) -> some View {
+        textRenderer(ShadeBars(shade: s))
+            .blur(radius: s.blur * s.u)
+            .opacity(s.strength)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 }
 

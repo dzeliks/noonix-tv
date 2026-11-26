@@ -27,7 +27,13 @@ struct RootView: View {
                 }
                 #endif
                 app.size = g.size
+                #if os(iOS)
+                Launch.upright(app.playing && Platform.phone && min(g.size.width, g.size.height) >= 600)
+                #endif
             }
+            #if os(iOS)
+            .onChange(of: app.playing) { Launch.upright(app.playing && Platform.phone && min(g.size.width, g.size.height) >= 600) }
+            #endif
             .onChange(of: app.watchingNow, initial: true) { if app.watchingNow { app.watchStarted() } }
             .onChange(of: app.currentProfile?.id) { if app.watching { app.reloginCheck() } }
         }
@@ -216,6 +222,17 @@ struct TopNav: View {
     @State private var tabs: [Int: CGRect] = [:]
     /// what the mouse is over: it lights up, only a click switches or opens (-1 the avatar)
     @State private var hover: Int?
+    @State private var pillW: CGFloat = 0
+    @State private var clockW: CGFloat = 0
+
+    /// centred, unless that crowds the clock (a narrow screen, iphone duo's outer one with its island
+    /// at a side): then it moves left, as far as the avatar leaves room
+    private func pillShift(_ u: CGFloat, margin: CGFloat) -> CGFloat {
+        let half = (app.size.width - pillW) / 2 - margin
+        let right = half - clockW, left = half - 64 * u, want = 24 * u
+        guard pillW > 0, right < want, left > right else { return 0 }
+        return -min(want - right, (left - right) / 2)
+    }
 
     var body: some View {
         let u = app.u
@@ -242,7 +259,8 @@ struct TopNav: View {
                         .font(Theme.rounded(40 * u, .bold))
                         .foregroundStyle(Theme.fg)
                         .monospacedDigit()
-                        .textRenderer(TextShade.clock(u: u))
+                        .textShade(.clock(u: u))
+                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { clockW = $0 }
                 }
             }
             .padding(.horizontal, margin)
@@ -250,6 +268,8 @@ struct TopNav: View {
             .padding(.top, top)
 
             pill(u)
+                .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { pillW = $0 }
+                .offset(x: pillShift(u, margin: margin))
                 .padding(.top, top)
         }
         .frame(maxWidth: .infinity)

@@ -105,6 +105,8 @@ final class Osd {
     let player: MPVPlayer
     weak var app: AppModel?
     var shown = true { didSet { player.positionShown = shown } }
+    /// below the fold (iphone duo upright): nothing to cover there, the controls stay up
+    var docked = false { didSet { if docked { show() } } }
     var zone: Zone = .bar
     var rowIndex = 4
     var picker: String?          // "sub" | "audio"
@@ -150,7 +152,7 @@ final class Osd {
             shown = true
         }
         hide?.cancel()
-        guard !player.paused, picker == nil else { return }
+        guard !player.paused, picker == nil, !docked else { return }
         hide = Task {
             try? await Task.sleep(for: .seconds(secs))
             if !Task.isCancelled && !player.paused && picker == nil && match == nil && timing == nil { hideNow() }
@@ -842,11 +844,33 @@ struct PlayerView: View {
     @State private var osd: Osd?
     /// the last tap on the picture: two on one side jump
     @State private var lastTap: (at: Date, side: Int)?
+    /// the fold across the screen (iphone duo), in this view's space
+    @State private var fold: CGRect?
+
+    /// upright on a big phone screen: the video above the fold, the controls below it (nil: one screen)
+    private var split: (top: CGFloat, bottom: CGFloat)? {
+        #if os(iOS)
+        let s = app.size
+        guard Platform.phone, s.height > s.width, min(s.width, s.height) >= 600 else { return nil }
+        if let f = fold, f.width > s.width / 2, f.midY > s.height * 0.25, f.midY < s.height * 0.75 { return (f.minY, f.maxY) }
+        return (s.height / 2, s.height / 2)
+        #else
+        return nil
+        #endif
+    }
 
     var body: some View {
+        let split = split
+        let W = app.size.width
+        // below the fold: a phone's size, drawn like one
+        let low = CGSize(width: W, height: app.size.height - (split?.bottom ?? 0))
+        let lowU = split == nil ? app.u : Platform.boost(low) * min(low.height / 1080, low.width / 1920)
+        let osdSize = split == nil ? app.size : low
         ZStack {
             Color.black
             VideoSurface(player: player)
+                .frame(width: W, height: split?.top ?? app.size.height)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
 
             if case .failed(let why) = player.state {
                 VStack(spacing: 18 * app.u) {
@@ -857,30 +881,48 @@ struct PlayerView: View {
             if let osd {
                 // gone, not just see-through, while hidden: glass over a moving picture is redrawn by the
                 // system every frame (cpu, battery) even at opacity 0, and nothing follows the position
-                if osd.shown || player.state == .ended {
-                    OsdView(osd: osd, u: app.u, size: app.size)
+                if osd.shown || player.state == .ended || split != nil {
+                    OsdView(osd: osd, u: lowU, size: osdSize)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                         .transition(.opacity.animation(.easeOut(duration: 0.26)))
                 }
-                PillHost(osd: osd, u: app.u, size: app.size)
+                PillHost(osd: osd, u: lowU, size: osdSize)
+                    .frame(width: osdSize.width, height: osdSize.height)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                 // the timing capsule stays up with the controls down
                 if osd.timing != nil {
                     Color.clear.contentShape(.rect).onTapGesture { osd.closeTiming(save: true) }
-                    TimingSheet(osd: osd, u: app.u)
+                    TimingSheet(osd: osd, u: lowU)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                        .padding(.top, 64 * app.u)
+                        .padding(.top, 64 * lowU + (split?.bottom ?? 0))
                 }
             }
             if let c = app.tipChoice {
+                // below the fold, off the picture
                 MatchTipView(choice: c)
+                    .frame(width: osdSize.width, height: osdSize.height)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .transition(.opacity.animation(.timingCurve(0.33, 1, 0.68, 1, duration: 0.22)))
             }
         }
         .contentShape(.rect)
+        #if os(iOS)
+        .onGeometryChange(for: CGRect?.self) { g in
+            guard #available(iOS 27.1, *) else { return nil }
+            return g.reservedRegions(kind: .division, options: .includeInactive).first?.frame
+        } action: { fold = $0 }
+        .onChange(of: split == nil, initial: true) { _, one in osd?.docked = !one }
+        #endif
         .onContinuousHover { _ in if Input.pointerLive { osd?.show() } }
         #if os(iOS)
         // a finger: a tap shows or hides them (like phone players), a double tap on a side jumps 10 s
         .onTapGesture(coordinateSpace: .local) { at in
             if osd?.picker != nil || osd?.match != nil { osd?.closePickers(); return }
+            // under the fold the controls stay: a tap on the picture is play / pause there
+            if split != nil {
+                if at.y < (split?.top ?? 0) { player.togglePause() }
+                return
+            }
             let W = app.size.width
             let side = at.x < W / 3 ? -1 : at.x > W * 2 / 3 ? 1 : 0
             let now = Date()
@@ -914,7 +956,10 @@ struct PlayerView: View {
             else if osd?.shown == true { player.togglePause() } else { osd?.show() }
         }
         #endif
-        .onAppear { osd = Osd(player: player, app: app) }
+        .onAppear {
+            osd = Osd(player: player, app: app)
+            osd?.docked = split != nil
+        }
         // paused: up for good; playing again: down soon
         .onChange(of: player.paused) {
             MediaKeys.playing(true, paused: player.paused)
@@ -998,7 +1043,7 @@ struct OsdView: View {
                     }
                 }
             }
-            .textRenderer(TextShade.clock(u: u))
+            .textShade(.clock(u: u))
             .frame(width: W - margin, alignment: .trailing)
             .padding(.top, 56 * u)
 
@@ -1019,7 +1064,7 @@ struct OsdView: View {
                 .animation(.easeInOut(duration: 0.16), value: picking || chip)
             if let sub = p.subtitle {
                 Text(sub).font(Theme.display(30 * u, .semibold)).foregroundStyle(Theme.fg)
-                    .textRenderer(TextShade(u: u, strength: 0.4))
+                    .textShade(TextShade(u: u, strength: 0.4))
                     .offset(x: margin, y: H - 298 * u)
                     .opacity(picking || chip ? 0 : 1)
                     .animation(.easeInOut(duration: 0.16), value: picking || chip)

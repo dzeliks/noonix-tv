@@ -396,15 +396,15 @@ struct DetailsView: View {
                 PlotBox(text: (ep?.overview).flatMap { $0.isEmpty ? nil : $0 } ?? d?.item.overview ?? "", u: u, spare: $plotSpare, lines: plotLines)
                 let cast = (d?.cast ?? []).prefix(4).compactMap(\.name)
                 if !cast.isEmpty {
-                    Text(L("Starring %1", cast.joined(separator: ", "))).font(Theme.text(21 * u)).foregroundStyle(Theme.fg2).lineLimit(1)
+                    Text(L("Starring %1", cast.joined(separator: ", "))).font(Theme.text(21 * u)).foregroundStyle(Theme.meta).lineLimit(1)
                 }
                 let facts = factsLine(d)
                 if !facts.isEmpty {
-                    Text(facts).font(Theme.text(21 * u, .medium)).foregroundStyle(Theme.fg2).lineLimit(1)
+                    Text(facts).font(Theme.text(21 * u, .medium)).foregroundStyle(Theme.meta).lineLimit(1)
                 }
             }
             .frame(width: W * 0.36, alignment: .leading)
-            .textRenderer(TextShade(u: u))
+            .textShade(TextShade(u: u))
             .padding(.bottom, -lend)
             .padding(.trailing, margin)
         }
@@ -548,7 +548,6 @@ struct PlotBox: View {
         line(text)
             .foregroundStyle(Theme.fg.opacity(0.86))
             // its shade is drawn outside the clip, below
-            .textRenderer(TextShade(u: u, strength: 0))
             .frame(maxWidth: .infinity, alignment: .leading)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { tall = $0 }
             .padding(.vertical, pad)
@@ -566,7 +565,7 @@ struct PlotBox: View {
             // the shade of the lines in view, not cut by the clip
             .background(alignment: .top) {
                 line(text)
-                    .textRenderer(TextShade(u: u, shadeOnly: true, window: -(pad + y)...(h - pad - y)))
+                    .shadeOnly(TextShade(u: u, window: -(pad + y)...(h - pad - y)))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, pad)
                     .offset(y: y)

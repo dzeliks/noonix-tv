@@ -55,6 +55,27 @@ export function backend(ev: Events): Backend {
 
 // ---- <video>
 
+declare const PalmSystem: any
+
+/** the panel's own size (an app's window is 1920 wide on a 4k lg too) */
+function panelSize(): { w: number; h: number } {
+    try {
+        const d = JSON.parse(PalmSystem.deviceInfo)
+        if (d.screenWidth > 0 && d.screenHeight > 0) return { w: d.screenWidth, h: d.screenHeight }
+    } catch (e) { /* not webOS, or an old one */ }
+    return { w: 1920, h: 1080 }
+}
+
+/** webOS picks an hls stream's variant up to 1080p unless told the panel's size (mediaOption, lg's
+ *  docs): a type for a <source> then, "" for anything else (a plain file plays 4k / hdr by itself) */
+function webosHls(url: string): string {
+    if (platform.os !== "webos" || !/\.m3u8(\?|#|$)/i.test(url)) return ""
+    const p = panelSize()
+    if (p.w <= 1920) return ""
+    const opt = { option: { adaptiveStreaming: { maxWidth: p.w, maxHeight: p.h } } }
+    return "application/vnd.apple.mpegurl;mediaOption=" + encodeURIComponent(JSON.stringify(opt))
+}
+
 function video(ev: Events): Backend {
     const v = h("video.video") as HTMLVideoElement
     v.setAttribute("preload", "auto")
@@ -79,7 +100,14 @@ function video(ev: Events): Backend {
     return {
         el: v,
         open(url: string): void {
-            v.src = url
+            const type = webosHls(url)
+            while (v.firstChild) v.removeChild(v.firstChild)
+            if (type) {
+                v.removeAttribute("src")
+                v.appendChild(h("source", { src: url, type: type }))
+            } else {
+                v.src = url
+            }
             v.load()
             const p = v.play() as Promise<void> | undefined
             if (p && p.catch) p.catch(function (e) { console.warn("play: " + e) })
@@ -107,6 +135,7 @@ function video(ev: Events): Backend {
         },
         close(): void {
             v.pause()
+            while (v.firstChild) v.removeChild(v.firstChild)
             v.removeAttribute("src")
             v.load()
         },

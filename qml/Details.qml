@@ -432,7 +432,7 @@ FocusScope {
                         width: parent.width
                         visible: text !== ""
                         elide: Text.ElideRight
-                        color: Theme.fg2
+                        color: Theme.meta
                         font { family: Theme.text; pixelSize: 21 * page.u }
                         text: {
                             var c = page.details && page.details.cast ? page.details.cast.slice(0, 4).map(function (p) { return p.name }) : []
@@ -444,7 +444,7 @@ FocusScope {
                         width: parent.width
                         visible: text !== ""
                         elide: Text.ElideRight
-                        color: Theme.fg2
+                        color: Theme.meta
                         font { family: Theme.text; pixelSize: 21 * page.u; weight: Font.Medium }
                         text: {
                             var d = page.details, f = []
