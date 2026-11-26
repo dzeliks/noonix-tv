@@ -389,9 +389,12 @@ FocusScope {
             }
         }
         footer: Item {
+            id: listFoot
             width: list.width
-            height: 80 * sheet.u
+            // a long line wraps in a small window: the footer grows with it
+            height: Math.max(80 * sheet.u, footRow.height + 40 * sheet.u)
             Row {
+                id: footRow
                 anchors.centerIn: parent
                 spacing: 14 * sheet.u
                 Spinner {
@@ -403,6 +406,10 @@ FocusScope {
                 }
                 Text {
                     anchors.verticalCenter: parent.verticalCenter
+                    // never wider than the sheet: wraps, centred
+                    width: Math.min(implicitWidth, listFoot.width - 60 * sheet.u)
+                    wrapMode: Text.WordWrap
+                    horizontalAlignment: Text.AlignHCenter
                     color: Theme.fg3
                     font { family: Theme.text; pixelSize: 20 * sheet.u }
                     text: !sheet.done ? (sheet.shown.length ? qsTr("Looking for more sources") : "")

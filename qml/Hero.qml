@@ -145,6 +145,18 @@ Item {
     // the rows' share of the page (home makes it larger on a short screen)
     property real band: height * 0.475
     readonly property real infoBottom: parent ? band + (Theme.short ? 16 : 34) * u : 0
+    // the info left, the story right: each 42 %, or half the room between the margins on a narrow
+    // screen, so they never run into each other
+    readonly property real col: Math.min(width * 0.42, (width - 2 * Theme.margin - 40 * u) / 2)
+    // the story fits between the top bar and the rows: as many lines as there's height for, the
+    // starring and facts lines first give way on a very short screen
+    FontMetrics { id: storyFm; font: overviewText.font }
+    FontMetrics { id: smallFm; font: castText.font }
+    readonly property real storyStep: storyFm.height * overviewText.lineHeight
+    readonly property real smallH: smallFm.height + story.spacing
+    readonly property real storyRoom: (room - 16) * u
+    readonly property bool storyExtras: storyRoom - (cast ? smallH : 0) - (facts ? smallH : 0) >= 2 * storyStep
+    readonly property int storyLines: Math.max(0, Math.min(7, Math.floor((storyRoom - (storyExtras ? (cast ? smallH : 0) + (facts ? smallH : 0) : 0)) / storyStep)))
 
     // nothing to show yet (no profile, no keys, still loading): the layout in grey
     Item {
@@ -161,7 +173,7 @@ Item {
         }
         Column {
             anchors { right: parent.right; rightMargin: Theme.margin; bottom: parent.bottom; bottomMargin: hero.infoBottom }
-            width: parent.width * 0.42
+            width: hero.col
             spacing: 18 * hero.u
             Repeater {
                 model: [1, 0.96, 0.98, 0.9, 0.6]
@@ -174,14 +186,14 @@ Item {
         id: info
         x: Theme.margin
         anchors { bottom: parent.bottom; bottomMargin: hero.infoBottom }
-        width: parent.width * 0.42
+        width: hero.col
         spacing: 16 * hero.u
         opacity: hero.cur ? hero.textOpacity : 0
 
         // every logo gets the same box (wide ones and tall ones read alike), centred in it
         // room under the logo: a tall one doesn't sit on the line below
         Logo {
-            width: 560 * hero.u
+            width: Math.min(560 * hero.u, hero.col)
             height: hero.logoHeight + 16 * hero.u
             bottomPad: 16 * hero.u
             source: hero.curDetails && hero.curDetails.logo ? hero.curDetails.logo : ""
@@ -212,9 +224,9 @@ Item {
     Column {
         id: story
         anchors { right: parent.right; rightMargin: Theme.margin; bottom: parent.bottom; bottomMargin: hero.infoBottom }
-        width: parent.width * 0.42
+        width: hero.col
         spacing: 14 * hero.u
-        opacity: hero.cur && hero.overview ? hero.textOpacity : 0
+        opacity: hero.cur && hero.overview && hero.storyLines > 0 ? hero.textOpacity : 0
         Text {
             id: overviewText
             property var shadeRows: []
@@ -226,7 +238,7 @@ Item {
             font { family: Theme.text; pixelSize: 24 * hero.u }
             lineHeight: 1.16
             wrapMode: Text.WordWrap
-            maximumLineCount: Math.max(2, Math.min(7, Math.floor((hero.room - (Theme.short ? 108 : 78)) / 28)))
+            maximumLineCount: Math.max(1, hero.storyLines)
             elide: Text.ElideRight
             style: Text.Raised
             styleColor: Qt.rgba(0, 0, 0, 0.45)
@@ -234,7 +246,7 @@ Item {
         Text {
             id: castText
             width: parent.width
-            visible: text !== ""
+            visible: text !== "" && hero.storyExtras
             text: hero.cast
             color: Theme.meta
             elide: Text.ElideRight
@@ -243,7 +255,7 @@ Item {
         Text {
             id: factsText
             width: parent.width
-            visible: text !== ""
+            visible: text !== "" && hero.storyExtras
             text: hero.facts
             color: Theme.meta
             elide: Text.ElideRight

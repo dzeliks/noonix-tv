@@ -34,6 +34,14 @@ enum Theme {
     // sf pro is the system face: display/text by size, rounded for the clock
     static func display(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font { .system(size: size, weight: weight) }
     static func text(_ size: CGFloat, _ weight: Font.Weight = .regular) -> Font { .system(size: size, weight: weight) }
+    /// one line of `text(size)`, top to bottom (what a line of it takes before any extra spacing)
+    static func lineHeight(_ size: CGFloat) -> CGFloat {
+        #if canImport(UIKit)
+        return UIFont.systemFont(ofSize: size).lineHeight
+        #else
+        let f = NSFont.systemFont(ofSize: size); return ceil(f.ascender - f.descender + f.leading)
+        #endif
+    }
     static func rounded(_ size: CGFloat, _ weight: Font.Weight = .bold) -> Font { .system(size: size, weight: weight, design: .rounded) }
 
     /// the focus lift every card and button shares (qml SpringAnimation spring 4.2, damping 0.62):

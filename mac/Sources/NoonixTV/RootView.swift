@@ -226,12 +226,14 @@ struct TopNav: View {
     @State private var clockW: CGFloat = 0
 
     /// centred, unless that crowds the clock (a narrow screen, iphone duo's outer one with its island
-    /// at a side): then it moves left, as far as the avatar leaves room
-    private func pillShift(_ u: CGFloat, margin: CGFloat) -> CGFloat {
+    /// at a side): then it moves left while the avatar keeps its air. no room for that either: the
+    /// clock goes (the status bar is hidden, so ios shows none there) and the pill stays centred
+    private func navFit(_ u: CGFloat, margin: CGFloat) -> (shift: CGFloat, clock: Bool) {
         let half = (app.size.width - pillW) / 2 - margin
-        let right = half - clockW, left = half - 64 * u, want = 24 * u
-        guard pillW > 0, right < want, left > right else { return 0 }
-        return -min(want - right, (left - right) / 2)
+        // the clock wants real air (24 read as stuck on the duo), the avatar a little
+        let right = half - clockW, left = half - 64 * u, want = 48 * u
+        guard pillW > 0, right < want else { return (0, true) }
+        return left - (want - right) >= 24 * u ? (right - want, true) : (0, false)
     }
 
     var body: some View {
@@ -239,6 +241,7 @@ struct TopNav: View {
         let margin = Theme.margin(u)
         // a small window: the avatar clears the window's own buttons
         let top = 44 * u + WindowState.shared.navDrop(u)
+        let fit = navFit(u, margin: margin)
         ZStack(alignment: .top) {
             HStack {
                 if let p = app.currentProfile {
@@ -262,6 +265,7 @@ struct TopNav: View {
                         .textShade(.clock(u: u))
                         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { clockW = $0 }
                 }
+                .opacity(fit.clock ? 1 : 0)
             }
             .padding(.horizontal, margin)
             .frame(height: 78 * u)
@@ -269,7 +273,7 @@ struct TopNav: View {
 
             pill(u)
                 .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { pillW = $0 }
-                .offset(x: pillShift(u, margin: margin))
+                .offset(x: fit.shift)
                 .padding(.top, top)
         }
         .frame(maxWidth: .infinity)

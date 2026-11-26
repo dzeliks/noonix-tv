@@ -21,7 +21,9 @@ Window {
     onActiveFocusItemChanged: if (Desktop.debug) console.log("focus:", activeFocusItem, "active:", active)
     // the 1920x1080 grid fits either way: a 4:3 or 16:10 tablet gets more height, not a narrower page.
     // a narrow window keeps the size until the grid is Theme.minGridW wide (compact layouts below 1200)
-    readonly property real u: Math.min(height / 1080 * Desktop.boost, width / Theme.minGridW)
+    // a desktop window smaller than 960x540 keeps u at 0.5 (text stays readable) and gets a shorter or
+    // narrower grid instead, like a phone's; the window's minimum size stops it where that still fits
+    readonly property real u: Math.max(Qt.platform.os === "android" ? 0 : 0.5, Math.min(height / 1080 * Desktop.boost, width / Theme.minGridW))
     onUChanged: { Theme.u = u; Theme.gw = width / u; Theme.gh = height / u }
     Binding { target: Theme; property: "minGridW"; value: Desktop.gridW > 0 ? Desktop.gridW : 1920 / Desktop.boost }
     Binding { target: Theme; property: "pointing"; value: Input.pointing === true }

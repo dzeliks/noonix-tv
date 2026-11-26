@@ -294,7 +294,8 @@ FocusScope {
                     id: identity
                     x: Theme.margin
                     anchors.bottom: parent.bottom
-                    width: page.width * 0.44
+                    // ends 40 before the story's column (a narrow window)
+                    width: Math.min(page.width * 0.44, page.width - 2 * Theme.margin - story.width - 40 * page.u)
                     spacing: (page.tight ? 14 : 20) * page.u
                     // room under the logo: a tall one doesn't sit on the line below.
                     // tight: as tall as what's left over the episode row (never under 90)
@@ -302,7 +303,7 @@ FocusScope {
                         // the back button top left would sit on it: it steps right of the button
                         x: topRoom.height + info.height - identity.height < backButton.y + backButton.height
                            ? backButton.width + 20 * page.u : 0
-                        width: (page.tight ? 460 : 600) * page.u
+                        width: Math.min((page.tight ? 460 : 600) * page.u, identity.width - x)
                         height: !page.tight ? 226 * page.u : !seasonsRow.visible ? 170 * page.u
                                 : Math.max(90 * page.u, Math.min(200 * page.u, page.height - page.edge - body.headroom - body.underInfo
                                                                  - identity.spacing - metaLine.height))

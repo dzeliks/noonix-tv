@@ -368,11 +368,13 @@ struct DetailsView: View {
         let room = H - edge - headroom - underInfo + lend - fixedH
         let plotLines = !tight ? 7 : !model.hasSeasons ? min(7, 4 + max(0, Int(((H * 0.2 - headroom) / (29 * u)).rounded(.down))))
             : max(2, min(7, Int(((room - 28 * u) / (29 * u)).rounded(.down))))
+        // the identity column ends 40 before the story's (a narrow screen: the duo's outer one)
+        let idW = min(W * 0.44, W - 2 * margin - W * 0.36 - 40 * u)
         return HStack(alignment: .bottom, spacing: 0) {
             VStack(alignment: .leading, spacing: idSpacing) {
                 LogoBox(url: d?.item.logo, title: d?.item.title ?? model.item.showTitle ?? model.item.title ?? "",
                         loading: d == nil, titleSize: (tight ? 56 : 72) * u)
-                    .frame(width: (tight ? 460 : 600) * u, height: logoH - logoPad)
+                    .frame(width: min((tight ? 460 : 600) * u, idW - (backOver ? (72 + 20) * u : 0)), height: logoH - logoPad)
                     // room under the logo: a tall one doesn't sit on the line below
                     .padding(.bottom, logoPad)
                     .padding(.leading, backOver ? (72 + 20) * u : 0)
@@ -380,7 +382,7 @@ struct DetailsView: View {
                 MetaLine(item: meta, details: d, u: u, maxWidth: W * 0.64 - 2 * margin - 24 * u)
                     .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { metaH = $0 }
             }
-            .frame(width: W * 0.44, alignment: .leading)
+            .frame(width: idW, alignment: .leading)
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { identityH = $0 }
             .padding(.leading, margin)
             Spacer(minLength: 0)
@@ -698,9 +700,9 @@ struct RoundButton: View {
         Image(systemName: icon)
             .font(.system(size: glyph, weight: .semibold))
             .foregroundStyle(white ? Theme.focusFg : Theme.fg)
-            // the chevrons' drawing sits off their box toward the point (measured: 8 % of the size), and
-            // centred by the box it still looks pushed that way (qml RoundButton): 3 % more
-            .offset(x: (icon == "chevron.left" ? 0.11 : icon == "chevron.right" ? -0.11 : 0) * glyph)
+            // the chevrons' drawing sits off their box toward the point (measured: 8 % of the size), less
+            // 3 %: half a unit toward the point like qml RoundButton (the arms read heavier)
+            .offset(x: (icon == "chevron.left" ? 0.05 : icon == "chevron.right" ? -0.05 : 0) * glyph)
             .frame(width: size * u, height: size * u)
             .background { Circle().fill(Color.white).opacity(white ? 1 : 0) }
             .overlay { GlassRim(shape: Circle(), u: u, glint: false).opacity(white ? 0 : 1) }

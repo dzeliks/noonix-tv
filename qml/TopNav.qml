@@ -174,10 +174,13 @@ FocusScope {
         reachX: 16
         reachY: 6
         texts: [navClock]
+        visible: navClock.visible
     }
     Text {
         id: navClock
         anchors { right: parent.right; rightMargin: Theme.margin; verticalCenter: pill.verticalCenter }
+        // only with real air from the pill (a narrow window): never stuck to it
+        visible: pill.x + pill.width + 48 * nav.u <= x
         text: Clock.hhmm
         color: Theme.fg
         font { family: Theme.rounded; pixelSize: 40 * nav.u; weight: Font.Bold }

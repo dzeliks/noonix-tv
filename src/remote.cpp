@@ -480,7 +480,7 @@ void Remote::windowOn(QScreen *to, QSize size)
 {
     QRect r(QPoint(), size.boundedTo(to->geometry().size()));
     r.moveCenter(to->geometry().center());
-    m_window->setMinimumSize(QSize(960, 540));
+    m_window->setMinimumSize(QSize(640, 400));
     const bool moving = m_window->isVisible() && m_window->screen() != to;
     // one screen: nothing to pick, no detour (it would flash full screen)
     if (!QGuiApplication::platformName().startsWith(QLatin1String("wayland")) || QGuiApplication::screens().size() < 2) {
@@ -563,7 +563,7 @@ void Remote::toggleFullScreen()
     const QRect screen = m_window->screen()->geometry();
     QRect r(QPoint(), screen.size() * 3 / 4);
     r.moveCenter(screen.center());
-    m_window->setMinimumSize(QSize(960, 540));
+    m_window->setMinimumSize(QSize(640, 400));
     m_window->showNormal();
     // a window as big as the screen isn't one you can see as a window
     if (m_window->width() * 10 < screen.width() * 9 || m_window->height() * 10 < screen.height() * 9)

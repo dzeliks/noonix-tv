@@ -49,5 +49,5 @@ if [[ $kind == duo ]]; then
     d=$(xcrun simctl io "$udid" enumerate | awk '/UUID:/{u=$2} /Default width:/{if ($3==1398) {print u; exit}}')
     [[ -n $d ]] && display=(--display="$d")
 fi
-[[ -z "$shot" ]] || xcrun simctl io "$udid" screenshot "${display[@]}" "$shot" > /dev/null || true
+[[ -z "$shot" ]] || xcrun simctl io "$udid" screenshot ${display[@]+"${display[@]}"} "$shot" > /dev/null || true
 echo "up for 25 s"

@@ -187,7 +187,7 @@ struct Hero: View {
                 .padding(.bottom, infoBottom)
                 .opacity(textOpacity)
 
-                story(cur, col: col, margin: margin, infoBottom: infoBottom, lines: max(2, min(7, Int(((room - (app.short ? 108 : 78)) / 28).rounded(.down)))))
+                story(cur, col: col, margin: margin, infoBottom: infoBottom, height: (room - 16) * u)
             }
         }
         .frame(width: size.width, height: size.height)
@@ -195,7 +195,9 @@ struct Hero: View {
     }
 
     @ViewBuilder
-    private func story(_ cur: Item, col: CGFloat, margin: CGFloat, infoBottom: CGFloat, lines: Int) -> some View {
+    /// the story fits between the top bar and the rows (`height`): the text gives up lines, the
+    /// starring and facts lines go first on a very short screen
+    private func story(_ cur: Item, col: CGFloat, margin: CGFloat, infoBottom: CGFloat, height: CGFloat) -> some View {
         let overview = cur.overview ?? cur.showOverview ?? ""
         let cast = (details?.cast ?? []).prefix(3).compactMap(\.name)
         let facts: String = {
@@ -206,27 +208,36 @@ struct Hero: View {
             else if let s = d.status, s != "Released", s != "Returning Series" { f.append(Lc(s)) }
             return f.joined(separator: "  ·  ")
         }()
+        // a line of the story and of the small lines under it (font height, the story's extra spacing)
+        let step = Theme.lineHeight(24 * u) + 24 * u * 0.19, small = Theme.lineHeight(21 * u) + 14 * u
+        let extraH = (cast.isEmpty ? 0 : small) + (facts.isEmpty ? 0 : small)
+        let extras = height - extraH >= 2 * step
+        let lines = min(7, Int(((height - (extras ? extraH : 0) + 24 * u * 0.19) / step).rounded(.down)))
         VStack(alignment: .leading, spacing: 14 * u) {
             Text(overview)
                 .font(Theme.text(24 * u))
                 .foregroundStyle(Theme.fg.opacity(0.93))
                 .lineSpacing(24 * u * 0.19)
-                .lineLimit(lines)
+                .lineLimit(max(1, lines))
                 .shadow(color: .black.opacity(0.45), radius: 0, y: 1)
-            if !cast.isEmpty {
+            if !cast.isEmpty && extras {
                 Text(L("Starring %1", cast.joined(separator: ", ")))
                     .font(Theme.text(21 * u)).foregroundStyle(Theme.meta).lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            if !facts.isEmpty {
+            if !facts.isEmpty && extras {
                 Text(facts).font(Theme.text(21 * u, .medium)).foregroundStyle(Theme.meta).lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
         .frame(width: col, alignment: .leading)
+        // whatever the estimate says, never past the top bar: the text truncates to fit
+        .frame(maxHeight: max(0, height), alignment: .bottom)
         .textShade(TextShade(u: u))
         .frame(maxWidth: .infinity, alignment: .trailing)
         .padding(.trailing, margin)
         .padding(.bottom, infoBottom)
-        .opacity(overview.isEmpty ? 0 : textOpacity)
+        .opacity(overview.isEmpty || lines < 1 ? 0 : textOpacity)
     }
 
     private func skeleton(margin: CGFloat, infoBottom: CGFloat) -> some View {
