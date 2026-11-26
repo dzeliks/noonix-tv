@@ -1,0 +1,79 @@
+name: ios
+
+# the iphone/ipad and apple tv apps (mac/ios.sh, the mac client's sources): an unsigned .ipa each for
+# sideloading, then each one started in a simulator (mac/smoke-sim.sh). by hand it lands as a run
+# artifact; the release workflow calls it with its draft's tag
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  ipa:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ios, tvos]
+    runs-on: macos-26
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      NOONIX_UPDATE_REPO: ${{ github.repository }}
+      NOONIX_TMDB_API_KEY: ${{ secrets.NOONIX_TMDB_API_KEY }}
+      NOONIX_TMDB_READ_TOKEN: ${{ secrets.NOONIX_TMDB_READ_TOKEN }}
+      NOONIX_TRAKT_CLIENT_ID: ${{ secrets.NOONIX_TRAKT_CLIENT_ID }}
+      NOONIX_TRAKT_CLIENT_SECRET: ${{ secrets.NOONIX_TRAKT_CLIENT_SECRET }}
+      NOONIX_RELEASE: '1'
+      # mac/ios.sh kinds: the device .ipa, then the simulator build
+      IPA: ${{ matrix.platform == 'tvos' && 'tv-ipa' || 'ipa' }}
+      SIM: ${{ matrix.platform == 'tvos' && 'tv' || 'sim' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: mac/.build/cargo
+          key: cargo-${{ matrix.platform }}-${{ hashFiles('core/Cargo.lock') }}-${{ github.sha }}
+          restore-keys: |
+            cargo-${{ matrix.platform }}-${{ hashFiles('core/Cargo.lock') }}-
+            cargo-${{ matrix.platform }}-
+      # mpvkit's prebuilt frameworks (~200 mb from github releases, which fail now and then)
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/Library/Caches/org.swift.swiftpm/artifacts
+          key: swiftpm-${{ matrix.platform }}-${{ hashFiles('mac/Package.swift') }}
+      - name: ipa
+        run: mac/ios.sh "$IPA"
+      - name: onto the draft
+        if: inputs.tag != ''
+        run: |
+          cd mac/dist-ios && ipa="$(ls Noonix-TV-*.ipa)" && shasum -a 256 "$ipa" > "$ipa.sha256"
+          # a network blip here would lose a finished build
+          for try in 1 2 3 4 5; do
+            gh release upload "${{ inputs.tag }}" "$ipa" "$ipa.sha256" --clobber && break
+            [ "$try" != 5 ] || exit 1
+            sleep 30
+          done
+      - if: inputs.tag == ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: noonix-tv-${{ matrix.platform }}-ipa
+          path: mac/dist-ios/*.ipa
+          retention-days: 7
+      # the simulator build of the same sources: installed in a fresh simulator, started, up for 25 s
+      - name: simulator check
+        run: |
+          app="$(mac/ios.sh "$SIM" | tail -1)"
+          mac/smoke-sim.sh "${SIM/sim/ios}" "$app" "$RUNNER_TEMP/${{ matrix.platform }}-simulator.png"
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: noonix-tv-${{ matrix.platform }}-simulator-shot
+          path: ${{ runner.temp }}/${{ matrix.platform }}-simulator.png
+          if-no-files-found: ignore
+          retention-days: 7

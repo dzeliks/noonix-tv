@@ -62,6 +62,16 @@ jobs:
         run: |
           cargo test --release --no-default-features --manifest-path core/Cargo.toml --lib --locked -- bench::
           cargo test --release --no-default-features --manifest-path core/Cargo.toml --lib --locked -- --ignored --nocapture calibrate
+      # the app itself: started, up for 25 s (a crash at launch fails the build)
+      - name: launch check
+        run: mac/smoke.sh "mac/dist/Noonix TV.app" "$RUNNER_TEMP/macos-${{ matrix.arch }}.png"
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: noonix-tv-macos-${{ matrix.arch }}-shot
+          path: ${{ runner.temp }}/macos-${{ matrix.arch }}.png
+          if-no-files-found: ignore
+          retention-days: 7
       - name: zip
         run: |
           v="$(sed -n 's/^version = "\(.*\)"/\1/p' core/Cargo.toml | head -1)"

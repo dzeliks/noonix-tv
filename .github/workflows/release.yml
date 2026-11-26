@@ -1,7 +1,8 @@
 name: release
 
 # a v* tag (tools/release.sh) builds the appimages (x86_64, aarch64), the windows setup, the mac
-# apps and the android apks (arm64, armv7, x86_64), checks them end to end and publishes them with SHA256SUMS (the in-app
+# apps, the iphone/ipad and apple tv ipas, the android apks (arm64, armv7, x86_64) and the lg/samsung packages, checks
+# them (each started: appimages, windows, mac, ipas in a simulator, tv app in chromium 53/56) and publishes them with SHA256SUMS (the in-app
 # updater reads it). the files travel between jobs on a draft release. workflow_dispatch builds the same things into a
 # draft "ci-<run>" release (only the newest one is kept), never published
 # the appimage's base is ubuntu 22.04 (glibc 2.35): it runs on ubuntu 22.04, debian 12 and newer.
@@ -204,6 +205,16 @@ jobs:
       tag: ${{ needs.draft.outputs.tag }}
     secrets: inherit
 
+  # the iphone/ipad and apple tv apps: unsigned ipas onto the draft, each started in a simulator. like
+  # android they don't hold the release back
+  ios:
+    needs: draft
+    if: needs.draft.outputs.linux != 'true'
+    uses: ./.github/workflows/ios.yml
+    with:
+      tag: ${{ needs.draft.outputs.tag }}
+    secrets: inherit
+
   # the android app (tv boxes, tablets, phones in landscape): an arm64 apk, the full app, and an armv7
   # one for 32-bit tv boxes (no hdr or new rendering planned there), x86_64 for chromebooks and pc
   # boxes. a release's apks carry
@@ -308,10 +319,24 @@ jobs:
           cd dist && for f in *.ipk *.wgt; do sha256sum "$f" > "$f.sha256"; done
       - name: onto the draft
         run: gh release upload "${{ needs.draft.outputs.tag }}" tv/dist/*.ipk tv/dist/*.wgt tv/dist/*.sha256 --clobber
+      # the app in the oldest engines tvs have (chromium 53 = webOS 4, 56 = tizen 4): first run, home, a title
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/noonix-tv-engines
+          key: tv-engines-403380-433017
+      - name: old engines check
+        run: tv/tools/smoke-engines.sh "$RUNNER_TEMP/tv-smoke"
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: noonix-tv-lg-samsung-shots
+          path: ${{ runner.temp }}/tv-smoke
+          if-no-files-found: ignore
+          retention-days: 7
 
   # waits for every build; the android and tv ones may fail without holding the release back
   publish:
-    needs: [draft, appimage, windows, windows-smoke, macos, android, tv]
+    needs: [draft, appimage, windows, windows-smoke, macos, ios, android, tv]
     if: ${{ !cancelled() && needs.appimage.result == 'success' && (needs.draft.outputs.linux == 'true' || (needs.windows-smoke.result == 'success' && needs.macos.result == 'success')) }}
     runs-on: ubuntu-latest
     steps:
