@@ -108,6 +108,11 @@ Item {
             opacity: point.down ? 0.16 : 0
             Behavior on opacity { NumberAnimation { duration: point.down ? 80 : 260 } }
         }
+        FocusRing {
+            anchors.fill: parent
+            radius: card.outerRadius
+            on: card.lifted && card.shrink < 1
+        }
         // the border and the line draining inside it, counter-clockwise from the top
         Rectangle {
             anchors.fill: parent

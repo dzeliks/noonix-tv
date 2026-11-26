@@ -57,6 +57,84 @@ void Remote::setWindow(QWindow *w)
     m_window = w;
     w->installEventFilter(this);
     connect(w, &QWindow::visibilityChanged, this, &Remote::fullScreenChanged);
+    followPlace();
+}
+
+void Remote::setWallRect(const QRectF &r)
+{
+    if (r == m_wallRect)
+        return;
+    m_wallRect = r;
+    emit wallRectChanged();
+}
+
+void Remote::Placed(const QString &g)
+{
+    const auto v = g.split(QLatin1Char(','));
+    if (v.size() != 8)
+        return;
+    double n[8];
+    for (int i = 0; i < 8; ++i) n[i] = v[i].toDouble();
+    if (n[6] <= 0 || n[7] <= 0)
+        return;
+    setWallRect(QRectF(n[4] - n[0], n[5] - n[1], n[6], n[7]));
+}
+
+// the window's place on its screen, kept while it runs: only a move or a resize says anything
+void Remote::followPlace()
+{
+    if (!QGuiApplication::platformName().startsWith(QLatin1String("wayland"))) {
+        // windows, x11: the window knows where it is
+        auto update = [this] {
+            if (!m_window || !m_window->screen())
+                return;
+            const QRect s = m_window->screen()->geometry();
+            const QPoint at = m_window->mapToGlobal(QPoint());
+            setWallRect(QRectF(s.x() - at.x(), s.y() - at.y(), s.width(), s.height()));
+        };
+        for (auto sig : {&QWindow::xChanged, &QWindow::yChanged, &QWindow::widthChanged, &QWindow::heightChanged})
+            connect(m_window, sig, this, update);
+        connect(m_window, &QWindow::screenChanged, this, update);
+        update();
+        return;
+    }
+#if defined(NOONIX_DESKTOP_LINUX) && defined(NOONIX_DBUS)
+    if (!qEnvironmentVariable("XDG_CURRENT_DESKTOP").contains(QLatin1String("KDE"), Qt::CaseInsensitive))
+        return;
+    // a kwin script that stays loaded and calls back on each move or resize of our window
+    const QString path = QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation)
+        + QStringLiteral("/noonix-tv-place.js");
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return;
+    f.write(QStringLiteral(
+        "const pid = %1;\n"
+        "function send(w) {\n"
+        "  const g = w.clientGeometry, o = w.output ? w.output.geometry : null;\n"
+        "  if (!o) return;\n"
+        "  callDBus('local.NoonixTV', '/local/NoonixTV', 'local.NoonixTV', 'Placed',\n"
+        "    [g.x, g.y, g.width, g.height, o.x, o.y, o.width, o.height].join(','));\n"
+        "}\n"
+        "function watch(w) {\n"
+        "  if (w.pid !== pid || !w.normalWindow) return;\n"
+        "  w.clientGeometryChanged.connect(() => send(w));\n"
+        "  w.outputChanged.connect(() => send(w));\n"
+        "  send(w);\n"
+        "}\n"
+        "workspace.windowList().forEach(watch);\n"
+        "workspace.windowAdded.connect(watch);\n").arg(QCoreApplication::applicationPid()).toUtf8());
+    f.close();
+    auto call = [](const QString &method, const QVariantList &args) {
+        QDBusMessage m = QDBusMessage::createMethodCall(QStringLiteral("org.kde.KWin"), QStringLiteral("/Scripting"),
+                                                        QStringLiteral("org.kde.kwin.Scripting"), method);
+        m.setArguments(args);
+        QDBusConnection::sessionBus().asyncCall(m);
+    };
+    call(QStringLiteral("unloadScript"), {QStringLiteral("noonix-tv-place")});
+    call(QStringLiteral("loadScript"), {path, QStringLiteral("noonix-tv-place")});
+    call(QStringLiteral("start"), {});
+    m_placeScript = true;
+#endif
 }
 
 // qt drops the focused item when the window loses the keyboard: keep it, so remote keys still
@@ -185,6 +263,15 @@ void Remote::setGlass(bool on)
 
 void Remote::release()
 {
+#ifdef NOONIX_DBUS
+    if (m_placeScript) {
+        QDBusMessage m = QDBusMessage::createMethodCall(QStringLiteral("org.kde.KWin"), QStringLiteral("/Scripting"),
+                                                        QStringLiteral("org.kde.kwin.Scripting"), QStringLiteral("unloadScript"));
+        m.setArguments({QStringLiteral("noonix-tv-place")});
+        QDBusConnection::sessionBus().call(m, QDBus::Block, 500);
+        m_placeScript = false;
+    }
+#endif
     if (m_glass)
         setGlass(false);
     // only take back what we said: noonix tv on a desk monitor never told the tv anything

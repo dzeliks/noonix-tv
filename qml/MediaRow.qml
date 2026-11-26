@@ -97,8 +97,13 @@ FocusScope {
             list.highlightMoveDuration = d
         }
         restoring = false
+        // a currentIndex set from here doesn't move the view (an unfocused row stayed at its start while
+        // firstShown hid the cards before the rest slot): put the row where the keys would have it
+        if (!Input.pointing && !sliding && items.length) Qt.callLater(settle)
         remember()
     }
+    // a new list that isn't the old one changed (a new search): from its first title
+    function fromStart() { keepKey = ""; keepIndex = 0 }
     function remember() { if (!restoring && items.length) { keepIndex = list.currentIndex; keepKey = keyOf(items[list.currentIndex]) } }
     signal activated(var item)
     function activate() {

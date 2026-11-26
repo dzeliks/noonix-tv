@@ -13,7 +13,7 @@ import * as library from "../data/library"
 import { App, Screen } from "./app"
 import { icon } from "./icons"
 import * as frost from "./frost"
-import { textShade } from "./textshade"
+import { textShade, CLOCK_SHADE } from "./textshade"
 
 // where the focused row's title rests on the 1080 page, and a row's height (qml MediaRow: title,
 // the gap the grown card needs, the card, room; the rows 8 apart)
@@ -76,7 +76,7 @@ export function homeScreen(app: App): Screen {
     const clock = h("div.clock")
     const pill = h("div.pill", null, ...tabEls)
     const nav = h("div.nav", null, pill, clock)
-    const clockShade = textShade(nav, function () { return [clock] }, 0.3)
+    const clockShade = textShade(nav, function () { return [clock] }, 0.17, CLOCK_SHADE)
     frost.glass(pill)
 
     const backA = h("img.backdrop", { alt: "" }) as HTMLImageElement

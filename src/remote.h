@@ -6,6 +6,7 @@
 #include <QList>
 #include <QObject>
 #include <QPointer>
+#include <QRectF>
 #include <QTranslator>
 #include <QVariant>
 #include <QWindow>
@@ -50,6 +51,10 @@ public:
     // tell it our glass shows the wallpaper (its clock fades away meanwhile)
     Q_INVOKABLE void setGlass(bool on);
     void release();
+    // where the window's screen lies, in window coordinates (the wallpaper drawn there looks like
+    // the window is see-through). empty: not known, fill the window
+    Q_PROPERTY(QRectF wallRect READ wallRect NOTIFY wallRectChanged)
+    QRectF wallRect() const { return m_wallRect; }
 
 protected:
     bool eventFilter(QObject *obj, QEvent *ev) override;
@@ -79,6 +84,8 @@ public slots:
     Q_SCRIPTABLE void Swipe(double x1, double y1, double x2, double y2, int ms, int rest);
     // the overlay: its launch card has dissolved over our splash, the splash can play
     Q_SCRIPTABLE void Revealed() { emit revealed(); }
+    // kwin (wayland keeps a window's place from it): "x,y,w,h,screen x,y,w,h", logical px
+    Q_SCRIPTABLE void Placed(const QString &g);
 
 signals:
     void inputKindChanged();
@@ -87,6 +94,7 @@ signals:
     void revealed();
     void padKey(const QString &button);
     void okHeld(bool down);
+    void wallRectChanged();
 
 private:
     bool m_covered = false;
@@ -97,6 +105,10 @@ private:
     bool m_keyFromPointer = false;
     bool m_asking = false;
     QString m_wallId;
+    QRectF m_wallRect;
+    bool m_placeScript = false;
+    void setWallRect(const QRectF &r);
+    void followPlace();
     QPointer<QWindow> m_window;
     QString m_kind = QStringLiteral("remote");
 };

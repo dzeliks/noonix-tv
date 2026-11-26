@@ -52,6 +52,13 @@ struct Card: View {
                         .padding(16 * u)
                 }
             }
+            // a thin white line with the lift, for the remote / pad / keyboard only (qml FocusRing)
+            .overlay {
+                let ring = lifted && !removing && !PointerMode.shared.on && !Theme.touch
+                RoundedRectangle(cornerRadius: 18 * u).strokeBorder(.white, lineWidth: 2.5 * u)
+                    .opacity(ring ? 1 : 0)
+                    .animation(.easeOut(duration: 0.18), value: ring)
+            }
             .frame(width: artW, height: artH)
             .animation(.easeInOut(duration: 0.42), value: removing)
             // where the focused card's art is, for the card menu (a page kept alive under another

@@ -1,7 +1,7 @@
 // the player (qml Player + its osd): the tv's own <video> plays the link, the osd comes and goes over it.
 // a source that won't play hands over to the next one; a show's next episode comes up at the end
 import { h, clear } from "./dom"
-import { textShade } from "./textshade"
+import { textShade, CLOCK_SHADE } from "./textshade"
 import { tr } from "../i18n"
 import { Action } from "../keys"
 import { icon } from "./icons"
@@ -96,7 +96,7 @@ export function playerScreen(app: App, first: PlayReq): Screen {
     // a soft shade behind the logo (its own shape), the line under it and the clock
     const logoShade = textShade(osd, function () { return [logoImg, titleEl, subEl] }, 0.5)
     logoShade.el.className += " ologoshade"
-    const clockShade = textShade(osd, function () { return [clockEl, endsEl] }, 0.3)
+    const clockShade = textShade(osd, function () { return [clockEl, endsEl] }, 0.17, CLOCK_SHADE)
     const nextTitle = h("div.ntitle")
     const nextCount = h("div.ncount")
     const nextCard = h("div.nextcard", null, h("div.nlabel", { text: tr("Up Next") }), nextTitle, nextCount,

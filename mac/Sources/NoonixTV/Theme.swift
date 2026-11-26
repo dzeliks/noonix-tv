@@ -220,6 +220,12 @@ struct LogoBox: View {
 struct TextShade: TextRenderer {
     var u: CGFloat
     var strength: Double = 0.26
+    /// how far the bars reach past the text and how wide the blur is (a lone short line, a clock,
+    /// wants both close: blurred wide it leaves nothing)
+    var reach = CGSize(width: 22, height: 8)
+    var blur: CGFloat = 32
+    /// the clocks: close round the line like a description's rows (qml TopNav/Osd)
+    static func clock(u: CGFloat) -> TextShade { TextShade(u: u, strength: 0.17, reach: CGSize(width: 16, height: 6), blur: 16) }
     /// the bars without the text (a clipped plot's shade, drawn outside its clip)
     var shadeOnly = false
     /// only the lines in this band (in the text's own coordinates) get a bar
@@ -230,11 +236,11 @@ struct TextShade: TextRenderer {
         if strength > 0 {
             ctx.drawLayer { l in
                 l.opacity = strength
-                l.addFilter(.blur(radius: 32 * u))
+                l.addFilter(.blur(radius: blur * u))
                 for line in layout {
                     let r = line.typographicBounds.rect
                     if let w = window, !w.contains(r.midY) { continue }
-                    l.fill(Capsule().path(in: r.insetBy(dx: -22 * u, dy: -8 * u)), with: .color(.black))
+                    l.fill(Capsule().path(in: r.insetBy(dx: -reach.width * u, dy: -reach.height * u)), with: .color(.black))
                 }
             }
         }

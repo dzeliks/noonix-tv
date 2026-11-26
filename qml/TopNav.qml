@@ -168,7 +168,11 @@ FocusScope {
 
     TextShade {
         anchors.fill: parent
-        strength: 0.24
+        strength: 0.17
+        softness: 50
+        // close round the line, like a description's rows: a wide blur spreads a lone line to nothing
+        reachX: 16
+        reachY: 6
         texts: [navClock]
     }
     Text {

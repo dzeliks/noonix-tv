@@ -164,7 +164,10 @@ FocusScope {
         var q = query.trim()
         // a new search starts on all; back from a title keeps the pick
         if (!q) kind = "all"
-        if (q.length < 2) { results = []; suggested = []; busy = false; debounce.stop(); return }
+        if (q.length < 2) {
+            if (results.length) { showsRow.fromStart(); moviesRow.fromStart() }
+            results = []; suggested = []; busy = false; debounce.stop(); return
+        }
         busy = true
         debounce.restart()
     }
@@ -177,6 +180,7 @@ FocusScope {
             Api.call("tmdb.search", { query: q }, function (ok, d) {
                 if (q !== search.query.trim()) return
                 search.busy = false
+                showsRow.fromStart(); moviesRow.fromStart()
                 search.results = ok ? (d.results || d || []) : []
             })
             Api.call("tmdb.suggest", { query: q }, function (ok, d) {

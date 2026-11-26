@@ -45,22 +45,29 @@ Item {
         id: wall
         width: wg.width; height: wg.height
         uuid: wg.running || wg.hold ? wg.wallId : ""
+        place: Remote.wallRect
     }
     // no live tv wallpaper: the desktop's own picture (windows), frosted the same way
     readonly property string stillUrl: wallId === "" ? Desktop.wallpaper() : ""
     readonly property bool still: !wall.ready && pic.status === Image.Ready
-    Image {
-        id: pic
+    // the screen's picture where the screen is (a window shows the part behind it)
+    readonly property bool placed: Remote.wallRect.width > 0 && Remote.wallRect.height > 0
+    Item {
+        id: picBox
         width: wg.width; height: wg.height
-        visible: false
-        source: wg.running ? wg.stillUrl : ""
-        fillMode: Image.PreserveAspectCrop
-        sourceSize: Qt.size(Math.max(1, Math.round(wg.width * Theme.dpr / 2)), Math.max(1, Math.round(wg.height * Theme.dpr / 2)))
-        asynchronous: true
+        Image {
+            id: pic
+            x: wg.placed ? Remote.wallRect.x : 0; y: wg.placed ? Remote.wallRect.y : 0
+            width: wg.placed ? Remote.wallRect.width : wg.width; height: wg.placed ? Remote.wallRect.height : wg.height
+            source: wg.running ? wg.stillUrl : ""
+            fillMode: Image.PreserveAspectCrop
+            sourceSize: Qt.size(Math.max(1, Math.round(width * Theme.dpr / 2)), Math.max(1, Math.round(height * Theme.dpr / 2)))
+            asynchronous: true
+        }
     }
     GlassSource {
         id: still
-        sourceItem: pic
+        sourceItem: picBox
         hideSource: true
         live: wg.still
     }

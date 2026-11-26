@@ -202,14 +202,16 @@ pub async fn find(kind: &str, name: &str, year: Option<i64>) -> Result<Option<i6
 }
 
 pub async fn search(query: &str) -> Result<Value> {
-    let v = get("/search/multi", &[("query", query.to_owned()), ("include_adult", "false".into())], 3600).await?;
+    // one multi search can be all shows ("big": 20 of them, no movie): each kind on its own
+    let args = [("query", query.to_owned()), ("include_adult", "false".into())];
+    let (shows, movies) = tokio::join!(get("/search/tv", &args, 3600), get("/search/movie", &args, 3600));
+    if shows.is_err() && movies.is_err() {
+        return shows;
+    }
     let mut out = Vec::new();
-    for r in v.get("results").and_then(Value::as_array).into_iter().flatten() {
-        match r.get("media_type").and_then(Value::as_str) {
-            Some("movie") if listed(r) => out.push(item("movie", r)),
-            Some("tv") if listed(r) => out.push(item("show", r)),
-            _ => {}
-        }
+    for (kind, v) in [("show", shows), ("movie", movies)] {
+        let Ok(v) = v else { continue };
+        out.extend(v.get("results").and_then(Value::as_array).into_iter().flatten().filter(|r| listed(r)).map(|r| item(kind, r)));
     }
     Ok(Value::Array(out))
 }

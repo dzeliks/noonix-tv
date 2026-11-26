@@ -166,12 +166,16 @@ export function discover(kind: Kind, providers: number[], genre: number | null, 
 }
 
 export function search(text: string): Promise<Item[]> {
-    return get("/search/multi", [["query", text], ["include_adult", "false"]], 3600).then(function (v) {
+    // one multi search can be all shows ("big": 20 of them, no movie): each kind on its own (tmdb.rs)
+    const q: [string, string][] = [["query", text], ["include_adult", "false"]]
+    const one = function (kind: Kind) {
+        return get("/search/" + pathKind(kind), q, 3600).then(function (v) { return { ok: true, v: v } }, function (e) { return { ok: false, v: e } })
+    }
+    return Promise.all([one("show"), one("movie")]).then(function (both) {
+        if (!both[0].ok && !both[1].ok) throw both[0].v
         const out: Item[] = []
-        ;((v && v.results) || []).forEach(function (r: any) {
-            if (!listed(r)) return
-            if (r.media_type === "movie") out.push(item("movie", r))
-            else if (r.media_type === "tv") out.push(item("show", r))
+        ;[["show", both[0]], ["movie", both[1]]].forEach(function (p: any) {
+            if (p[1].ok) ((p[1].v && p[1].v.results) || []).forEach(function (r: any) { if (listed(r)) out.push(item(p[0], r)) })
         })
         return out
     })

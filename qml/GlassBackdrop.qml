@@ -9,6 +9,10 @@ Item {
     readonly property bool ready: stream.ready
     readonly property alias tex: bdTex
     readonly property alias frostTex: frostV
+    // where the screen lies in our coordinates (empty: the picture fills us): a window shows the
+    // part of the wallpaper behind it, like it was see-through
+    property rect place: Qt.rect(0, 0, 0, 0)
+    readonly property bool placed: place.width > 0 && place.height > 0
 
     Item {
         id: backdrop
@@ -18,7 +22,8 @@ Item {
         // loader just fails and the glass shows the gradient under it
         Loader {
             id: stream
-            anchors.fill: parent
+            x: gb.placed ? gb.place.x : 0; y: gb.placed ? gb.place.y : 0
+            width: gb.placed ? gb.place.width : gb.width; height: gb.placed ? gb.place.height : gb.height
             source: "Stream.qml"
             readonly property bool ready: status === Loader.Ready && !!item && item.ready
             onLoaded: item.uuid = Qt.binding(function () { return gb.uuid })

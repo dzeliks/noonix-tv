@@ -7,12 +7,18 @@ import QtQuick.Effects
 Item {
     id: shade
     property real strength: 0.26
+    // how far the blur reaches (1080 grid). a lone short line (a clock) needs a short one: a wide blur
+    // spreads its one bar so thin that nothing is left to see
+    property real softness: 100
     property var texts: []
     property var images: []
     readonly property real u: Theme.u
-    readonly property real padX: 22 * u
-    readonly property real padY: 8 * u
-    readonly property real edge: padX + 130 * u
+    // how far each bar reaches past its text (1080 grid)
+    property real reachX: 22
+    property real reachY: 8
+    readonly property real padX: reachX * u
+    readonly property real padY: reachY * u
+    readonly property real edge: padX + 1.3 * softness * u
 
     // a wrapped text's row, from its onLineLaidOut
     function row(rows, line) {
@@ -126,7 +132,7 @@ Item {
         brightness: -1.0
         blurEnabled: true
         blur: 1.0
-        blurMax: Math.round(100 * shade.u)
+        blurMax: Math.round(shade.softness * shade.u)
         blurMultiplier: 0.3
         autoPaddingEnabled: false
     }

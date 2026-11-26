@@ -6,7 +6,11 @@ const SCALE = 4
 const PAD_X = 18
 const PAD_Y = 6
 const BLUR = 22
-const EDGE = PAD_X + 3 * BLUR
+
+/** the bars' reach and the blur: a lone short line (a clock) wants both close, a wide blur leaves nothing of it */
+export interface ShadeLook { padX?: number; padY?: number; blur?: number }
+/** the clocks: close round the line like a description's rows (qml TopNav/Osd) */
+export const CLOCK_SHADE: ShadeLook = { padX: 13, padY: 5, blur: 11 }
 
 export interface TextShade {
     el: HTMLCanvasElement
@@ -15,7 +19,8 @@ export interface TextShade {
 }
 
 /** host: a positioned element the canvas goes into (under its text); parts: what to shade */
-export function textShade(host: HTMLElement, parts: () => HTMLElement[], strength: number): TextShade {
+export function textShade(host: HTMLElement, parts: () => HTMLElement[], strength: number, look?: ShadeLook): TextShade {
+    const k = { padX: PAD_X, padY: PAD_Y, blur: BLUR, ...(look || {}) }
     const el = document.createElement("canvas")
     el.className = "tshade"
     el.style.opacity = String(strength)
@@ -27,14 +32,15 @@ export function textShade(host: HTMLElement, parts: () => HTMLElement[], strengt
         update(): void {
             if (queued) return
             queued = true
-            requestAnimationFrame(function () { queued = false; draw(host, el, parts()) })
+            requestAnimationFrame(function () { queued = false; draw(host, el, parts(), k) })
         },
     }
 }
 
 interface Bar { x: number; y: number; w: number; h: number }
 
-function draw(host: HTMLElement, el: HTMLCanvasElement, parts: HTMLElement[]): void {
+function draw(host: HTMLElement, el: HTMLCanvasElement, parts: HTMLElement[], look: Required<ShadeLook>): void {
+    const PAD_X = look.padX, PAD_Y = look.padY, BLUR = look.blur, EDGE = PAD_X + 3 * BLUR
     if (!host.offsetParent) return
     const stage = document.getElementById("stage")
     const k = stage ? stage.getBoundingClientRect().width / 1920 || 1 : 1

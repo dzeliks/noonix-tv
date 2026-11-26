@@ -998,7 +998,7 @@ struct OsdView: View {
                     }
                 }
             }
-            .textRenderer(TextShade(u: u, strength: 0.24))
+            .textRenderer(TextShade.clock(u: u))
             .frame(width: W - margin, alignment: .trailing)
             .padding(.top, 56 * u)
 
