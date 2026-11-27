@@ -79,6 +79,8 @@ QtObject {
     property real safeSide: 0
     property real safeBottom: 0         // a gesture bar / nav bar along the bottom
     readonly property real margin: Math.max(96 * u, safeSide + 20 * u)   // tv side margin
+    // every on-screen keyboard's width (search's column, the cards' content), on the 1080 grid
+    readonly property real keyboardW: 575
     readonly property real radius: 22 * u
 
     // springs shared by every focus lift, so the whole ui moves alike

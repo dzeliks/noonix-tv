@@ -366,6 +366,9 @@ final class AppModel {
             matchTipOff = a["match_tip_off"] as? Bool == true
             // the mac's window always has its title bar (user): the old setting is ignored
             showTitleBar(!Platform.ios)
+            #if os(macOS)
+            WindowState.shared.restoreFullScreen()
+            #endif
             SplashModel.fast = a["fast_intro"] as? Bool == true
         }
         await loadProfiles()
@@ -1093,9 +1096,12 @@ final class SearchModel {
     var zone = "keys"
     var suggestion = 0
     var chip = 0
-    /// the on-screen keyboard is for a remote or a pad: picked by what came into search, up when one
-    /// takes over while here, gone when a real keyboard types
+    /// how search is typed is picked as the tab opens (InputMode): the glass keyboard for a remote or a
+    /// pad, the field for a real keyboard and the mouse, the system's keyboard for a finger. a remote or
+    /// pad taking over brings the glass keyboard up; nothing takes it away while here
     var osk = false
+    /// a finger types with the system's keyboard (picked on entry, or a tap on the field)
+    var ime = false
     /// bumped: the field takes the focus, the caret at the end
     var fieldFocus = 0
     /// the row the focus was in: 0 shows, 1 movies
@@ -1153,8 +1159,18 @@ final class SearchModel {
         return out
     }
 
-    var remoteish: Bool { ["pad", "remote"].contains(PointerMode.shared.kind) }
-    func pickKeyboard() { setOsk(!Theme.touch && !Theme.mouse && remoteish) }
+    func pickKeyboard() {
+        kb.enterLabel = L("search")
+        let m = InputMode.pick()
+        ime = m == "ime"
+        setOsk(m == "osk")
+    }
+    /// a remote or a pad took over: the glass keyboard comes up (and stays)
+    func remoteTookOver() {
+        guard !osk else { return }
+        if ime { ime = false; Platform.hideKeyboard() }
+        setOsk(true)
+    }
     func setOsk(_ on: Bool) {
         // apple tv: always ours (a keyboard types into it too; the system's takes the whole screen)
         let on = on || Platform.tv
@@ -1252,6 +1268,8 @@ final class SearchModel {
 
     /// the zones (qml Search); false = up into the top bar
     func key(_ k: Key, app: AppModel) -> Bool {
+        // the key that brought a remote or a pad only shows the glass keyboard
+        if !osk, InputMode.remote { remoteTookOver(); return true }
         switch zone {
         case "suggestions":
             let n = suggestions.count

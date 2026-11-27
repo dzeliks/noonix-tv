@@ -88,13 +88,32 @@ final class WindowState {
             NotificationCenter.default.addObserver(forName: n, object: nil, queue: .main) { note in
                 MainActor.assumeIsolated {
                     let s = WindowState.shared
-                    s.fullScreen = NSApp.keyWindow?.styleMask.contains(.fullScreen) ?? false
-                    s.enteredPlaying = note.name == NSWindow.didEnterFullScreenNotification && AppModel.current?.playing == true
+                    let entered = note.name == NSWindow.didEnterFullScreenNotification
+                    s.fullScreen = NSApp.keyWindow?.styleMask.contains(.fullScreen) ?? entered
+                    s.enteredPlaying = entered && AppModel.current?.playing == true
+                    // the next launch opens the same way (not what quitting or closing does to it)
+                    if !s.leaving { UserDefaults.standard.set(entered, forKey: WindowState.fullScreenKey) }
                 }
             }
         }
         NotificationCenter.default.addObserver(forName: NSApplication.didResignActiveNotification, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated { PlayerCursor.show() }
+        }
+        NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: nil, queue: .main) { note in
+            // the app's window (a file panel closing is nothing)
+            guard let w = note.object as? NSWindow, !(w is NSPanel), w.styleMask.contains(.titled) else { return }
+            MainActor.assumeIsolated { WindowState.shared.leaving = true }
+        }
+    }
+    static let fullScreenKey = "fullScreen"
+    /// quitting or closing: the full screen it leaves isn't a choice to remember
+    @ObservationIgnored var leaving = false
+    /// full screen last time: full screen again (dev NOONIX_WINDOW sizes a window instead)
+    func restoreFullScreen() {
+        guard UserDefaults.standard.bool(forKey: Self.fullScreenKey), ProcessInfo.processInfo.environment["NOONIX_WINDOW"] == nil else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            guard let w = NSApp.windows.first(where: { $0.styleMask.contains(.titled) && $0.isVisible }), !w.styleMask.contains(.fullScreen) else { return }
+            w.toggleFullScreen(nil)
         }
     }
     func toggle() { (NSApp.keyWindow ?? NSApp.windows.first { $0.styleMask.contains(.titled) })?.toggleFullScreen(nil) }
@@ -165,6 +184,11 @@ final class Quit: NSObject, NSApplicationDelegate {
             w.setContentSize(NSSize(width: spec[0], height: spec[1]))
             w.setFrameTopLeftPoint(NSPoint(x: screen.visibleFrame.minX, y: screen.visibleFrame.maxY))
         }
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        MainActor.assumeIsolated { WindowState.shared.leaving = true }
+        return .terminateNow
     }
 
     func applicationWillTerminate(_ notification: Notification) {

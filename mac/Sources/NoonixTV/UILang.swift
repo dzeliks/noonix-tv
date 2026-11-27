@@ -101,6 +101,7 @@ final class UILang: @unchecked Sendable {
         "Couldn't change it: move Noonix TV to Applications first": "Nije promenjeno: prvo premesti Noonix TV u Aplikacije",
         "A real keyboard works too, and ⌘V pastes. Back closes this.": "Radi i prava tastatura, a ⌘V lepi. Nazad zatvara.",
         "A real keyboard works too. Back closes this.": "Radi i prava tastatura. Nazad zatvara.",
+        "⌘V pastes, Return is done, Esc closes this.": "⌘V lepi, Return završava, Esc zatvara.",
         "Hold OK while watching to say if the source and subtitles fit.": "Dok gledaš, zadrži OK da kažeš da li izvor i titlovi odgovaraju.",
         "On your network": "Na tvojoj mreži",
         "Add a share from a NAS or computer: SMB, WebDAV or FTP": "Dodaj mrežni folder sa NAS-a ili računara: SMB, WebDAV ili FTP",

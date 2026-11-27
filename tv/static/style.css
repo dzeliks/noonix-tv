@@ -513,21 +513,23 @@ html, body {
 
 /* ---- typing a line (qml TextEntry) */
 .input { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: #0b0b0d; }
-.input .ibox { position: absolute; left: 50%; top: 120px; width: 1050px; margin-left: -525px; }
-.input .ititle { font-size: 52px; font-weight: 700; }
-.input .ihint { margin: 10px 0 34px; font-size: 26px; color: rgba(255, 255, 255, 0.62); }
+/* as wide as the search page's column: the same field and keyboard, in the middle */
+.input .ibox {
+    position: absolute; left: 50%; top: 50%; width: 575px; margin-left: -287px;
+    -webkit-transform: translateY(-50%); transform: translateY(-50%); text-align: center;
+}
+.input .ititle { font-size: 44px; font-weight: 700; }
+.input .ihint { margin: 10px 0 28px; font-size: 24px; color: rgba(255, 255, 255, 0.62); }
 .input .field {
-    height: 92px; padding: 0 34px; border-radius: 46px; margin-bottom: 44px;
+    height: 76px; padding: 0 28px; border-radius: 38px; margin-bottom: 28px; text-align: left;
     background: rgba(255, 255, 255, 0.12); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.14);
-    font-size: 36px; font-weight: 600; line-height: 92px; white-space: nowrap; overflow: hidden;
+    font-size: 32px; font-weight: 600; line-height: 76px; white-space: nowrap; overflow: hidden;
 }
 .input .caret {
-    display: inline-block; width: 3px; height: 44px; margin-left: 3px; vertical-align: -8px;
+    display: inline-block; width: 3px; height: 38px; margin-left: 3px; vertical-align: -6px;
     background: #ef6f9b; -webkit-animation: blink 1s steps(1) infinite; animation: blink 1s steps(1) infinite;
 }
-.input .kb .kbrow { margin-bottom: 14px; }
-.input .kb .key { font-size: 40px; border-radius: 18px; }
-.input .kb .key.fn { font-size: 30px; }
+.input .kb { text-align: left; }
 
 /* ---- settings lists (qml Settings) */
 .list { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: #0b0b0d; }

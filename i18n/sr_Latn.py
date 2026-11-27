@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 T = {
     # ---- 1.0.0: settings search, system section
     "Search": "Pretraga",
+    "Ctrl+V pastes, Enter is done, Esc closes this.": "Ctrl+V lepi, Enter završava, Esc zatvara.",
     "System": "Sistem",
     "Search settings": "Pretraži podešavanja",
     "Find a setting by its name or what it does": "Nađi podešavanje po imenu ili po tome šta radi",

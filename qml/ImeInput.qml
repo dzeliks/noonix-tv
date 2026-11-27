@@ -4,7 +4,8 @@ import QtQuick
 // displayText (half typed words too). value: the owner's text, edited(): what it becomes
 TextInput {
     id: ii
-    readonly property bool on: Theme.touch
+    // the owner says when (it picks a way to type as it opens)
+    property bool on: Theme.touch
     property string value: ""
     signal edited(string t)
     signal done()

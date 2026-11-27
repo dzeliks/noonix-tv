@@ -14,7 +14,8 @@ Item {
     property int row: 2
     property int col: 4                        // starts on "g"
 
-    readonly property real pad: 22 * u
+    // the keys run to the edges: they sit on whatever they're part of (no tray of their own)
+    readonly property real pad: 0
     readonly property real gap: 14 * u
     readonly property real unit: (width - 2 * pad - 9 * gap) / 10
     readonly property real keyH: unit * 1.36   // iPhone keys: taller than wide
@@ -157,15 +158,6 @@ Item {
         running: kb.active && (kb.backHeld || (Input.okHeld && kb.onBackspace))
         onRunningChanged: interval = 420
         onTriggered: { interval = Math.max(45, interval * 0.8); kb.skipTap = kb.backHeld; kb.special("backspace") }
-    }
-
-    // the glass the keys sit on: its corners round the corner keys' (20) at the pad's distance
-    Rectangle {
-        anchors.fill: parent
-        radius: kb.pad + 20 * kb.u
-        color: Qt.rgba(1, 1, 1, 0.055)
-        border.width: 2 * kb.u
-        border.color: Qt.rgba(1, 1, 1, 0.10)
     }
 
     Repeater {

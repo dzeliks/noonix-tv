@@ -373,6 +373,18 @@ void Input::setPointing(bool on)
     emit pointingChanged();
 }
 
+bool Input::swallowed(const QKeyEvent *k)
+{
+    if (!m_swallow.isValid() || m_swallow.elapsed() > 400)
+        return false;
+    const int key = k->key();
+    if (key != Qt::Key_Up && key != Qt::Key_Down && key != Qt::Key_Left && key != Qt::Key_Right
+        && key != Qt::Key_Return && key != Qt::Key_Enter)
+        return false;
+    m_swallow.invalidate();
+    return true;
+}
+
 bool Input::eventFilter(QObject *obj, QEvent *ev)
 {
     if (ev->type() == QEvent::MouseMove) {
@@ -431,6 +443,8 @@ bool Input::eventFilter(QObject *obj, QEvent *ev)
         m_realKey = ev->spontaneous();
 #endif
     }
+    if (ev->type() == QEvent::KeyPress && swallowed(k))
+        return true;
     // dev: NOONIX_KEYLOG=1 prints what the platform hands over
     static const bool keyLog = qEnvironmentVariableIsSet("NOONIX_KEYLOG");
     if (keyLog && ev->type() == QEvent::KeyPress)
@@ -474,8 +488,12 @@ bool Input::eventFilter(QObject *obj, QEvent *ev)
 #else
         const QString kind = QStringLiteral("keyboard");
 #endif
-        if (m_remote->inputKind() != kind && !keepPointing)
+        if (m_remote->inputKind() != kind && !keepPointing) {
             m_remote->InputKind(kind);
+            // android: this very key made it a remote's turn
+            if (swallowed(k))
+                return true;
+        }
         // a text field takes the keys as typed (enter, escape and the arrows still work there)
         bool typing = false;
         if (auto *qw = qobject_cast<QQuickWindow *>(m_window.data()))

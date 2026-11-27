@@ -61,6 +61,16 @@ FocusScope {
             if (then) then()
         })
     }
+    // how the name is typed, picked as it opens (InputMode): the glass keyboard, a real keyboard with
+    // the mouse (a create button), or the phone's keyboard. a remote or pad taking over brings the glass one
+    property string mode: "osk"
+    readonly property bool remoteNow: InputMode.remote
+    onRemoteNowChanged: if (remoteNow && visible && mode !== "osk") {
+        if (mode === "ime") Qt.inputMethod.hide()
+        mode = "osk"
+        keys.forceActiveFocus()
+        Input.swallowKey()
+    }
     // names start with a capital, like on a phone
     onNameChanged: kb.shift = name === ""
     function open(used) {
@@ -69,6 +79,7 @@ FocusScope {
         while (free < colours.length && taken.indexOf(colours[free]) >= 0) ++free
         choice = free < colours.length ? free : taken.length % colours.length
         loadFiles()
+        mode = InputMode.pick()
         visible = true; keys.forceActiveFocus()
         if (ime.on) Qt.callLater(ime.open)
     }
@@ -76,6 +87,7 @@ FocusScope {
         taken = []; name = p.name; editId = p.id
         choice = Math.max(0, colours.indexOf(p.color))
         loadFiles(function () { var i = pa.files.indexOf(p.avatar || ""); if (i >= 0) pa.choice = pa.colours.length + i })
+        mode = InputMode.pick()
         visible = true; keys.forceActiveFocus()
         if (ime.on) Qt.callLater(ime.open)
     }
@@ -104,7 +116,8 @@ FocusScope {
         // a docked phone keyboard: up above it
         anchors.verticalCenterOffset: -Math.max(0, pa.height / 2 + height / 2 + 24 * pa.u - pa.mapFromItem(null, 0, ime.keyboardTop).y)
         Behavior on anchors.verticalCenterOffset { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
-        width: 760 * pa.u
+        // the content as wide as the keyboard (the same size everywhere)
+        width: (Theme.keyboardW + 2 * 48) * pa.u
         height: col.height + 2 * 48 * pa.u
         Resize on height {}
         radius: 56 * pa.u
@@ -236,17 +249,19 @@ FocusScope {
             }
             ImeInput {
                 id: ime
+                on: pa.mode === "ime"
                 value: pa.name
                 maximumLength: 20
                 inputMethodHints: Qt.ImhNone
                 onEdited: function (t) { pa.name = t }
                 onDone: pa.create()
             }
-            Pointer { okKey: false; takesFocus: false; cursorShape: Qt.IBeamCursor; onTapped: if (ime.on) ime.open(); else keys.forceActiveFocus() }
+            // a finger on the field asks for the phone's keyboard, whatever was up
+            Pointer { okKey: false; takesFocus: false; cursorShape: Qt.IBeamCursor; onTapped: { if (Theme.touch) pa.mode = "ime"; else if (InputMode.pcFinger) pa.mode = "osk"; if (ime.on) ime.open(); else keys.forceActiveFocus() } }
         }
-        // the phone's keyboard has no done of ours
+        // the phone's keyboard and the mouse have no done of ours (a click beside the card does the same)
         GlassButton {
-            visible: ime.on
+            visible: pa.mode !== "osk"
             anchors.horizontalCenter: parent.horizontalCenter
             text: pa.editId ? qsTr("Save") : qsTr("Create")
             primary: true
@@ -258,16 +273,17 @@ FocusScope {
             // letters came from a real keyboard: its enter is done (a remote's ok presses the focused key)
             property bool typed: false
             width: parent.width
-            height: ime.on ? 0 : kb.height
+            height: pa.mode === "osk" ? kb.height : 0
             visible: !ime.on
             focus: true
             onActiveFocusChanged: if (!activeFocus) typed = false
             Keys.onPressed: function (e) {
                 var map = {}
                 map[Qt.Key_Up] = "UP"; map[Qt.Key_Down] = "DOWN"; map[Qt.Key_Left] = "LEFT"; map[Qt.Key_Right] = "RIGHT"
+                if (map[e.key] && pa.mode !== "osk") { if (e.key === Qt.Key_Up) looks.forceActiveFocus(); e.accepted = true; return }
                 if (map[e.key]) { kb.key(map[e.key]); e.accepted = true; return }
                 if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) {
-                    if (typed && Input.realKey()) pa.create(); else kb.key("OK")
+                    if (pa.mode !== "osk" || typed && Input.realKey()) pa.create(); else kb.key("OK")
                     e.accepted = true; return
                 }
                 if (e.key === Qt.Key_Backspace) { pa.name = pa.name.slice(0, -1); e.accepted = true; return }
@@ -275,6 +291,7 @@ FocusScope {
             }
             Keyboard {
                 id: kb
+                visible: pa.mode === "osk"
                 width: parent.width
                 u: pa.u / 2
                 enterLabel: qsTr("done")

@@ -139,6 +139,8 @@ final class ProfileEditModel {
     var lastColour = "green"
     /// the focus is on the looks (else the keyboard)
     var onLooks = false
+    /// osk | keys | ime (InputMode)
+    var mode = "osk"
     let kb = KeyboardModel()
     @ObservationIgnored var done: (Profile, Bool) -> Void = { _, _ in }
     @ObservationIgnored var cancel: () -> Void = {}
@@ -177,6 +179,7 @@ final class ProfileEditModel {
 
     func open(taken: [String]) {
         name = ""; editId = 0; onLooks = false
+        mode = InputMode.pick()
         let free = Self.colours.firstIndex { !taken.contains($0) }
         choice = free ?? taken.count % Self.colours.count
         loadFiles()
@@ -184,6 +187,7 @@ final class ProfileEditModel {
 
     func openEdit(_ p: Profile) {
         name = p.name; editId = p.id; onLooks = false
+        mode = InputMode.pick()
         choice = max(0, Self.colours.firstIndex(of: p.color) ?? 0)
         loadFiles { [weak self] in
             guard let self, let a = p.avatar, let i = files.firstIndex(of: a) else { return }
@@ -215,6 +219,8 @@ final class ProfileEditModel {
 
     func key(_ k: Key) -> Bool {
         if k == .back { cancel(); return true }
+        // a remote or a pad took over: its key only brings the glass keyboard up
+        if mode != "osk", InputMode.remote { mode = "osk"; return true }
         if onLooks {
             switch k {
             case .left: choice = max(0, choice - 1)
@@ -222,6 +228,10 @@ final class ProfileEditModel {
             case .down, .ok: onLooks = false
             default: break
             }
+            return true
+        }
+        if mode != "osk" {
+            if k == .up { onLooks = true } else if k == .ok { create() }
             return true
         }
         _ = kb.key(k)
@@ -248,8 +258,9 @@ struct ProfileEditView: View {
 
     var body: some View {
         let u = app.u
-        let touch = Theme.touch
-        let w = 760 * u, inner = w - 2 * 48 * u
+        let ime = model.mode == "ime", osk = model.mode == "osk"
+        // the content as wide as the keyboard (the same size everywhere)
+        let inner = Theme.keyboardW * u
         let count = CGFloat(model.choices.count)
         VStack(spacing: 26 * u) {
             Text(model.editId != 0 ? L("Edit Profile") : L("New Profile")).font(Theme.display(40 * u, .bold)).foregroundStyle(Theme.fg)
@@ -284,14 +295,23 @@ struct ProfileEditView: View {
                 .onChange(of: model.choice) { if !Input.pointerHolds { withAnimation(.easeOut(duration: 0.22)) { proxy.scrollTo(model.choice, anchor: .center) } } }
             }
             EntryField(text: model.name, placeholder: L("Name"), active: true, size: 28 * u, u: u,
-                       ime: touch ? ImeField(text: model.name, limit: 20, open: open, words: true, shown: true, size: 28 * u, placeholder: L("Name"),
+                       ime: ime ? ImeField(text: model.name, limit: 20, open: open, words: true, shown: true, size: 28 * u, placeholder: L("Name"),
                                              edited: { model.name = $0 }, done: { model.create() }) : nil)
                 .contentShape(.rect)
-                .onTapGesture { model.onLooks = false }
-            if touch {
-                // the phone's keyboard has no done of ours
+                .onTapGesture {
+                    model.onLooks = false
+                    // a finger on the field: the system's keyboard types (never both)
+                    if Theme.touch, !ime { model.mode = "ime"; open += 1 }
+                }
+            if !osk {
+                // the phone's or a real keyboard: no done of ours on it (does what a click beside the card does)
                 GlassButton(text: model.editId != 0 ? L("Save") : L("Create"), primary: true, focused: false, u: u)
                     .onTapGesture { model.create() }
+                if !ime {
+                    Text(Platform.ios ? L("Click a colour above.") : L("Click a colour or a picture above. Pictures: PNG or JPG files in %1", model.dir))
+                        .font(Theme.text(22 * u)).foregroundStyle(Theme.fg3)
+                        .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
+                }
             } else {
                 KeyboardView(model: model.kb, u: u / 2, width: inner, active: !model.onLooks)
                 Text(Platform.tv ? L("Up to pick a colour.") : L("Up to pick a colour or a picture. Pictures: PNG or JPG files in %1", Platform.ios ? "Files › Noonix TV › Avatars" : model.dir))
@@ -309,7 +329,7 @@ struct ProfileEditView: View {
         .scaleEffect(fit(u))
         .frame(width: (inner + 96 * u) * fit(u), height: cardH > 0 ? cardH * fit(u) : nil)
         .offset(y: -max(0, app.size.height / 2 + cardH / 2 + 24 * u - app.keyboardTop))
-        .onAppear { if touch { open += 1 } }
+        .onAppear { if ime { open += 1 } }
         // in the middle of the app, over whatever asked for it; nothing behind it takes the mouse
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background { Color.black.opacity(0.001).contentShape(.rect).onTapGesture { model.outside() } }

@@ -27,11 +27,15 @@ FocusScope {
     onKindChanged: grid.positionViewAtBeginning()
     property var suggested: []
 
-    // the on-screen keyboard is for a remote or a pad only: picked by what came into search, and it
-    // comes up when one takes over while here (a real keyboard typing sends it away)
+    // how search is typed is picked as the tab opens (InputMode): the glass keyboard for a remote or a
+    // pad, the field for a real keyboard and the mouse, the phone's keyboard for a finger. a remote or
+    // pad taking over brings the glass keyboard up; nothing takes it away while here
     property bool osk: false
-    readonly property bool remoteish: Remote.inputKind === "remote" || Remote.inputKind === "pad"
-    function pickKeyboard() { setOsk(!Theme.touch && !Theme.mouse && remoteish) }
+    function pickKeyboard() {
+        var m = InputMode.pick()
+        ime = m === "ime"
+        setOsk(m === "osk")
+    }
     function setOsk(on) {
         if (on === osk) return
         osk = on
@@ -41,30 +45,30 @@ FocusScope {
     }
     Connections {
         target: win
-        function onPageChanged() { if (win.page === "search") search.pickKeyboard() }
-    }
-    Connections {
-        target: Remote
-        function onInputKindChanged() {
-            if (!search.visible) return
-            if (search.remoteish && !Theme.mouse && !Theme.touch) search.setOsk(true)
-            else if (Remote.inputKind === "keyboard") search.setOsk(false)
+        function onPageChanged() {
+            if (win.page !== "search") return
+            search.pickKeyboard()
+            if (search.ime && search.visible) Qt.callLater(search.imeOpen)
         }
     }
-    Connections {
-        target: Theme
-        function onMouseModeChanged() { if (search.visible && !Theme.mouse && search.remoteish && !Theme.touch) search.setOsk(true) }
+    readonly property bool remoteNow: InputMode.remote
+    onRemoteNowChanged: {
+        if (!remoteNow || !visible || osk) return
+        if (ime) { ime = false; Qt.inputMethod.hide() }
+        // the key that brought it only shows it
+        if (activeFocus) Input.swallowKey()
+        setOsk(true)
     }
 
     // terminal metrics on the 1080 grid
-    readonly property real columnW: 575 * u
+    readonly property real columnW: Theme.keyboardW * u
     readonly property real columnX: width - Theme.margin - columnW
     readonly property real topY: 150 * u
     // touch on android: the phone's own keyboard types, ours goes away. the layout ends where it starts
-    readonly property bool ime: Theme.touch
+    property bool ime: false
     readonly property bool flat: !osk
     // a pc's own field (a finger types through the hidden ime one)
-    readonly property bool editable: flat && !ime
+    readonly property bool editable: flat && !ime && !InputMode.pcFinger
     readonly property real imeTop: Math.min(height, mapFromItem(null, 0, imeIn.keyboardTop).y)
     readonly property real bottomY: Math.min(height, imeTop) - 44 * u
     readonly property real gridGap: 40 * u
@@ -387,6 +391,7 @@ FocusScope {
         }
         ImeInput {
             id: imeIn
+            on: search.ime
             value: search.query
             EnterKey.type: Qt.EnterKeySearch
             onEdited: function (t) { search.query = t }
@@ -398,7 +403,13 @@ FocusScope {
             okKey: false
             takesFocus: false
             cursorShape: Qt.IBeamCursor
-            onTapped: { if (search.ime) search.imeOpen(); else { search.zone = "keys"; keys.forceActiveFocus() } }
+            // a finger on the field asks for the phone's keyboard, whatever was up
+            onTapped: {
+                if (Theme.touch && !search.ime) { search.ime = true; search.setOsk(false) }
+                // a pc's finger: the glass keyboard
+                if (InputMode.pcFinger && !search.osk) search.setOsk(true)
+                if (search.ime) search.imeOpen(); else { search.zone = "keys"; keys.forceActiveFocus() }
+            }
         }
     }
     function imeOpen() { zone = "keys"; imeIn.open() }

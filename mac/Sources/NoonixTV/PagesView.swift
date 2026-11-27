@@ -259,12 +259,12 @@ struct SearchPage: View {
         let u = app.u, W = app.size.width, H = app.size.height
         let s = app.search
         let margin = Theme.margin(u)
-        let columnW = 575 * u
+        let columnW = Theme.keyboardW * u
         let columnX = W - margin - columnW
         let topY = 150 * u + WindowState.shared.navDrop(u)
         let osk = s.osk
-        // touch: the phone's own keyboard types. the layout ends where it starts
-        let ime = Theme.touch
+        // a finger: the phone's own keyboard types. the layout ends where it starts
+        let ime = s.ime || app.keyboardTop < H
         let bottomY = (ime ? min(H, app.keyboardTop) : H) - 44 * u
         let gap = 40 * u
         let titleH = 31 * u * 1.3
@@ -296,7 +296,7 @@ struct SearchPage: View {
         let rowH = MediaRowView.height("poster", u: u, posterW: rowPoster * u)
         // the keyboard on the terminal's 2160 grid, at the bottom of the column
         let ku = u / 2
-        let kbH = 2 * 22 * ku + 4 * ((columnW - 2 * 22 * ku - 9 * 14 * ku) / 10 * 1.36) + 3 * 14 * ku
+        let kbH = KeyboardView.height(width: columnW, u: ku)
         let sugY = fieldY + fieldH + 30 * u
         let sugH = bottomY - kbH - 22 * u - sugY
         let fits = max(1, min(sugs.count, Int((sugH - titleH - 12 * u + 8 * u) / (46 * u + 8 * u))))
@@ -414,7 +414,9 @@ struct SearchPage: View {
                 .contentShape(.capsule)
                 .onTapGesture {
                     app.navFocused = false
-                    if osk { s.zone = "keys" } else { s.focusField() }
+                    // a finger on the field: the system's keyboard types (never both)
+                    if Theme.touch, !s.ime { s.ime = true; s.setOsk(false) }
+                    if s.osk { s.zone = "keys" } else { s.focusField() }
                 }
                 if squeezed {
                     KindPill(kind: s.kind, u: u) { k in
@@ -488,15 +490,10 @@ struct SearchPage: View {
             if !s.osk, s.zone == "keys" || s.zone == "suggestions" { s.zone = "field" }
             if s.osk, s.zone == "field" || s.zone == "chips" { s.zone = "keys" }
             // opened by touch: typing is what search is for
-            if Theme.touch { DispatchQueue.main.async { imeOpen += 1 } }
+            if s.ime { DispatchQueue.main.async { imeOpen += 1 } }
         }
-        .onChange(of: PointerMode.shared.kind) { _, k in
-            guard app.page == .search else { return }
-            if s.remoteish && !Theme.mouse && !Theme.touch { s.setOsk(true) } else if k == "keyboard" { s.setOsk(false) }
-        }
-        .onChange(of: Theme.mouse) { _, m in
-            if app.page == .search, !m, s.remoteish, !Theme.touch { s.setOsk(true) }
-        }
+        // a remote or a pad taking over (the top bar has the keys, or no key came this way)
+        .onChange(of: InputMode.remote) { _, r in if r, app.page == .search { s.remoteTookOver() } }
         .onChange(of: app.detailStack.isEmpty) { _, none in if !none { Platform.hideKeyboard() } }
     }
 }

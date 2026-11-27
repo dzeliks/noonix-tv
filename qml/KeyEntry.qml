@@ -31,10 +31,24 @@ FocusScope {
     NumberAnimation { id: slide; target: ke; property: "reveal" }
     visible: reveal > 0
 
+    // how it's typed, picked as it opens: "osk" the glass keyboard (a remote or pad), "keys" a real
+    // keyboard and the mouse (the field, paste and done), "ime" the phone's own keyboard (a finger).
+    // only a remote or pad taking over changes it: the glass keyboard comes up and stays
+    property string mode: "osk"
+    readonly property bool remoteNow: InputMode.remote
+    onRemoteNowChanged: if (remoteNow && isOpen && mode !== "osk") toOsk()
+    function toOsk() {
+        if (mode === "ime") Qt.inputMethod.hide()
+        mode = "osk"
+        keys.forceActiveFocus()
+        Input.swallowKey()
+    }
+
     function open(o) {
         title = o.title || ""; hint = o.hint || ""; placeholder = o.placeholder || ""
         secret = !!o.secret; text = o.text || ""; check = o.check || null; allowEmpty = !!o.allowEmpty
         status = ""; busy = false; ok = false; kb.shift = false
+        mode = InputMode.pick()
         isOpen = true; keys.forceActiveFocus()
         if (ime.on) Qt.callLater(ime.open)
     }
@@ -67,7 +81,8 @@ FocusScope {
     Glass {
         id: card
         anchors.centerIn: parent
-        width: 900 * ke.u
+        // the content as wide as the keyboard (the same size everywhere)
+        width: (Theme.keyboardW + 2 * 48) * ke.u
         height: col.height + 2 * 48 * ke.u
         Resize on height {}
         radius: 56 * ke.u
@@ -110,21 +125,23 @@ FocusScope {
             }
             ImeInput {
                 id: ime
+                on: ke.mode === "ime"
                 value: ke.text
                 maximumLength: 4096
                 inputMethodHints: Qt.ImhNoAutoUppercase | Qt.ImhNoPredictiveText | (ke.secret ? Qt.ImhSensitiveData : 0)
                 onEdited: function (t) { ke.text = t; ke.status = "" }
                 onDone: ke.submit()
             }
-            Pointer { okKey: false; takesFocus: false; cursorShape: Qt.IBeamCursor; onTapped: if (ime.on) ime.open(); else keys.forceActiveFocus() }
+            // a finger on the field asks for the phone's keyboard, whatever was up
+            Pointer { okKey: false; takesFocus: false; cursorShape: Qt.IBeamCursor; onTapped: { if (Theme.touch) ke.mode = "ime"; else if (InputMode.pcFinger) ke.mode = "osk"; if (ime.on) ime.open(); else keys.forceActiveFocus() } }
         }
         Text {
             id: statusLine
-            // a fixed row even while empty: the column skips a zero-width item and the card jumps
+            // a fixed row even while empty where a check answers (else the card jumps); none without one
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             elide: Text.ElideRight
-            height: 30 * ke.u
+            height: ke.check ? 30 * ke.u : 0
             Appear { target: statusLine; key: statusLine.text }
             text: ke.status
             color: ke.ok ? "#30D158" : ke.busy ? Theme.fg2 : "#FF9F0A"
@@ -136,17 +153,17 @@ FocusScope {
             readonly property bool typing: true
             property bool typed: false
             width: parent.width
-            height: ime.on ? 0 : kb.height
+            height: ke.mode === "osk" ? kb.height : 0
             visible: !ime.on
             focus: true
             onActiveFocusChanged: if (!activeFocus) typed = false
             Keys.onPressed: function (e) {
                 var map = {}
                 map[Qt.Key_Up] = "UP"; map[Qt.Key_Down] = "DOWN"; map[Qt.Key_Left] = "LEFT"; map[Qt.Key_Right] = "RIGHT"
-                if (map[e.key]) { kb.key(map[e.key]); e.accepted = true; return }
-                // a real keyboard's enter submits once it typed or pasted here; a remote's ok (posted, a d-pad
-                // centre, or a usb remote that never types) presses the focused key
-                if ((e.key === Qt.Key_Return || e.key === Qt.Key_Enter) && Input.realKey() && typed) { ke.submit(); e.accepted = true; return }
+                if (map[e.key]) { if (ke.mode === "osk") kb.key(map[e.key]); e.accepted = true; return }
+                // a real keyboard's enter submits once it typed or pasted here (always without the glass
+                // keyboard); a remote's ok (posted, a d-pad centre, or a usb remote that never types) presses the focused key
+                if ((e.key === Qt.Key_Return || e.key === Qt.Key_Enter) && (ke.mode !== "osk" || Input.realKey() && typed)) { ke.submit(); e.accepted = true; return }
                 if (e.key === Qt.Key_Return || e.key === Qt.Key_Enter) { kb.key("OK"); e.accepted = true; return }
                 if (e.key === Qt.Key_Backspace) { ke.text = ke.text.slice(0, -1); ke.status = ""; e.accepted = true; return }
                 if (e.key === Qt.Key_V && (e.modifiers & Qt.ControlModifier)) { ke.text += Desktop.paste(); ke.status = ""; typed = true; e.accepted = true; return }
@@ -154,6 +171,7 @@ FocusScope {
             }
             Keyboard {
                 id: kb
+                visible: ke.mode === "osk"
                 width: parent.width
                 u: ke.u / 2
                 enterLabel: qsTr("done")
@@ -168,9 +186,9 @@ FocusScope {
                 }
             }
         }
-        // the phone's keyboard has no done of ours; keys are long, pasting is how they arrive
+        // the phone's keyboard and the mouse have no done of ours; keys are long, pasting is how they arrive
         Row {
-            visible: ime.on
+            visible: ke.mode !== "osk"
             anchors.horizontalCenter: parent.horizontalCenter
             spacing: 20 * ke.u
             GlassButton { text: qsTr("Paste"); pointerFocus: false; onClicked: { ke.text += Desktop.paste(); ke.status = "" } }
@@ -182,7 +200,8 @@ FocusScope {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
-            text: qsTr("A real keyboard works too, and Ctrl+V pastes. Back closes this.")
+            text: ke.mode === "osk" ? qsTr("A real keyboard works too, and Ctrl+V pastes. Back closes this.")
+                                    : qsTr("Ctrl+V pastes, Enter is done, Esc closes this.")
             color: Theme.fg3
             font { family: Theme.text; pixelSize: 22 * ke.u }
         }

@@ -15,8 +15,11 @@ final class KeyEntryModel {
     var isOpen = false
     /// done with nothing typed is an answer too (clears a list)
     var allowEmpty = false
+    /// osk | keys | ime (InputMode)
+    var mode = "osk"
     let kb = KeyboardModel()
     @ObservationIgnored private var check: ((String) async -> (Bool, String))?
+    var checks = false
     /// what to do with the value once it's in (the next card, a refresh)
     @ObservationIgnored private var after: ((String) -> Void)?
     /// back or a click beside the card (set after open)
@@ -45,9 +48,13 @@ final class KeyEntryModel {
               check: ((String) async -> (Bool, String))? = nil, after: ((String) -> Void)? = nil) {
         self.title = title; self.hint = hint; self.placeholder = placeholder; self.secret = secret
         self.check = check; self.after = after; self.allowEmpty = allowEmpty
+        checks = check != nil
         self.text = text; status = ""; busy = false; ok = false
         cancelled = nil
         kb.shift = false
+        // in the language picked since the model was made
+        kb.enterLabel = L("done")
+        mode = InputMode.pick()
         isOpen = true
     }
 
@@ -87,6 +94,12 @@ final class KeyEntryModel {
 
     func key(_ k: Key) -> Bool {
         if k == .back { cancel(); return true }
+        if mode != "osk" {
+            // a remote or a pad took over: its key only brings the glass keyboard up
+            if InputMode.remote { mode = "osk"; return true }
+            if k == .ok { submit() }
+            return true
+        }
         _ = kb.key(k)
         return true
     }
@@ -143,8 +156,9 @@ struct KeyEntryView: View {
 
     var body: some View {
         let u = app.u
-        let w = 900 * u, inner = w - 2 * 48 * u
-        let touch = Theme.touch
+        // the content as wide as the keyboard (the same size everywhere)
+        let inner = Theme.keyboardW * u
+        let ime = model.mode == "ime", osk = model.mode == "osk"
         // a docked phone keyboard: up above it
         let lift = max(0, app.size.height / 2 + cardH / 2 + 24 * u - app.keyboardTop)
         VStack(spacing: 22 * u) {
@@ -155,21 +169,34 @@ struct KeyEntryView: View {
             }
             // a finger: the phone's own field in the capsule (select, copy, paste from its menu)
             EntryField(text: model.text, placeholder: model.placeholder, secret: model.secret, active: model.isOpen, size: 26 * u, u: u,
-                       ime: touch ? ImeField(text: model.text, secret: model.secret, open: open, shown: true, size: 26 * u, placeholder: model.placeholder,
+                       ime: ime ? ImeField(text: model.text, secret: model.secret, open: open, shown: true, size: 26 * u, placeholder: model.placeholder,
                                              edited: { model.text = $0; model.status = "" }, done: { model.submit() }) : nil)
-            Text(model.status).font(Theme.text(24 * u, .medium))
-                .foregroundStyle(model.ok ? Color(red: 0x30 / 255, green: 0xD1 / 255, blue: 0x58 / 255) : model.busy ? Theme.fg2 : Color(red: 1, green: 0x9F / 255, blue: 0x0A / 255))
-                .frame(height: 30 * u)
-                // a new line fades in rather than popping (qml Appear)
-                .contentTransition(.opacity)
-                .animation(.easeOut(duration: 0.18), value: model.status)
-            if touch {
-                // the phone's keyboard has no done of ours; keys are long, pasting is how they arrive
+                .contentShape(.rect)
+                // a finger on the field: the system's keyboard types (never both)
+                .onTapGesture { if Theme.touch, !ime { model.mode = "ime"; open += 1 } }
+            // a fixed row where a check answers (else the card jumps); none without one
+            if model.checks {
+                Text(model.status).font(Theme.text(24 * u, .medium))
+                    .foregroundStyle(model.ok ? Color(red: 0x30 / 255, green: 0xD1 / 255, blue: 0x58 / 255) : model.busy ? Theme.fg2 : Color(red: 1, green: 0x9F / 255, blue: 0x0A / 255))
+                    .frame(height: 30 * u)
+                    // a new line fades in rather than popping (qml Appear)
+                    .contentTransition(.opacity)
+                    .animation(.easeOut(duration: 0.18), value: model.status)
+            }
+            if !osk {
+                // the phone's or a real keyboard: no done of ours on it; keys are long, pasting is how they arrive
                 HStack(spacing: 20 * u) {
-                    // the system's paste button: no "allow paste" prompt each time
+                    // the system's paste button: no "allow paste" prompt each time (a mac has cmd+v)
+                    #if !os(macOS)
                     PasteKey(u: u) { model.text += $0.trimmingCharacters(in: .whitespacesAndNewlines); model.status = "" }
+                    #endif
                     GlassButton(text: L("Done"), primary: true, focused: false, u: u)
                         .onTapGesture { model.submit() }
+                }
+                if !ime {
+                    Text(L("⌘V pastes, Return is done, Esc closes this."))
+                        .font(Theme.text(22 * u)).foregroundStyle(Theme.fg3)
+                        .multilineTextAlignment(.center).fixedSize(horizontal: false, vertical: true)
                 }
             } else {
                 KeyboardView(model: model.kb, u: u / 2, width: inner, active: true)
@@ -190,7 +217,7 @@ struct KeyEntryView: View {
         .offset(y: -lift)
         // in the middle of the app, part of it (not a window of its own in the corner)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear { if touch { open += 1 } }
+        .onAppear { if ime { open += 1 } }
     }
 }
 

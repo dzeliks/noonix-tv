@@ -8,6 +8,8 @@ import SwiftUI
 /// the tv app's design tokens (qml/Theme.qml): a 1920x1080 grid scaled to the window, u = height / 1080 (width / 1920 when taller)
 enum Theme {
     static let fg = Color.white
+    /// every on-screen keyboard's width (search's column, the cards' content), on the 1080 grid
+    static let keyboardW: CGFloat = 575
     static let fg2 = Color.white.opacity(0.66)
     /// the info lines under a title: fg2 solid (see-through grey dims to nothing over a light backdrop)
     static let meta = Color(red: 0xad / 255, green: 0xad / 255, blue: 0xb0 / 255)

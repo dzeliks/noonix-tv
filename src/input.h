@@ -35,6 +35,8 @@ public:
     Q_INVOKABLE bool pointerLive() const { return m_moved.isValid() && m_moved.elapsed() < 200; }
     // from pointingChanged: this first key after the mouse only brought the selection back
     Q_INVOKABLE void holdKey() { m_holdKey = true; }
+    // a remote's or pad's key that only brought the glass keyboard up: the arrow or ok on its way is dropped
+    Q_INVOKABLE void swallowKey() { m_swallow.start(); }
     // the key being handled came from a real keyboard (not a remote's or pad's ok): its enter submits
     Q_INVOKABLE bool realKey() const { return m_realKey; }
 
@@ -81,6 +83,7 @@ signals:
 
 protected:
     bool eventFilter(QObject *obj, QEvent *ev) override;
+    bool swallowed(const QKeyEvent *k);
 
 private:
     void startPads();
@@ -98,6 +101,7 @@ private:
     QPointer<QWindow> m_window;
     QElapsedTimer m_escDown;
     QElapsedTimer m_moved;
+    QElapsedTimer m_swallow;
     QPointF m_lastPos{-1, -1};
     bool m_escFired = false;
     bool m_pointing = false;

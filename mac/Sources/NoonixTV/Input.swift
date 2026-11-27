@@ -54,6 +54,15 @@ final class PointerMode {
     }
 }
 
+/// how a sheet or the search tab is typed, picked as it opens (qml InputMode): "osk" the glass keyboard
+/// (a remote, a pad, apple tv), "keys" the field for a real keyboard and the mouse, "ime" the system's
+/// keyboard for a finger. a remote or a pad taking over later brings the glass keyboard up
+@MainActor
+enum InputMode {
+    static var remote: Bool { !PointerMode.shared.on && ["pad", "remote"].contains(PointerMode.shared.kind) }
+    static func pick() -> String { Platform.tv || remote ? "osk" : Theme.touch ? "ime" : "keys" }
+}
+
 /// the wheel on a page, a grid or a row (qml PageWheel): pixels, it moves as one, the focus stays
 /// with the mouse. nil = where the keys have it
 @MainActor @Observable
@@ -549,6 +558,9 @@ enum DevKeys {
                             if line.hasPrefix("fling:"), let v = Double(line.dropFirst(6)) { AppModel.current?.fling(v); return }
                             if line.hasPrefix("kind:") { withAnimation(.easeOut(duration: 0.24)) { AppModel.current?.search.kind = String(line.dropFirst(5)) }; return }
                             if line.hasPrefix("page:"), let p = Page(rawValue: String(line.dropFirst(5))) { Input.touched(); AppModel.current?.choose(p); AppModel.current?.navFocused = false; return }
+                            #endif
+                            #if os(macOS)
+                            if line == "fullscreen" { WindowState.shared.toggle(); return }
                             #endif
                             if let k = names[line] { PointerMode.shared.pressed("remote"); if !(Input.keyed() && k.picks) { _ = send(k) } }
                             else if line.hasPrefix("text:") { PointerMode.shared.pressed("keyboard"); _ = typed(.text(String(line.dropFirst(5)))) }

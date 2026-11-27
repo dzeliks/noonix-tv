@@ -146,15 +146,14 @@ struct KeyboardView: View {
     let width: CGFloat
     let active: Bool
 
+    /// the keys run to the edges: they sit on whatever they're part of (no tray of their own)
+    static func height(width: CGFloat, u: CGFloat) -> CGFloat { 4 * (width - 9 * 14 * u) / 10 * 1.36 + 3 * 14 * u }
+
     var body: some View {
-        let pad = 22 * u, gap = 14 * u
+        let pad: CGFloat = 0, gap = 14 * u
         let unit = (width - 2 * pad - 9 * gap) / 10
         let keyH = unit * 1.36
         ZStack(alignment: .topLeading) {
-            // round the corner keys' corners (20) at the pad's distance
-            RoundedRectangle(cornerRadius: pad + 20 * u)
-                .fill(Color.white.opacity(0.055))
-                .overlay { RoundedRectangle(cornerRadius: pad + 20 * u).stroke(Color.white.opacity(0.1), lineWidth: 2 * u) }
             ForEach(Array(model.rows.enumerated()), id: \.offset) { r, caps in
                 ForEach(Array(caps.enumerated()), id: \.offset) { i, k in
                     if k.kind != .gap {

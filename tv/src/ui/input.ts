@@ -11,7 +11,8 @@ export function inputScreen(title: string, hint: string, value: string, done: (t
     let text = value
     const shown = h("span.text")
     const field = h("div.field.wide", null, shown, h("span.caret"))
-    const kb = keyboard(96, tr("done"), function (s) { set(text + s) }, function (name) {
+    // the search page's size: one keyboard size everywhere
+    const kb = keyboard(48, tr("done"), function (s) { set(text + s) }, function (name) {
         if (name === "backspace") set(text.slice(0, -1))
         else if (name === "clear") set("")
         else if (name === "enter") { close(); done(text.trim()) }
