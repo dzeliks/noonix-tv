@@ -143,6 +143,8 @@ final class Osd {
         show()
     }
 
+    /// the mouse resting brings them down sooner than a key does
+    static let mouseSecs = 3.0
     /// the controls always come up on the row's play (qml show): seeking asks for the bar.
     /// left alone while playing they go down after secs, wherever the focus is
     func show(_ secs: Double = 5, _ z: Zone? = nil) {
@@ -164,7 +166,7 @@ final class Osd {
         let i = buttons.firstIndex(of: b) ?? 0
         if zone != .row { zone = .row }
         if rowIndex != i { rowIndex = i }
-        show()
+        show(Osd.mouseSecs)
     }
 
     // only what changes is written: the mouse calls show() with every move, and a write is a layout
@@ -736,6 +738,8 @@ struct MatchSheet: View {
     let u: CGFloat
     /// the line a finger is down on
     @GestureState private var downAt: Int?
+    /// the line under the mouse: only that one is lit for it
+    @State private var overAt: Int?
 
     /// the timing line says where it's set now
     private func detail(_ l: MatchModel.Line) -> String {
@@ -757,7 +761,7 @@ struct MatchSheet: View {
             .padding(.bottom, 18 * u)
             ForEach(Array(model.lines.enumerated()), id: \.offset) { i, l in
                 // a finger sees no focus, only the press
-                let foc = Theme.touch ? downAt == i : model.index == i
+                let foc = Theme.touch ? downAt == i : Theme.lit(model.index == i, overAt == i)
                 HStack(spacing: 24 * u) {
                     Image(systemName: l.icon).font(.system(size: 30 * u, weight: .medium))
                         .foregroundStyle(foc ? Theme.focusFg : l.id == "good" && model.liked ? Theme.accent : Theme.fg)
@@ -773,6 +777,7 @@ struct MatchSheet: View {
                 .background { RoundedRectangle(cornerRadius: 24 * u).fill(foc ? Color.white : .clear) }
                 .contentShape(.rect)
                 .onContinuousHover { phase in if case .active = phase, Input.hoverLive, model.index != i { model.index = i } }
+                .hover { inside in overAt = inside ? i : overAt == i ? nil : overAt }
                 .onTapGesture { osd.choose(l.id) }
                 #if os(iOS)
                 .simultaneousGesture(DragGesture(minimumDistance: 0).updating($downAt) { _, d, _ in d = i })
@@ -913,7 +918,7 @@ struct PlayerView: View {
         } action: { fold = $0 }
         .onChange(of: split == nil, initial: true) { _, one in osd?.docked = !one }
         #endif
-        .onContinuousHover { _ in if Input.pointerLive { osd?.show() } }
+        .onContinuousHover { _ in if Input.pointerLive { osd?.show(Osd.mouseSecs) } }
         #if os(iOS)
         // a finger: a tap shows or hides them (like phone players), a double tap on a side jumps 10 s
         .onTapGesture(coordinateSpace: .local) { at in
@@ -1072,14 +1077,15 @@ struct OsdView: View {
 
             SeekBar(osd: osd, u: u)
                 .frame(width: W - 2 * margin, height: 8 * u)
-                .offset(x: margin, y: H - 214 * u)
+                .offset(x: margin, y: H - 224 * u)
 
+            // the times 10 up from the old H-170: air between them and the buttons
             Text(Theme.time(pos)).font(Theme.text(25 * u, .medium)).monospacedDigit().foregroundStyle(Theme.fg2)
-                .offset(x: margin, y: H - 170 * u)
+                .offset(x: margin, y: H - 180 * u)
                 .opacity(picking ? 0 : 1)
             Text("-" + Theme.time(dur - pos)).font(Theme.text(25 * u, .medium)).monospacedDigit().foregroundStyle(Theme.fg2)
                 .frame(width: W - margin, alignment: .trailing)
-                .offset(y: H - 170 * u)
+                .offset(y: H - 180 * u)
 
             buttonRow(W: W, H: H, margin: margin)
 
@@ -1162,7 +1168,9 @@ struct OsdView: View {
             }
             .padding(.horizontal, (small ? 6 : 14) * u)
             .frame(height: (small ? 76 : 104) * u)
-            .glassEffect(.regular, in: .capsule)
+            // the buttons' glass: plain .regular read darker than the row beside it
+            .overlay { GlassRim(shape: Capsule(), u: u, glint: false) }
+            .glassEffect(.regular.tint(.white.opacity(0.12)), in: .capsule)
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { transportW = $0 }
             .frame(height: 104 * u)
             .offset(x: phone ? margin : max((W - transportW) / 2, margin + leftW + 18 * u))
@@ -1497,6 +1505,8 @@ private struct VolumeControl: View {
             .padding(.trailing, 38 * u)
         }
         .frame(width: 300 * u, height: 76 * u)
-        .glassEffect(.regular.tint(.white.opacity(0.06)), in: .capsule)
+        // the same glass as the buttons beside it (qml chip tint 0.12)
+        .overlay { GlassRim(shape: Capsule(), u: u, glint: false) }
+        .glassEffect(.regular.tint(.white.opacity(0.12)), in: .capsule)
     }
 }

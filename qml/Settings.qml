@@ -5,11 +5,16 @@ import "Pads.js" as Pads
 FocusScope {
     id: settings
     readonly property real u: Theme.u
-    property int section: 0
+    // the first one is search: a visit opens on sources
+    property int section: 1
     property bool copied: false
     Timer { id: copiedTimer; interval: 2200; onTriggered: settings.copied = false }
-    readonly property var sectionIds: ["sources", "accounts", "profiles", "audio", "subtitles", "playback", "controls", "about"]
-    readonly property var sections: [qsTr("Sources"), qsTr("Accounts"), qsTr("Profiles"), qsTr("Audio"), qsTr("Subtitles"), qsTr("Playback"), qsTr("Controls"), qsTr("About")]
+    readonly property var sectionIds: ["search", "sources", "accounts", "profiles", "audio", "subtitles", "playback", "controls", "system", "about"]
+    readonly property var sections: [qsTr("Search"), qsTr("Sources"), qsTr("Accounts"), qsTr("Profiles"), qsTr("Audio"), qsTr("Subtitles"), qsTr("Playback"), qsTr("Controls"), qsTr("System"), qsTr("About")]
+    // what search looks for; while its sheet is up the typed text filters live
+    property string query: ""
+    property bool searching: false
+    readonly property string liveQuery: (searching ? entry.text : query).trim()
     property var acc: ({})
     readonly property string sectionId: sectionIds[section] || ""
     property var patterns: null
@@ -60,7 +65,7 @@ FocusScope {
         checkUpdate(true)
         Api.call("setup.accounts", {}, function (ok, d) { if (ok) settings.acc = d })
     }
-    Component.onCompleted: { syncRows(); load() }
+    Component.onCompleted: { menu.currentIndex = section; syncRows(); load() }
     // built once and kept (main.qml warms it up): a visit shows what's loaded, load() only refreshes.
     // the rows wait for the first answers, so they never fill in one by one
     readonly property bool ready: (patterns !== null && prefs !== null && quality !== null && langOptions !== null) || readyLate.ran
@@ -70,8 +75,9 @@ FocusScope {
         // the next visit starts at the top, like a fresh page
         swap.stop()
         page.opacity = 1
-        section = 0
-        menu.currentIndex = 0
+        section = 1
+        menu.currentIndex = 1
+        query = ""
         page.toTop()
     }
 
@@ -116,7 +122,11 @@ FocusScope {
         Timer { id: sectionLater; interval: 140; onTriggered: if (settings.section !== menu.currentIndex) swap.restart() }
         Keys.onUpPressed: function (e) { if (currentIndex === 0) settings.upFromTop(); else decrementCurrentIndex() }
         Keys.onRightPressed: page.forceActiveFocus()
-        Keys.onReturnPressed: if (settings.section !== currentIndex) swap.restart(); else page.forceActiveFocus()
+        Keys.onReturnPressed: {
+            // search: straight to typing
+            if (settings.sectionIds[currentIndex] === "search") { if (settings.section !== currentIndex) swap.restart(); settings.openSearch(); return }
+            if (settings.section !== currentIndex) swap.restart(); else page.forceActiveFocus()
+        }
         delegate: Toggle {
             required property var modelData
             required property int index
@@ -130,9 +140,44 @@ FocusScope {
     }
 
     // the section's lines, one list model per section: {label, detail, value, checkable, checked, badge, act}
-    readonly property var lines: {
+    readonly property var lines: sectionId === "search" ? searchLines() : linesFor(sectionId)
+    // search: every section's lines whose words hold all the typed ones (any case, no accents needed)
+    function fold(t) { return String(t || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "dj") }
+    function searchLines() {
+        var q = liveQuery
+        var out = [{ label: q ? "“" + q + "”" : qsTr("Search settings"), detail: qsTr("Find a setting by its name or what it does"),
+                     checkable: false, value: q ? qsTr("Change") : "›", act: "search" }]
+        if (!q) return out
+        var words = fold(q).split(/\s+/), found = 0
+        for (var i = 0; i < sectionIds.length; ++i) {
+            if (sectionIds[i] === "search") continue
+            var name = fold(sections[i])
+            var hits = linesFor(sectionIds[i]).filter(function (l) {
+                if (l.header) return false
+                var hay = name + " " + fold(l.label) + " " + fold(l.detail) + " " + fold(l.value)
+                return words.every(function (w) { return hay.indexOf(w) >= 0 })
+            })
+            if (!hits.length) continue
+            out.push({ header: true, label: sections[i] })
+            out = out.concat(hits)
+            found += hits.length
+        }
+        if (!found) out.push({ label: qsTr("Nothing matches"), detail: qsTr("Try another word, or fewer of them"), checkable: false })
+        return out
+    }
+    function openSearch() {
+        searching = true
+        entry.open({ title: qsTr("Search settings"), placeholder: qsTr("A setting"), text: query, allowEmpty: true })
+        entry.after = function (v) { settings.query = v; settings.searching = false; Qt.callLater(settings.firstHit) }
+    }
+    // the focus on the first thing found
+    function firstHit() {
+        for (var i = 1; i < lines.length; ++i) if (!lines[i].header && lines[i].act) { page.currentIndex = i; return }
+        page.currentIndex = 0
+    }
+    function linesFor(sid) {
         var out = []
-        if (sectionId === "sources") {
+        if (sid === "sources") {
             out = out.concat(flow.lines, flow.torrentLines)
             out.push({ header: true, label: qsTr("Release patterns") })
             var pt = patterns || {}
@@ -155,7 +200,7 @@ FocusScope {
                                  : q.device !== null && q.device !== undefined ? qsTr("Last time: no internet reading, %1").arg(speedCheck.devText(q.device))
                                  : qsTr("Not measured yet: the recommendation is a guess") })
             }
-        } else if (sectionId === "accounts") {
+        } else if (sid === "accounts") {
             var os = acc.opensubtitles || {}, osOn = !!os.set && app.opensubtitles !== false
             out = out.concat(flow.debridLines)
             if (out.length) out.push({ header: true, label: qsTr("Other accounts") })
@@ -174,7 +219,7 @@ FocusScope {
                 out.push({ label: qsTr("OpenSubtitles API key"), detail: os.preview || "", checkable: false, value: qsTr("Change"), act: "cred:OPENSUBTITLES_API_KEY" })
                 out.push({ label: qsTr("OpenSubtitles sign-in"), detail: os.user ? qsTr("Signed in as %1").arg(os.user) : qsTr("Optional: raises the daily limit"), checkable: false, value: os.user ? qsTr("Change") : "›", act: "oslogin" })
             }
-        } else if (sectionId === "profiles") {
+        } else if (sid === "profiles") {
             for (var q = 0; q < win.profiles.length; ++q)
                 out.push({ label: win.profiles[q].name, detail: qsTr("Name, colour and picture"), checkable: false, value: "›", act: "profile:" + q })
             out.push({ label: qsTr("Add profile"), checkable: false, value: "+", act: "profile-add" })
@@ -185,14 +230,14 @@ FocusScope {
                        detail: qsTr("%1's languages, sources and history as a file, for Noonix TV on another device").arg(win.profile ? win.profile.name : "") })
             out.push({ label: qsTr("Import a profile"), checkable: false, value: "+", act: "profile-import",
                        detail: qsTr("A .noonix file from another device, as a new profile") })
-        } else if (sectionId === "audio" && prefs && langOptions) {
+        } else if (sid === "audio" && prefs && langOptions) {
             out.push({ label: qsTr("In order of preference: the first one a source has plays"), checkable: false, header: true })
             var opts = Theme.preferredFirst(langOptions.audio, (langSnap || prefs).languages)
             for (var j = 0; j < opts.length; ++j) {
                 var r = prefs.languages.indexOf(opts[j].code)
                 out.push({ label: qsTranslate("core", opts[j].name), checkable: true, checked: r >= 0, badge: r >= 0 ? String(r + 1) : "", act: "lang:languages:" + opts[j].code })
             }
-        } else if (sectionId === "subtitles" && prefs && langOptions) {
+        } else if (sid === "subtitles" && prefs && langOptions) {
             out.push({ label: qsTr("Balkan mode"), detail: qsTr("Treats Serbian, Croatian and Bosnian subtitles as one choice and always picks the best of them; sources that have them come first"),
                        checkable: true, checked: app.balkan_subs === true, act: "balkan" })
             out.push({ label: qsTr("In order of preference"), checkable: false, header: true })
@@ -202,7 +247,17 @@ FocusScope {
                 out.push({ label: qsTranslate("core", so[k].name), checkable: true, checked: r2 >= 0, badge: r2 >= 0 ? String(r2 + 1) : "", act: "lang:subtitles:" + so[k].code,
                            detail: so[k].code === "balkan" ? qsTr("Whichever fits the release best, Serbian first on a tie") : "" })
             }
-        } else if (sectionId === "playback") {
+        } else if (sid === "playback") {
+            if (!Theme.android || Desktop.tv)
+                out.push({ label: qsTr("Match the TV's refresh rate"), detail: qsTr("Switches the TV to 24 / 25 / 50 / 60 Hz for each video (never the resolution or HDR)"), checkable: true, checked: app.refresh_match === true, act: "app:refresh_match" })
+            out.push({ label: qsTr("Find extra subtitles"), detail: qsTr("From OpenSubtitles, for your subtitle languages the file doesn't have"), checkable: true, checked: appOn("extra_subs"), act: "app:extra_subs" })
+            var hs = app.hdr_screen || "auto"
+            var found = screen.hdr === true ? qsTr("HDR") : screen.hdr === false ? qsTr("no HDR") : ""
+            out.push({ label: qsTr("HDR on this screen"), detail: qsTr("Picks the sources that suit it best. Set it yourself if the screen is guessed wrong"), checkable: false,
+                       value: hs === "on" ? qsTr("On") : hs === "off" ? qsTr("Off") : found ? qsTr("Automatic (%1)").arg(found) : qsTr("Automatic"), act: "hdrscreen" })
+            if (!Theme.android)
+                out.push({ label: qsTr("Dim the controllers while playing"), detail: qsTr("Lightbar off, player light low"), checkable: true, checked: appOn("pad_leds"), act: "app:pad_leds" })
+        } else if (sid === "system") {
             var dk = desktop || {}
             // the language's own name, whichever one is on
             out.push({ label: qsTr("Language"), checkable: false, value: Desktop.language === "sr" ? "Srpski" : "English", act: "uilang" })
@@ -210,7 +265,8 @@ FocusScope {
                 out.push(dk.menuFixed ? { label: qsTr("In the app menu"), detail: qsTr("Installed with Noonix TV"), checkable: false }
                                       : { label: qsTr("Add to the app menu"), detail: qsTr("Find Noonix TV with your other apps"), checkable: true, checked: !!dk.menu, act: "desk:menu" })
                 out.push({ label: qsTr("Open at login"), detail: qsTr("Starts Noonix TV when you sign in to this PC"), checkable: true, checked: !!dk.login, act: "desk:login" })
-                out.push({ label: qsTr("Show the title bar"), detail: qsTr("A normal window with the title bar and its buttons"), checkable: true, checked: app.title_bar === true, act: "titlebar" })
+                // off: full screen (a tv). the window always has its title bar
+                out.push({ label: qsTr("Open in a window"), detail: qsTr("A normal window with its title bar and buttons. Off: full screen"), checkable: true, checked: app.title_bar === true, act: "titlebar" })
                 // more than one screen: which one it opens on
                 var outs = Remote.screens()
                 if (outs.length > 1 || app.screen) {
@@ -219,20 +275,11 @@ FocusScope {
                                value: onOut ? onOut.label : qsTr("Main screen"), act: "screen" })
                 }
             }
-            if (!Theme.android || Desktop.tv)
-                out.push({ label: qsTr("Match the TV's refresh rate"), detail: qsTr("Switches the TV to 24 / 25 / 50 / 60 Hz for each video (never the resolution or HDR)"), checkable: true, checked: app.refresh_match === true, act: "app:refresh_match" })
-            out.push({ label: qsTr("Find extra subtitles"), detail: qsTr("From OpenSubtitles, for your subtitle languages the file doesn't have"), checkable: true, checked: appOn("extra_subs"), act: "app:extra_subs" })
             out.push({ label: qsTr("Fast intro"), detail: qsTr("Opens without the launch animation"), checkable: true, checked: app.fast_intro === true, act: "fastintro" })
-            var hs = app.hdr_screen || "auto"
-            var found = screen.hdr === true ? qsTr("HDR") : screen.hdr === false ? qsTr("no HDR") : ""
-            out.push({ label: qsTr("HDR on this screen"), detail: qsTr("Picks the sources that suit it best. Set it yourself if the screen is guessed wrong"), checkable: false,
-                       value: hs === "on" ? qsTr("On") : hs === "off" ? qsTr("Off") : found ? qsTr("Automatic (%1)").arg(found) : qsTr("Automatic"), act: "hdrscreen" })
             var lm = app.low_memory || "auto", auto = Desktop.lowRam ? qsTr("On") : qsTr("Off")
             out.push({ label: qsTr("Low memory mode"), detail: qsTr("For phones and older PCs with little memory: plays up to Full HD and keeps fewer pages and pictures ready"), checkable: false,
                        value: lm === "on" ? qsTr("On") : lm === "off" ? qsTr("Off") : qsTr("Automatic (%1)").arg(auto), act: "lowmem" })
-            if (!Theme.android)
-                out.push({ label: qsTr("Dim the controllers while playing"), detail: qsTr("Lightbar off, player light low"), checkable: true, checked: appOn("pad_leds"), act: "app:pad_leds" })
-        } else if (sectionId === "controls") {
+        } else if (sid === "controls") {
             var b = Input.bindings, kind = Input.padKind
             var pos = { south: qsTr("Button 1"), east: qsTr("Button 2"), west: qsTr("Button 3"), north: qsTr("Button 4") }
             out.push({ label: qsTr("Controller"), checkable: false, header: true })
@@ -249,7 +296,7 @@ FocusScope {
             out.push({ label: qsTr("Moving around"), detail: qsTr("The d-pad, the left stick and the arrow keys"), checkable: false })
             out.push({ label: qsTr("Mouse"), detail: qsTr("Point to move, click to select, right click goes back, the wheel scrolls"), checkable: false })
             out.push({ label: qsTr("Reset controls"), detail: qsTr("The controller and keyboard as they came"), checkable: false, value: qsTr("Reset"), act: "bind-reset" })
-        } else if (sectionId === "about") {
+        } else if (sid === "about") {
             // who made it, with the website a press away (qr for the phone)
             out.push({ kind: "brand", label: "Noonix TV", value: version, checkable: false, act: "site" })
             var u = update, st = updateState, det, val
@@ -283,7 +330,9 @@ FocusScope {
     function run(line) {
         var a = line.act || ""
         if (flow.run(a)) return
-        if (a.indexOf("patterns:") === 0) {
+        if (a === "search") {
+            openSearch()
+        } else if (a.indexOf("patterns:") === 0) {
             var which = a.slice(9), pt = patterns || { preferred: [], excluded: [] }
             entry.open({ title: which === "preferred" ? qsTr("Preferred release patterns") : qsTr("Hidden release patterns"),
                          placeholder: "REMUX, HDR10+, /\\bITA\\b/",
@@ -676,7 +725,7 @@ FocusScope {
         parent: win.sheetLayer
         anchors.fill: parent
         property var after: null
-        onCancel: { close(); after = null; page.forceActiveFocus() }
+        onCancel: { close(); after = null; settings.searching = false; page.forceActiveFocus() }
         onDone: function (v) {
             close()
             var f = after; after = null

@@ -241,6 +241,8 @@ struct DetailsView: View {
     @State private var plotSpare: CGFloat = 0
     @State private var actionsW: CGFloat = 0
     @State private var metaH: CGFloat = 0
+    /// the season pill under the mouse: only that one is lit for it
+    @State private var overSeason: Int?
 
     // a phone in landscape: the episode cards and their two lines still fit the first screen, the
     // logo gives up the room, the plot runs down beside the buttons (qml Details tight)
@@ -473,7 +475,7 @@ struct DetailsView: View {
         HStack(spacing: 16 * u * (tight ? 0.85 : 1)) {
             ForEach(Array(model.seasons.enumerated()), id: \.offset) { i, s in
                 let sel = s.number == model.seasonNo
-                let foc = app.sources == nil && model.zone == .seasons && model.seasonIndex == i
+                let foc = Theme.lit(app.sources == nil && model.zone == .seasons && model.seasonIndex == i, overSeason == i)
                 Text(s.name.map { $0.hasPrefix("Season ") && Int($0.dropFirst(7)) != nil } == false ? s.name! : L("Season %1", s.number))
                     .font(Theme.display(25 * u * (tight ? 0.85 : 1), .semibold))
                     .lineLimit(1).fixedSize()
@@ -485,6 +487,7 @@ struct DetailsView: View {
                     .onContinuousHover { phase in
                         if case .active = phase, Input.hoverLive { if model.zone != .seasons { model.zone = .seasons }; if model.seasonIndex != i { model.seasonIndex = i } }
                     }
+                    .hover { inside in overSeason = inside ? i : overSeason == i ? nil : overSeason }
                     .onTapGesture { model.seasonIndex = i; Task { await model.loadSeason(s.number) } }
                     .id(i)
             }
@@ -617,12 +620,13 @@ struct GlassButton: View {
     @State private var box = CGRect.zero
     private var down: Bool { FingerDown.on(box) }
 
+    @State private var over = false
     /// a finger: the main button is the white one, the rest light while pressed (qml lit)
-    private var lit: Bool { Theme.touch ? primary || down : focused }
+    private var lit: Bool { Theme.touch ? primary || down : Theme.lit(focused, over) }
 
     var body: some View {
         let h = height ?? 76 * u
-        let lit = lit, lift = focused && !Theme.touch
+        let lit = lit, lift = lit && !Theme.touch
         HStack(spacing: 14 * u) {
             if icon == "tv.subtitles" {
                 SubtitlesGlyph().stroke(style: StrokeStyle(lineWidth: 2.2 * 34 * u / 24, lineCap: .round, lineJoin: .round))
@@ -657,6 +661,7 @@ struct GlassButton: View {
         .animation(.easeOut(duration: 0.12), value: down)
         .glassEffect(flat ? .identity : .regular.tint(.white.opacity(primary ? 0.2 : 0.12)), in: .capsule)
         .contentShape(.capsule)
+        .hover { over = $0 }
         .shadow(color: .black.opacity(lit ? 0.5 : 0), radius: 18 * u, y: 14 * u)
         .animation(.easeOut(duration: 0.16), value: lit)
         #if !os(macOS)

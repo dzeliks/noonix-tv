@@ -24,12 +24,14 @@ final class SettingsModel {
         var kind = ""
     }
 
-    static var sections: [(id: String, name: String)] { [("sources", L("Sources")), ("accounts", L("Accounts")), ("profiles", L("Profiles")),
-        ("audio", L("Audio")), ("subtitles", L("Subtitles")), ("playback", L("Playback")), ("controls", L("Controls")), ("about", L("About"))] }
+    static var sections: [(id: String, name: String)] { [("search", L("Search")), ("sources", L("Sources")), ("accounts", L("Accounts")), ("profiles", L("Profiles")),
+        ("audio", L("Audio")), ("subtitles", L("Subtitles")), ("playback", L("Playback")), ("controls", L("Controls")), ("system", L("System")), ("about", L("About"))] }
+    /// the first one is search: a visit opens on sources
+    static let first = 1
 
     /// the section the menu is on, and the one the page shows: the page follows once the menu
     /// rests, out and in (running down the menu doesn't rebuild it per step)
-    var section = 0 { didSet { if section != oldValue, !Input.pointing { swapLater() } } }   // under the mouse: on the click
+    var section = SettingsModel.first { didSet { if section != oldValue, !Input.pointing { swapLater() } } }   // under the mouse: on the click
     /// the languages' order as the section opened (the chosen ones first): a line doesn't jump away
     /// from the focus while it's ticked
     @ObservationIgnored private var langSnap: [String: [String]]?
@@ -37,7 +39,10 @@ final class SettingsModel {
         if langSnap == nil { langSnap = ["languages": p["languages"] as? [String] ?? [], "subtitles": p["subtitles"] as? [String] ?? []] }
         return langSnap!
     }
-    var shown = 0
+    var shown = SettingsModel.first
+    /// what search looks for; while its card is up the typed text filters live
+    var query = ""
+    var searching = false
     @ObservationIgnored private var swapTask: Task<Void, Never>?
     var inPage = false
     var index = 0
@@ -135,8 +140,56 @@ final class SettingsModel {
     }
 
     func lines(app: AppModel) -> [Line] {
+        let id = Self.sections[shown].id
+        return id == "search" ? searchLines(app: app) : lines(id, app: app)
+    }
+
+    /// any case, no accents needed
+    private static func fold(_ t: String) -> String {
+        t.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil).replacingOccurrences(of: "đ", with: "dj")
+    }
+
+    /// every section's lines whose words hold all the typed ones, under their section's name
+    func searchLines(app: AppModel) -> [Line] {
+        let q = (searching && app.entry.isOpen ? app.entry.text : query).trimmingCharacters(in: .whitespaces)
+        var out = [Line(label: q.isEmpty ? L("Search settings") : "“\(q)”", detail: L("Find a setting by its name or what it does"),
+                        value: q.isEmpty ? "›" : L("Change"), act: "search")]
+        guard !q.isEmpty else { return out }
+        let words = Self.fold(q).split(separator: " ").map(String.init)
+        var found = 0
+        for sec in Self.sections where sec.id != "search" {
+            let name = Self.fold(sec.name)
+            let hits = lines(sec.id, app: app).filter { l in
+                guard !l.header else { return false }
+                let hay = name + " " + Self.fold(l.label) + " " + Self.fold(l.detail) + " " + Self.fold(l.value)
+                return words.allSatisfy { hay.contains($0) }
+            }
+            guard !hits.isEmpty else { continue }
+            out.append(Line(label: sec.name, header: true))
+            out += hits
+            found += hits.count
+        }
+        if found == 0 { out.append(Line(label: L("Nothing matches"), detail: L("Try another word, or fewer of them"))) }
+        return out
+    }
+
+    func openSearch(app: AppModel) {
+        searching = true
+        app.entry.open(title: L("Search settings"), placeholder: L("A setting"), text: query, allowEmpty: true, after: { [weak self] v in
+            guard let self else { return }
+            query = v
+            searching = false
+            // the focus on the first thing found
+            let ls = lines(app: app)
+            index = ls.indices.dropFirst().first { !ls[$0].header && !ls[$0].act.isEmpty } ?? 0
+            inPage = true
+        })
+        app.entry.cancelled = { [weak self] in self?.searching = false }
+    }
+
+    func lines(_ id: String, app: AppModel) -> [Line] {
         var out: [Line] = []
-        switch Self.sections[shown].id {
+        switch id {
         case "sources":
             out = app.flow.lines + app.flow.torrentLines
             out.append(Line(label: L("Release patterns"), header: true))
@@ -223,25 +276,26 @@ final class SettingsModel {
                                 checkable: true, checked: r != nil, badge: r.map { String($0 + 1) } ?? "", act: "lang:subtitles:" + code))
             }
         case "playback":
-            // the language's own name, whichever one is on
-            out.append(Line(label: L("Language"), value: UILang.shared.code == "sr" ? "Srpski" : "English", act: "uilang"))
-            // ios: no login, no window and the screen follows the video by itself
             if !Platform.ios {
-                out.append(Line(label: L("Open at login"), detail: L("Starts Noonix TV when you sign in to this Mac"),
-                                checkable: true, checked: loginTick >= 0 && LoginItem.on, act: "login"))
-                out.append(Line(label: L("Show the title bar"), detail: L("A normal window with the title bar and its buttons"),
-                                checkable: true, checked: appSettings["title_bar"] as? Bool == true, act: "titlebar"))
                 out.append(Line(label: L("Match the screen's refresh rate"), detail: L("Switches the screen to 24 / 25 / 50 / 60 Hz for each video (never the resolution or HDR)"),
                                 checkable: true, checked: appSettings["refresh_match"] as? Bool == true, act: "refresh"))
             }
             out.append(Line(label: L("Find extra subtitles"), detail: L("From OpenSubtitles, for your subtitle languages the file doesn't have"),
                             checkable: true, checked: on("extra_subs"), act: "app:extra_subs"))
-            out.append(Line(label: L("Fast intro"), detail: L("Opens without the launch animation"),
-                            checkable: true, checked: appSettings["fast_intro"] as? Bool == true, act: "fastintro"))
             let hs = appSettings["hdr_screen"] as? String ?? "auto"
             let found = (screen["hdr"] as? Bool).map { $0 ? L("HDR") : L("no HDR") }
             out.append(Line(label: L("HDR on this screen"), detail: L("Picks the sources that suit it best. Set it yourself if the screen is guessed wrong"),
                             value: hs == "on" ? L("On") : hs == "off" ? L("Off") : found.map { L("Automatic (%1)", $0) } ?? L("Automatic"), act: "hdrscreen"))
+        case "system":
+            // the language's own name, whichever one is on
+            out.append(Line(label: L("Language"), value: UILang.shared.code == "sr" ? "Srpski" : "English", act: "uilang"))
+            // ios: no login item
+            if !Platform.ios {
+                out.append(Line(label: L("Open at login"), detail: L("Starts Noonix TV when you sign in to this Mac"),
+                                checkable: true, checked: loginTick >= 0 && LoginItem.on, act: "login"))
+            }
+            out.append(Line(label: L("Fast intro"), detail: L("Opens without the launch animation"),
+                            checkable: true, checked: appSettings["fast_intro"] as? Bool == true, act: "fastintro"))
         case "controls":
             // (qml Settings controls) each action's buttons and keys; ok on one waits for the new one
             let bd = Bindings.shared, all = bd.all
@@ -265,7 +319,7 @@ final class SettingsModel {
                 out.append(Line(label: L("Mouse"), detail: L("Point to move, click to select, right click goes back, the wheel scrolls")))
             }
             out.append(Line(label: L("Reset controls"), detail: L("The controller and keyboard as they came"), value: L("Reset"), act: "bind-reset"))
-        default:
+        case "about":
             // who made it, with the website a press away (qr for the phone)
             out.append(Line(label: "Noonix TV", value: version, act: "site", kind: "brand"))
             let u = update ?? [:]
@@ -288,12 +342,15 @@ final class SettingsModel {
             out.append(Line(label: L("Stremio addons"), detail: L("Noonix TV ships no sources: videos come from your library and the addons and extensions you add")))
             out.append(Line(label: "mpv · FFmpeg", detail: L("Video playback through MPVKit (LGPL)")))
             out.append(Line(label: L("Licenses"), detail: L("Every bundled library with its license and source: THIRD-PARTY.txt in the app's " + (Platform.ios ? "files" : "Resources"))))
+        default:
+            break
         }
         return out
     }
 
     func run(_ l: Line, app: AppModel) {
         let a = l.act
+        if a == "search" { openSearch(app: app); return }
         if app.flow.run(a, app: app) { return }
         if a.hasPrefix("patterns:") {
             let which = String(a.dropFirst(9))
@@ -448,11 +505,6 @@ final class SettingsModel {
                 appSettings["fast_intro"] = v
                 SplashModel.fast = v
                 _ = await json("settings.setApp", ["key": "fast_intro", "value": v])
-            } else if a == "titlebar" {
-                let v = appSettings["title_bar"] as? Bool != true
-                appSettings["title_bar"] = v
-                showTitleBar(v)
-                _ = await json("settings.setApp", ["key": "title_bar", "value": v])
             } else if a == "login" {
                 do {
                     try await LoginItem.toggle()
@@ -481,6 +533,8 @@ final class SettingsModel {
             case .right, .ok:
                 swapTask?.cancel()
                 showNow()
+                // search: straight to typing
+                if k == .ok, Self.sections[section].id == "search" { openSearch(app: app); return true }
                 if let i = lines(app: app).firstIndex(where: { !$0.header }) { index = i; inPage = true }
             case .back: return false
             default: break
@@ -529,7 +583,7 @@ struct SettingsPage: View {
                                 .onContinuousHover { phase in
                                     if case .active = phase, Input.hoverLive { if app.navFocused { app.navFocused = false }; if m.inPage { m.inPage = false }; if m.section != i { m.section = i } }
                                 }
-                                .onTapGesture { m.section = i; m.showNow() }
+                                .onTapGesture { m.section = i; m.showNow(); if s.id == "search" { m.openSearch(app: app) } }
                                 .id(i)
                         }
                     }
@@ -593,7 +647,7 @@ struct SettingsPage: View {
             }
         }
         // the next visit starts at the top, like a fresh page
-        .onDisappear { m.section = 0; m.showNow(); m.inPage = false }
+        .onDisappear { m.section = SettingsModel.first; m.showNow(); m.inPage = false; m.query = "" }
     }
 }
 
@@ -617,8 +671,9 @@ struct BrandRow: View {
     /// a finger down on it (reset when a scroll takes the touch)
     @State private var box = CGRect.zero
     private var down: Bool { FingerDown.on(box) }
-    /// a finger sees no focus, only the press (qml foc)
-    private var lit: Bool { Theme.touch ? down : focused }
+    @State private var over = false
+    /// a finger sees no focus, only the press (qml foc); the mouse only while it's on it
+    private var lit: Bool { Theme.touch ? down : Theme.lit(focused, over) }
     let u: CGFloat
 
     /// "Created by **aleksa.sh**", the name bold wherever the language puts it
@@ -650,6 +705,7 @@ struct BrandRow: View {
         .scaleEffect(lit ? 1.02 : 1)
         .animation(Theme.lift, value: lit)
         .contentShape(.rect)
+        .hover { over = $0 }
         #if !os(macOS)
         .pressBox($box)
         #endif
@@ -663,8 +719,9 @@ struct SettingsRow: View {
     /// a finger down on it (reset when a scroll takes the touch)
     @State private var box = CGRect.zero
     private var down: Bool { FingerDown.on(box) }
-    /// a finger sees no focus, only the press (qml foc)
-    private var lit: Bool { Theme.touch ? down : focused }
+    @State private var over = false
+    /// a finger sees no focus, only the press (qml foc); the mouse only while it's on it
+    private var lit: Bool { Theme.touch ? down : Theme.lit(focused, over) }
     let u: CGFloat
     /// the focus lift; 1 inside tight panels (the setup list)
     var grow: CGFloat = 1.02
@@ -728,6 +785,7 @@ struct SettingsRow: View {
         .scaleEffect(lit ? grow : 1)
         .animation(Theme.lift, value: lit)
         .contentShape(.rect)
+        .hover { over = $0 }
         #if !os(macOS)
         .pressBox($box)
         #endif

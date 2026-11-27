@@ -19,6 +19,8 @@ final class KeyEntryModel {
     @ObservationIgnored private var check: ((String) async -> (Bool, String))?
     /// what to do with the value once it's in (the next card, a refresh)
     @ObservationIgnored private var after: ((String) -> Void)?
+    /// back or a click beside the card (set after open)
+    @ObservationIgnored var cancelled: (() -> Void)?
 
     init() {
         kb.enterLabel = L("done")
@@ -44,6 +46,7 @@ final class KeyEntryModel {
         self.title = title; self.hint = hint; self.placeholder = placeholder; self.secret = secret
         self.check = check; self.after = after; self.allowEmpty = allowEmpty
         self.text = text; status = ""; busy = false; ok = false
+        cancelled = nil
         kb.shift = false
         isOpen = true
     }
@@ -51,6 +54,9 @@ final class KeyEntryModel {
     func cancel() {
         isOpen = false
         after = nil
+        let c = cancelled
+        cancelled = nil
+        c?()
     }
 
     func submit() {

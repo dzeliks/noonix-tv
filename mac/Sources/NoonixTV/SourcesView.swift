@@ -428,8 +428,9 @@ struct SourceRow: View {
     /// a finger down on it (reset when a scroll takes the touch)
     @State private var box = CGRect.zero
     private var down: Bool { FingerDown.on(box) }
-    /// a finger sees no focus, only the press (qml foc)
-    private var lit: Bool { Theme.touch ? down : focused }
+    @State private var over = false
+    /// a finger sees no focus, only the press (qml foc); the mouse only while it's on it
+    private var lit: Bool { Theme.touch ? down : Theme.lit(focused, over) }
     let u: CGFloat
 
     var body: some View {
@@ -482,6 +483,8 @@ struct SourceRow: View {
         .background { RoundedRectangle(cornerRadius: 28 * u).fill(lit ? Color.white : .clear) }   // + 28 = the panel's 56
         .scaleEffect(lit ? 1.02 : 1)
         .animation(Theme.lift, value: lit)
+        .contentShape(.rect)
+        .hover { over = $0 }
         .padding(.horizontal, 28 * u)
         #if !os(macOS)
         .pressBox($box)

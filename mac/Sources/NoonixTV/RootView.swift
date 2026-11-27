@@ -246,7 +246,7 @@ struct TopNav: View {
             HStack {
                 if let p = app.currentProfile {
                     // left of the tabs: ok there asks who's watching
-                    let on = app.navFocused && app.navIndex < 0 && !Theme.touch
+                    let on = app.navIndex < 0 && !Theme.touch && Theme.lit(app.navFocused, hover == -1)
                     Avatar(colour: p.color, letter: String(p.name.prefix(1)).uppercased(), size: 64 * u, image: p.avatar)
                         .overlay { Circle().stroke(.white, lineWidth: 4 * u).padding(-7 * u).opacity(on ? 1 : 0) }
                         .scaleEffect(on ? 1.16 : hover == -1 && Input.pointing ? 1.08 : 1)
@@ -282,7 +282,8 @@ struct TopNav: View {
 
     private func pill(_ u: CGFloat) -> some View {
         // white capsule for the remote's focus; a finger just sees where it is
-        let focus = app.navFocused && !Theme.touch
+        // the mouse: white only while it's on a tab
+        let focus = !Theme.touch && Theme.lit(app.navFocused, hover != nil && hover != -1)
         // on the avatar no tab is on and the capsule fades out where it was
         let sel = app.navIndex < 0 ? (Page.allCases.firstIndex(of: app.page) ?? 1) : app.navIndex
         let spot = tabs[sel] ?? .zero

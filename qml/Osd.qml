@@ -74,13 +74,15 @@ FocusScope {
         required property string key
         glass: true
         pointerFocus: false
-        onPointed: { osd.zone = "row"; osd.rowIndex = osd.buttons.indexOf(rb.key); osd.show() }
+        onPointed: { osd.zone = "row"; osd.rowIndex = osd.buttons.indexOf(rb.key); osd.show(osd.mouseSecs) }
         onClicked: osd.act(rb.key)
         focused: osd.zone === "row" && osd.buttons[osd.rowIndex] === key
         height: 76 * osd.u
         iconSize: 34 * osd.u
     }
 
+    // the mouse resting brings them down sooner than a key does
+    readonly property int mouseSecs: 3
     // the controls always come up on play / pause; seeking keeps the bar
     function show(secs, z) {
         if (!shown) {
@@ -285,7 +287,7 @@ FocusScope {
         hoverEnabled: true
         acceptedButtons: Qt.NoButton
         cursorShape: osd.chromeShown ? Qt.ArrowCursor : Qt.BlankCursor
-        onPositionChanged: if (Input.pointerLive()) osd.show()
+        onPositionChanged: if (Input.pointerLive()) osd.show(osd.mouseSecs)
         // a handler: mouse areas skip presses qt tags as a touchpad's
         TapHandler {
             acceptedButtons: Qt.LeftButton
@@ -415,12 +417,12 @@ FocusScope {
             font { family: Theme.display; pixelSize: 30 * osd.u; weight: Font.DemiBold }
         }
 
-        // seek bar at H-214
+        // seek bar at H-224, the times at H-180: air between them and the buttons
         Item {
             id: bar
             x: Theme.margin
             width: parent.width - 2 * Theme.margin
-            y: parent.height - 214 * osd.u
+            y: parent.height - 224 * osd.u
             height: 8 * osd.u
             readonly property real frac: osd.dur > 0 ? Math.min(1, osd.pos / osd.dur) : 0
             readonly property bool foc: Theme.pointing ? Theme.hover(barMa) || barMa.pressed : osd.zone === "bar"
@@ -506,7 +508,7 @@ FocusScope {
         }
         Text {
             x: Theme.margin
-            y: parent.height - 170 * osd.u
+            y: parent.height - 180 * osd.u
             opacity: osd.pickerOpen ? 0 : 1
             Behavior on opacity { NumberAnimation { duration: 160 } }
             text: Theme.time(osd.pos)
@@ -515,7 +517,7 @@ FocusScope {
         }
         Text {
             anchors { right: parent.right; rightMargin: Theme.margin }
-            y: parent.height - 170 * osd.u
+            y: parent.height - 180 * osd.u
             text: "-" + Theme.time(osd.dur - osd.pos)
             color: Theme.fg2
             font { family: Theme.text; pixelSize: 25 * osd.u; weight: Font.Medium; features: { "tnum": 1 } }
@@ -582,7 +584,7 @@ FocusScope {
                         Pointer {
                             id: tp
                             okKey: false
-                            onPointed: { osd.zone = "row"; osd.rowIndex = osd.buttons.indexOf(modelData); osd.show() }
+                            onPointed: { osd.zone = "row"; osd.rowIndex = osd.buttons.indexOf(modelData); osd.show(osd.mouseSecs) }
                             onTapped: osd.act(modelData)
                         }
                     }
@@ -635,7 +637,7 @@ FocusScope {
             Pointer {
                 id: volPt
                 okKey: false
-                onPointed: { osd.zone = "row"; osd.rowIndex = osd.buttons.indexOf("vol"); osd.show() }
+                onPointed: { osd.zone = "row"; osd.rowIndex = osd.buttons.indexOf("vol"); osd.show(osd.mouseSecs) }
                 onTapped: osd.act("vol")
             }
         }
@@ -663,7 +665,7 @@ FocusScope {
                 cursorShape: Qt.PointingHandCursor
                 function set(x) { Player.setVolume(Math.round(Math.max(0, Math.min(1, (x - 2 * osd.u) / track.width)) * 100)); osd.show() }
                 onPressed: function (m) { set(m.x) }
-                onPositionChanged: function (m) { if (pressed) set(m.x); else if (Input.pointerLive()) osd.show() }
+                onPositionChanged: function (m) { if (pressed) set(m.x); else if (Input.pointerLive()) osd.show(osd.mouseSecs) }
             }
         }
         WheelHandler {

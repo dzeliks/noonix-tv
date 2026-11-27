@@ -27,6 +27,9 @@ enum Theme {
     /// a mouse is in use (qml Theme.mouse): the pointer's own controls show (back top left, volume,
     /// full screen). a key ends it
     @MainActor static var mouse: Bool { !Platform.ios && PointerMode.shared.on }
+    /// the focus look under the mouse (qml Theme.lit): only while the mouse is on it (the focus stays
+    /// where it left, unlit), keys always
+    @MainActor static func lit(_ focused: Bool, _ over: Bool) -> Bool { focused && (!mouse || over) }
     /// the words for the remote, or for a finger (qml Theme.say)
     @MainActor static func say(_ remote: String, _ tap: String) -> String { touch ? tap : remote }
     static func margin(_ u: CGFloat) -> CGFloat { max(96 * u, safeSide + 20 * u) }

@@ -136,7 +136,9 @@ final class CardMenu {
                 yes: { Task { if await send().value { app.toast(L("Watch progress cleared")) } } })
             return
         }
-        if let id = row?.row.id, ["upnext", "continue", "continue-movie", "recent"].contains(id) {
+        // the library's history counts the tile down too
+        let history = row == nil && app.page == .library && app.detailStack.isEmpty && app.library.counts
+        if history || (row.map { ["upnext", "continue", "continue-movie", "recent"].contains($0.row.id) } ?? false) {
             app.dismiss(item, clear: t)
             return
         }
@@ -147,6 +149,8 @@ final class CardMenu {
 struct CardMenuView: View {
     @Environment(AppModel.self) private var app
     let model: CardMenu
+    /// the row under the mouse: only that one is lit for it
+    @State private var overAt: Int?
 
     var body: some View {
         let u = app.u
@@ -167,7 +171,7 @@ struct CardMenuView: View {
                     .padding(.horizontal, 30 * u)
                     .frame(height: 64 * u)
                 ForEach(Array(opts.enumerated()), id: \.offset) { i, o in
-                    let foc = model.index == i
+                    let foc = Theme.lit(model.index == i, overAt == i)
                     Text(o.0)
                         .font(Theme.text(27 * u, .medium))
                         .foregroundStyle(foc ? Theme.focusFg : Theme.fg)
@@ -177,6 +181,7 @@ struct CardMenuView: View {
                         .background { RoundedRectangle(cornerRadius: 24 * u).fill(foc ? Color.white : .clear) }
                         .contentShape(.rect)
                         .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.index != i { model.index = i } } }
+                        .hover { inside in overAt = inside ? i : overAt == i ? nil : overAt }
                         .onTapGesture { model.run(o.1, app: app) }
                 }
             }

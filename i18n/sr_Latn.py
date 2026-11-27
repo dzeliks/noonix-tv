@@ -5,6 +5,16 @@ import sys
 import xml.etree.ElementTree as ET
 
 T = {
+    # ---- 1.0.0: settings search, system section
+    "Search": "Pretraga",
+    "System": "Sistem",
+    "Search settings": "Pretraži podešavanja",
+    "Find a setting by its name or what it does": "Nađi podešavanje po imenu ili po tome šta radi",
+    "Nothing matches": "Ništa se ne poklapa",
+    "Try another word, or fewer of them": "Probaj drugu reč ili manje reči",
+    "A setting": "Podešavanje",
+    "Open in a window": "Otvori u prozoru",
+    "A normal window with its title bar and buttons. Off: full screen": "Običan prozor sa naslovnom trakom i dugmićima. Isključeno: ceo ekran",
     # ---- 0.7.1: which screen
     "Screen": "Ekran",
     "Which screen Noonix TV opens on": "Na kom ekranu se Noonix TV otvara",

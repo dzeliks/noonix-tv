@@ -208,8 +208,10 @@ struct KeyCapView: View {
     let pop: Int
     let u: CGFloat
     @State private var squash: CGFloat = 1
+    @State private var over = false
 
     var body: some View {
+        let focused = Theme.lit(self.focused, over)
         let ink = focused ? Color(red: 0x1C / 255, green: 0x1C / 255, blue: 0x1E / 255) : .white
         ZStack {
             RoundedRectangle(cornerRadius: radius)
@@ -223,6 +225,7 @@ struct KeyCapView: View {
         }
         .scaleEffect(squash)
         .scaleEffect(focused ? 1.14 : 1)
+        .hover { over = $0 }
         .animation(Theme.lift, value: focused)
         .animation(.easeOut(duration: 0.16), value: lit)
         .onChange(of: pop) {

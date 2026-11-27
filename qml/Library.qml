@@ -132,6 +132,8 @@ FocusScope {
                 x: 20 * library.u; y: 20 * library.u
                 media: modelData
                 style: library.history ? "landscape" : "poster"
+                // clearing a title's progress here counts it down like the rows do
+                undoable: library.history
                 focused: parent.GridView.isCurrentItem && (grid.activeFocus || library.menuItem === modelData)
             }
         }
@@ -139,8 +141,13 @@ FocusScope {
             if (currentIndex < Math.floor(width / cellWidth)) (library.history ? historyTab : library.files ? filesTab : watchlist).forceActiveFocus()
             else moveCurrentIndexUp()
         }
-        Keys.onReturnPressed: if (currentIndex >= 0) library.open(library.items[currentIndex])
-        Keys.onEnterPressed: if (currentIndex >= 0) library.open(library.items[currentIndex])
+        // ok on one counting down keeps it
+        function activate() {
+            var it = library.items[currentIndex]
+            if (library.history && win.removalOf(it)) win.undoRemoval(it); else library.open(it)
+        }
+        Keys.onReturnPressed: if (currentIndex >= 0) activate()
+        Keys.onEnterPressed: if (currentIndex >= 0) activate()
         Keys.onMenuPressed: function (event) {
             if (!currentItem || library.files) { event.accepted = false; return }
             var w = library.history ? 400 * library.u : 214 * library.u

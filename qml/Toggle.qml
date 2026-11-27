@@ -24,7 +24,7 @@ Item {
     // a long detail opens up while the row has the focus. never on the way in: a new row only
     // gets its width after it exists, and would grow into place
     property bool settled: false
-    Component.onCompleted: Qt.callLater(function () { t.settled = true })
+    Component.onCompleted: Qt.callLater(function () { if (t) t.settled = true })
     Behavior on height { enabled: t.settled; NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
     Rectangle {

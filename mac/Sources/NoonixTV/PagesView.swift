@@ -176,12 +176,13 @@ struct PosterGrid: View {
         ZStack(alignment: .topLeading) {
             ForEach(first..<last, id: \.self) { i in
                 let it = model.items[i]
-                Card(media: it, style: style, focused: active && model.index == i, u: u, posterW: posterW)
+                Card(media: it, style: style, focused: active && model.index == i, u: u, posterW: posterW,
+                     removal: model.counts && model === app.library ? app.removal(it) : nil)
                     .contentShape(.rect)
                     .onContinuousHover { phase in
                         if case .active = phase, Input.hoverLive { if app.navFocused { app.navFocused = false }; if model.head { model.head = false }; if model.index != i { model.index = i }; if app.page == .search, app.search.zone != "grid" { app.search.zone = "grid" } }
                     }
-                    .onTapGesture { model.index = i; app.open(it) }
+                    .onTapGesture { model.index = i; model.activate(i, app: app) }
                     #if os(iOS)
                     .onLongPressGesture(minimumDuration: 0.45) {
                         app.navFocused = false; model.head = false; model.index = i
@@ -507,7 +508,10 @@ private struct SearchChip: View {
     let u: CGFloat
     let height: CGFloat
 
+    @State private var over = false
+
     var body: some View {
+        let focused = Theme.lit(self.focused, over)
         Text(text).font(Theme.display(24 * u, .medium)).foregroundStyle(focused ? Theme.focusFg : .white).lineLimit(1)
             .padding(.horizontal, 24 * u)
             .frame(height: height)
@@ -519,6 +523,7 @@ private struct SearchChip: View {
             .animation(Theme.lift, value: focused)
             .padding(.vertical, 8 * u)
             .contentShape(.capsule)
+            .hover { over = $0 }
     }
 }
 
@@ -539,7 +544,10 @@ private struct SuggestionChip: View {
     let focused: Bool
     let u: CGFloat
 
+    @State private var over = false
+
     var body: some View {
+        let focused = Theme.lit(self.focused, over)
         Text(text).font(Theme.display(25 * u, .medium)).foregroundStyle(focused ? Theme.focusFg : .white)
             .lineLimit(1)
             .padding(.horizontal, 22 * u)
@@ -552,5 +560,6 @@ private struct SuggestionChip: View {
             .scaleEffect(focused ? 1.04 : 1)
             .animation(Theme.lift, value: focused)
             .contentShape(.rect)
+            .hover { over = $0 }
     }
 }

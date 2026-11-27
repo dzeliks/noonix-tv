@@ -24,9 +24,9 @@ FocusScope {
     Component.onCompleted: sync()
 
     // left of the tabs is the avatar (-1): ok there asks who's watching
-    readonly property bool onAvatar: index < 0 && activeFocus
-    // white capsule for the remote's focus; a finger just sees where it is
-    readonly property bool lit: activeFocus && !Theme.touch
+    readonly property bool onAvatar: index < 0 && Theme.lit(activeFocus, avatarPt)
+    // white capsule for the remote's focus (the mouse: only while it's on a tab); a finger just sees where it is
+    readonly property bool lit: activeFocus && !Theme.touch && (!Theme.pointing || tabsHover.hovered)
     Keys.onLeftPressed: if (index > 0) { index--; chosen(tabs[index].id) } else if (profile) index = -1
     Keys.onRightPressed: if (index < tabs.length - 1) { index++; chosen(tabs[index].id) }
     // ok on a tab goes into its page, like down
@@ -98,7 +98,10 @@ FocusScope {
             Behavior on width { enabled: capsule.placed; SpringAnimation { spring: 4.2; damping: 0.45; epsilon: 0.25 } }
             Behavior on color { ColorAnimation { duration: 160 } }
         }
-        Tabs { id: tabRow; x: 7 * nav.u }
+        Tabs {
+            id: tabRow; x: 7 * nav.u
+            HoverHandler { id: tabsHover }
+        }
         // a black copy of the tabs seen only through the capsule, so letters ink as it passes
         Item {
             x: capsule.x; y: capsule.y

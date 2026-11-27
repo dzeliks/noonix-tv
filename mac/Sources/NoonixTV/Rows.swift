@@ -182,6 +182,9 @@ struct CardStrip: View {
     @State private var side = PageScroll()
     /// the pointer is over the row: its page arrows show (mouse only, gone with the first key)
     @State private var over = false
+    /// a page arrow's way: every card between the two pages stays built while it slides (only the new
+    /// page's cards appearing in place read as cards sliding over each other)
+    @State private var trail: Range<Int>?
     private var pointer: PointerMode { .shared }
 
     private var lastFirst: Int {
@@ -194,6 +197,17 @@ struct CardStrip: View {
 
     /// whole cards in view: what a page arrow moves
     private var page: Int { max(1, Int(((width - margin - cardW) / step).rounded(.down)) + 1) }
+    private var visible: Int { Int((width / step).rounded(.up)) + 1 }
+
+    /// a page arrow: the cards on the way are built off screen first, then the row slides
+    private func jump(_ from: Int, _ to: Int) {
+        trail = max(0, min(from, to) - 3)..<min(items.count, max(from, to) + visible + 3)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.03) {
+            held = to
+            point(min(items.count - 1, to + restSlot))
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { trail = nil }
+        }
+    }
 
     /// the pointer's way along the row: a page at a time, the focus on the new page's rest slot (where
     /// the keys would have it, so they go on from there without a jump)
@@ -202,20 +216,12 @@ struct CardStrip: View {
         let show = over && Theme.mouse
         ZStack(alignment: .topLeading) {
             if show && first > 0 {
-                RoundButton(icon: "chevron.left", u: u) {
-                    let f = max(0, first - page)
-                    held = f
-                    point(min(items.count - 1, f + restSlot))
-                }
+                RoundButton(icon: "chevron.left", u: u) { jump(first, max(0, first - page)) }
                 .offset(x: (margin - size) / 2, y: y)
                 .transition(.opacity)
             }
             if show && first < lastFirst {
-                RoundButton(icon: "chevron.right", u: u) {
-                    let f = min(lastFirst, first + page)
-                    held = f
-                    point(min(items.count - 1, f + restSlot))
-                }
+                RoundButton(icon: "chevron.right", u: u) { jump(first, min(lastFirst, first + page)) }
                 .offset(x: width - margin / 2 - size / 2, y: y)
                 .transition(.opacity)
             }
@@ -227,8 +233,8 @@ struct CardStrip: View {
         let keyed = held.map { min($0, lastFirst) } ?? firstShown(index)
         let first = side.y.map { Int(($0 / step).rounded()) } ?? keyed
         let px = side.y ?? CGFloat(first) * step
-        let visible = Int((width / step).rounded(.up)) + 1
-        let range = max(0, first - 3)..<min(items.count, first + visible + 3)
+        let base = max(0, first - 3)..<min(items.count, first + visible + 3)
+        let range = trail.map { min($0.lowerBound, base.lowerBound)..<min(items.count, max($0.upperBound, base.upperBound)) } ?? base
         ZStack(alignment: .topLeading) {
             ForEach(range.map { ($0, items[$0]) }, id: \.1.id) { i, it in
                 let l = labels?(it)
@@ -254,7 +260,8 @@ struct CardStrip: View {
                     .onLongPressGesture(minimumDuration: 0.45) { point(i); _ = AppModel.current?.key(.menu) }
                     #endif
                     .opacity(i < first ? 0 : 1)
-                    .animation(.easeInOut(duration: 0.22), value: first)
+                    // a page arrow's slide: the cards leaving fade with it, not before it
+                    .animation(trail == nil ? .easeInOut(duration: 0.22) : .easeIn(duration: 0.55), value: first)
                     .zIndex(focused && i == index ? 1 : 0)
                     .geometryGroup()
                     .offset(x: margin + CGFloat(i) * step - px)

@@ -537,7 +537,8 @@ Window {
         setRemovals(r)
         armRemovals()
     }
-    // in a personal row the tile counts down like a removal; anywhere else a toast holds the undo
+    // in a personal row or the library's history the tile counts down like a removal; anywhere else a
+    // toast holds the undo
     function clearProgress() {
         var it = menuItem, t = libraryTarget(it)
         menuPopup.visible = false
@@ -557,7 +558,7 @@ Window {
             })
             return
         }
-        if (["upnext", "continue", "continue-movie", "recent"].indexOf(menuRow) >= 0) {
+        if (["upnext", "continue", "continue-movie", "recent"].indexOf(menuRow) >= 0 || (menuRow === "library" && libraryL.item && libraryL.item.history)) {
             var r = removals, k = itemKey(it)
             if (r[k]) return
             r[k] = { item: it, profile: profile.id, total: removeMs, until: Date.now() + removeMs, done: false, clear: t }
@@ -614,7 +615,7 @@ Window {
         onTriggered: {
             var r = win.removals, any = false
             for (var k in r) if (r[k].done) { delete r[k]; any = true }
-            if (any) { win.setRemovals(r); win.refreshRows() }
+            if (any) { win.setRemovals(r); win.refreshLists() }
         }
     }
 
@@ -1040,7 +1041,8 @@ Window {
         }
         // the page behind, frosted
         Glass { anchors.fill: parent; kind: "panel"; radius: 0; refraction: 0; dim: Theme.veil }
-        Shield {}
+        // a click in the empty space beside the profiles goes back
+        Shield { onOutside: win.back() }
         Text {
             anchors { horizontalCenter: parent.horizontalCenter; bottom: profList.top; bottomMargin: (Theme.short ? 72 : 96) * win.u }
             text: qsTr("Who's watching?")

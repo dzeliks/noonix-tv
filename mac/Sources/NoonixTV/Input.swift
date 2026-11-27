@@ -97,8 +97,10 @@ final class PageScroll {
             goal = max(0, min(end, (y ?? start) - delta))
             y = goal
         } else {
-            // the system speeds a quick wheel up on its own; a spring keeps its speed on a new goal
-            goal = max(0, min(end, goal - delta * 200 * u))
+            // a mouse wheel's lines come sped up by the system already (a quick spin sends 5-10 a
+            // notch): squeezed to at most 3 notches, 140 a notch. a spring keeps its speed on a new goal
+            let notches = min(3, abs(delta).squareRoot()) * (delta < 0 ? -1 : 1)
+            goal = max(0, min(end, goal - notches * 140 * u))
             withAnimation(.smooth(duration: 0.28)) { y = goal }
         }
     }

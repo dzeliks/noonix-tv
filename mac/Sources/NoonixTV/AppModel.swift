@@ -364,7 +364,8 @@ final class AppModel {
         if let a = st {
             autoLogin = a["auto_login"] as? Bool == true
             matchTipOff = a["match_tip_off"] as? Bool == true
-            showTitleBar(a["title_bar"] as? Bool == true)
+            // the mac's window always has its title bar (user): the old setting is ignored
+            showTitleBar(!Platform.ios)
             SplashModel.fast = a["fast_intro"] as? Bool == true
         }
         await loadProfiles()
@@ -620,7 +621,7 @@ final class AppModel {
                 toast(L("Couldn't remove it"))
             }
             try? await Task.sleep(for: .seconds(0.6))
-            refreshRows()
+            refreshLists()
         }
     }
 
@@ -1026,6 +1027,14 @@ final class GridModel {
         loading = false
     }
 
+    /// the history counts a cleared title down like the rows do (ok or a click keeps it)
+    var counts: Bool { section == "history" }
+    @MainActor func activate(_ i: Int, app: AppModel) {
+        guard let it = items[safe: i] else { return }
+        if counts, app.undoRemoval(it) { return }
+        app.open(it)
+    }
+
     /// gone from the watchlist before the answer. history keeps what was watched
     func removeLocal(_ it: Item) {
         guard section == "watchlist" else { return }
@@ -1053,7 +1062,7 @@ final class GridModel {
         case .down: index = min(max(0, items.count - 1), index + columns)
         case .left: index = max(0, index - 1)
         case .right: index = min(max(0, items.count - 1), index + 1)
-        case .ok: if items.indices.contains(index) { app.open(items[index]) }
+        case .ok: activate(index, app: app)
         case .menu: if items.indices.contains(index) { app.menu = CardMenu(item: items[index], row: nil, at: app.focusedArt) }
         case .back: return false
         default: break

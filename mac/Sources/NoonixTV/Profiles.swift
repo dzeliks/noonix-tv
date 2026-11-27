@@ -52,6 +52,8 @@ struct ProfilePicker: View {
     let model: PickerModel
     /// the profile a finger is down on
     @GestureState private var downAt: Int?
+    /// the profile under the mouse: only that one is lit for it
+    @State private var overAt: Int?
 
     var body: some View {
         let u = app.u
@@ -59,13 +61,14 @@ struct ProfilePicker: View {
         let editing = app.profileEdit != nil
         ZStack {
             Rectangle().fill(.ultraThinMaterial)
-            Color.black.opacity(0.74)
+            // a click in the empty space beside the profiles goes back
+            Color.black.opacity(0.74).contentShape(.rect).onTapGesture { if !editing { app.closePicker() } }
             // the line of profiles sits in the middle, the title above it, the switch below
             HStack(alignment: .top, spacing: 60 * u) {
                 ForEach(0...list.count, id: \.self) { i in
                     let p = list[safe: i]
                     // a finger sees no focus, only the press
-                    let foc = Theme.touch ? downAt == i : model.index == i && !model.onAuto && !editing
+                    let foc = Theme.touch ? downAt == i : Theme.lit(model.index == i && !model.onAuto && !editing, overAt == i)
                     VStack(spacing: 24 * u) {
                         ZStack {
                             if let p {
@@ -95,6 +98,7 @@ struct ProfilePicker: View {
                     .frame(width: 240 * u)
                     .contentShape(.rect)
                     .onContinuousHover { phase in if case .active = phase, Input.hoverLive, !editing { if model.onAuto { model.onAuto = false }; if model.index != i { model.index = i } } }
+                    .hover { inside in overAt = inside ? i : overAt == i ? nil : overAt }
                     .onTapGesture { model.activate(i, app: app) }
                     #if os(iOS)
                     .simultaneousGesture(DragGesture(minimumDistance: 0).updating($downAt) { _, d, _ in d = i })
@@ -204,6 +208,11 @@ final class ProfileEditModel {
         }
     }
 
+    /// a click beside the card keeps what's typed (back still cancels)
+    func outside() {
+        if name.trimmingCharacters(in: .whitespaces).isEmpty { cancel() } else { create() }
+    }
+
     func key(_ k: Key) -> Bool {
         if k == .back { cancel(); return true }
         if onLooks {
@@ -303,7 +312,7 @@ struct ProfileEditView: View {
         .onAppear { if touch { open += 1 } }
         // in the middle of the app, over whatever asked for it; nothing behind it takes the mouse
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background { Color.black.opacity(0.001).contentShape(.rect).onTapGesture { model.cancel() } }
+        .background { Color.black.opacity(0.001).contentShape(.rect).onTapGesture { model.outside() } }
     }
 }
 

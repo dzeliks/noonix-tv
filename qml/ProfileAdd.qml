@@ -96,7 +96,8 @@ FocusScope {
     Keys.onEscapePressed: cancel()
     function add(t) { if (name.length < 20) name += t }
 
-    Shield { onOutside: pa.cancel() }
+    // a click beside the card keeps what's typed (back still cancels)
+    Shield { onOutside: pa.name.trim() ? pa.create() : pa.cancel() }
     Glass {
         id: card
         anchors.centerIn: parent

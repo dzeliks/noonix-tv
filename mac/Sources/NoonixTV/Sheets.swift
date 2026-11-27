@@ -102,6 +102,8 @@ struct ChoicesView: View {
     @Environment(AppModel.self) private var app
     let model: ChoicesModel
     @State private var shown = false
+    /// the one under the mouse: only that one is lit for it
+    @State private var overAt: Int?
 
     var body: some View {
         let u = app.u
@@ -117,7 +119,7 @@ struct ChoicesView: View {
                         .padding(.bottom, 18 * u)
                 }
                 ForEach(Array(model.options.enumerated()), id: \.offset) { i, o in
-                    let foc = model.index == i
+                    let foc = Theme.lit(model.index == i, overAt == i)
                     HStack {
                         Text(o.label).font(Theme.display(29 * u, .semibold))
                         Spacer()
@@ -132,6 +134,7 @@ struct ChoicesView: View {
                     .background { RoundedRectangle(cornerRadius: 32 * u).fill(foc ? Color.white : .clear) }
                     .contentShape(.rect)
                     .onContinuousHover { phase in if case .active = phase, Input.hoverLive { if model.index != i { model.index = i } } }
+                    .hover { inside in overAt = inside ? i : overAt == i ? nil : overAt }
                     .onTapGesture { model.choose(i, app: app) }
                 }
             }
@@ -207,6 +210,8 @@ struct BindSheetView: View {
     @Environment(AppModel.self) private var app
     let model: BindSheetModel
     @State private var shown = false
+    /// the one under the mouse: only that one is lit for it
+    @State private var overAt: Int?
 
     var body: some View {
         let u = app.u
@@ -243,7 +248,7 @@ struct BindSheetView: View {
     }
 
     private func cell(_ i: Int, u: CGFloat) -> some View {
-        let foc = model.zone == 0 && model.slot == i
+        let foc = Theme.lit(model.zone == 0 && model.slot == i, overAt == i)
         let wait = model.waiting == i
         let name = model.bound[safe: i].map(model.name)
         return VStack(spacing: 6 * u) {
@@ -262,6 +267,7 @@ struct BindSheetView: View {
         .onContinuousHover { phase in
             if case .active = phase, Input.hoverLive, model.waiting < 0 { if model.zone != 0 { model.zone = 0 }; if model.slot != i { model.slot = i } }
         }
+        .hover { inside in overAt = inside ? i : overAt == i ? nil : overAt }
         .onTapGesture { model.listen(i) }
     }
 }

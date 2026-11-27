@@ -28,7 +28,8 @@ struct NoonixApp: App {
                 .frame(minWidth: 960, minHeight: 540)
                 .task { await app.start() }
         }
-        .windowStyle(.hiddenTitleBar)
+        // always a normal window with its title bar (user)
+        .windowStyle(.titleBar)
         .defaultSize(width: 1440, height: 900)
         #else
         WindowGroup {
@@ -56,7 +57,11 @@ struct NoonixApp: App {
 @MainActor @Observable
 final class WindowState {
     static let shared = WindowState()
+    #if os(macOS)
+    var titleBar = true
+    #else
     var titleBar = false
+    #endif
     var fullScreen = false
     /// the window's own buttons (close, minimise, zoom) over the page's top left corner
     var lights: Bool {
@@ -103,9 +108,12 @@ func showTitleBar(_ on: Bool) {
     #if os(macOS)
     WindowState.shared.watch()
     for w in NSApp.windows where w.styleMask.contains(.titled) {
+        // the restored frame stays as it was (the bar coming back grew the window by its height each start)
+        let frame = w.frame
         w.titleVisibility = on ? .visible : .hidden
         w.titlebarAppearsTransparent = !on
         if on { w.styleMask.remove(.fullSizeContentView) } else { w.styleMask.insert(.fullSizeContentView) }
+        if w.frame != frame, !w.styleMask.contains(.fullScreen) { w.setFrame(frame, display: true) }
     }
     #endif
 }

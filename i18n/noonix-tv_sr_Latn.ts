@@ -1711,14 +1711,6 @@ Ono što ne valja sređuje se automatski.</translation>
         <translation>Pokreće Noonix TV kad se prijaviš na računar</translation>
     </message>
     <message>
-        <source>Show the title bar</source>
-        <translation>Prikaži naslovnu traku</translation>
-    </message>
-    <message>
-        <source>A normal window with the title bar and its buttons</source>
-        <translation>Običan prozor sa naslovnom trakom i njenim dugmićima</translation>
-    </message>
-    <message>
         <source>Screen</source>
         <translation>Ekran</translation>
     </message>
@@ -1795,8 +1787,44 @@ Ono što ne valja sređuje se automatski.</translation>
         <translation>Priguši kontrolere tokom gledanja</translation>
     </message>
     <message>
+        <source>Search</source>
+        <translation>Pretraga</translation>
+    </message>
+    <message>
+        <source>System</source>
+        <translation>Sistem</translation>
+    </message>
+    <message>
+        <source>Search settings</source>
+        <translation>Pretraži podešavanja</translation>
+    </message>
+    <message>
+        <source>Find a setting by its name or what it does</source>
+        <translation>Nađi podešavanje po imenu ili po tome šta radi</translation>
+    </message>
+    <message>
+        <source>Nothing matches</source>
+        <translation>Ništa se ne poklapa</translation>
+    </message>
+    <message>
+        <source>Try another word, or fewer of them</source>
+        <translation>Probaj drugu reč ili manje reči</translation>
+    </message>
+    <message>
+        <source>A setting</source>
+        <translation>Podešavanje</translation>
+    </message>
+    <message>
         <source>Lightbar off, player light low</source>
         <translation>Svetleća traka ugašena, lampica igrača prigušena</translation>
+    </message>
+    <message>
+        <source>Open in a window</source>
+        <translation>Otvori u prozoru</translation>
+    </message>
+    <message>
+        <source>A normal window with its title bar and buttons. Off: full screen</source>
+        <translation>Običan prozor sa naslovnom trakom i dugmićima. Isključeno: ceo ekran</translation>
     </message>
     <message>
         <source>Button 1</source>
@@ -2296,14 +2324,6 @@ Ono što ne valja sređuje se automatski.</translation>
     <message>
         <source>Starts Noonix TV when you sign in, handy on a PC made for the TV</source>
         <translation>Pokreće Noonix TV kad se prijaviš, zgodno za računar namenjen televizoru</translation>
-    </message>
-    <message>
-        <source>Show the title bar</source>
-        <translation>Prikaži naslovnu traku</translation>
-    </message>
-    <message>
-        <source>A normal window with the title bar and its buttons</source>
-        <translation>Običan prozor sa naslovnom trakom i njenim dugmićima</translation>
     </message>
     <message>
         <source>Match the TV&apos;s refresh rate</source>
