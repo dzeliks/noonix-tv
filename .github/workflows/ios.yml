@@ -69,6 +69,8 @@ jobs:
           retention-days: 7
       # the simulator build of the same sources: installed in a fresh simulator, started, up for 25 s
       - name: simulator check
+        # a good one takes 13-26 min; a hung simulator would hold the release for the 6 hour default
+        timeout-minutes: 45
         run: |
           app="$(mac/ios.sh "$SIM" | tail -1)"
           mac/smoke-sim.sh "${SIM/sim/ios}" "$app" "$RUNNER_TEMP/${{ matrix.platform }}-simulator.png"
