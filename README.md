@@ -81,7 +81,7 @@
 | Updates itself                       |   ✓   |    ✓    |   –   |      –       |    –     |    –    |      –      |
 
 ¹ the app's folder in the Files app · ² from an address · ³ on Android TV boxes.
-Everything but Linux, Windows and macOS is a preview; the LG and Samsung app hasn't run on a real TV yet.
+The LG and Samsung app is a preview: it hasn't run on a real TV yet.
 
 ## Extensions
 
@@ -99,9 +99,9 @@ Get the latest build from [Releases](https://github.com/dzeliks/noonix-tv/releas
 - **Windows** 10 and 11: `Noonix-TV-<version>-windows-x64-setup.exe`, installs per user without admin rights.
 - **macOS** 26 or newer: `noonix-tv-<version>-macos-arm64.zip` (Apple silicon) or `-macos-x86_64.zip` (Intel).
   Not notarised yet: on the first launch click Done, then System Settings › Privacy & Security › Open Anyway.
-- **Android** 9 or newer, preview: `Noonix-TV-<version>-android-arm64-preview.apk` for TVs, tablets and phones;
+- **Android** 9 or newer: `Noonix-TV-<version>-android-arm64.apk` for TVs, tablets and phones;
   `-armv7-` for 32-bit TV boxes, `-x86_64-` for Chromebooks.
-- **iPhone, iPad and Apple TV** 26 or newer, preview: `-ios.ipa` and `-tvos.ipa`, unsigned: install them with a
+- **iPhone, iPad and Apple TV** 26 or newer: `-ios.ipa` and `-tvos.ipa`, unsigned: install them with a
   sideloading tool such as AltStore or Sideloadly.
 - **LG and Samsung TVs**, preview: `-webos-preview.ipk` (webOS 4.0 or newer) and `-tizen-unsigned-preview.wgt`
   (Tizen 4.0 or newer), installed through the TV's Developer Mode: [tv/README.md](tv/README.md#install).
