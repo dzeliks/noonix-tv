@@ -109,7 +109,8 @@ export function searchScreen(open: (it: tmdb.Item) => void): Screen {
             const has = rows[i].items.length > 0
             rowEls[i].style.display = has ? "" : "none"
             rowEls[i].style.top = y + "px"
-            if (has) y += 400
+            // a title sits nearer its own posters (26 px) than the row above (43 px)
+            if (has) y += 430
             rows[i].place(zone === "rows" && i === rowAt, true)
         }
     }

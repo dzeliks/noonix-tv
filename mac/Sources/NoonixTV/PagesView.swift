@@ -281,7 +281,9 @@ struct SearchPage: View {
         let fadeEnd = (osk ? 150 : 190) * u
         let rowGap = MediaRowView.gap(u)
         // two rows share the height (a lone row gets the same size: nothing jumps between searches)
-        let rowPoster = min(214, ((bottomY - areaTop) / 2 - 38 * u - rowGap - 30 * u) / 1.5 / u)
+        // between the two rows: a title sits nearer its own posters than the row above (no lines under posters here)
+        let sectionGap = (app.short ? 12 : 30) * u
+        let rowPoster = min(214, ((bottomY - areaTop - sectionGap) / 2 - 38 * u - rowGap - 30 * u) / 1.5 / u)
         // a docked phone keyboard leaves less than two rows: one row of both, sideways, right above it
         let rowPosterW = (bottomY - listTop - 26 * u) / 1.5
         let squeezed = !osk && rowPoster < 110
@@ -315,7 +317,7 @@ struct SearchPage: View {
             Wallpaper()
             if !squeezed {
                 // shows, then movies (the column with the keyboard cuts them off on the right)
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: sectionGap) {
                     ForEach(showRows, id: \.0) { r, model, title in
                         MediaRowView(model: model, active: active && s.zone == "rows" && s.lastRow == r, u: u, width: areaRight,
                                      posterW: rowPoster * u, title: title, fadeEnd: fadeEnd,

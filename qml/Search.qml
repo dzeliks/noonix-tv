@@ -83,7 +83,9 @@ FocusScope {
     readonly property real rowGap: Theme.short ? 214 * u * 1.5 * 0.05 + 14 * u : 40 * u
     readonly property int rowCount: (showList.length ? 1 : 0) + (movieList.length ? 1 : 0)
     // two rows share the height (a lone row gets the same size: nothing jumps between searches)
-    readonly property real rowPoster: Math.min(214, ((bottomY - areaTop) / 2 - 38 * u - rowGap - 30 * u) / 1.5 / u)
+    // between the two rows: a title sits nearer its own posters than the row above (no lines under posters here)
+    readonly property real sectionGap: (Theme.short ? 12 : 30) * u
+    readonly property real rowPoster: Math.min(214, ((bottomY - areaTop - sectionGap) / 2 - 38 * u - rowGap - 30 * u) / 1.5 / u)
     // a docked phone keyboard leaves less than two rows: one row of both, sideways, right above it
     readonly property real rowPosterW: (bottomY - listTop - 26 * u) / 1.5
     readonly property bool squeezed: flat && rowPoster < 110
@@ -229,7 +231,7 @@ FocusScope {
         }
         MediaRow {
             id: moviesRow
-            y: showsRow.visible ? showsRow.height : 0
+            y: showsRow.visible ? showsRow.height + search.sectionGap : 0
             width: parent.width
             posterW: search.rowPoster
             fadeEnd: search.fadeEnd
