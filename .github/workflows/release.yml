@@ -385,6 +385,7 @@ jobs:
           {
             echo "## Changes"
             if [ -n "$prev" ]; then git log --format='- %s' "$prev..$TAG"; else echo "- first release"; fi
+            printf '\nThanks for supporting Noonix TV ❤️\n'
           } > notes.md
           gh release edit "$TAG" --draft=false --notes-file notes.md
 

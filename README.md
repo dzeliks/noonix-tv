@@ -31,43 +31,36 @@
 
 ## Features
 
-- **Your own library first**: point Noonix TV at the folders your movies and shows are in, on
-  this device or on a network share (SMB, WebDAV or FTP, from a NAS or another computer). It
-  recognizes them by name, adds posters, seasons and episodes from TMDB, and plays them straight
-  from where they are.
-- **A home screen built for the couch**: your library, Up Next and Continue Watching (synced with
-  Trakt if you like), popular and trending titles, and a full-screen preview of whatever is in
-  focus.
-- **Bring your own sources**: Noonix TV comes with none. Add Stremio addons or Noonix TV
-  [extensions](docs/extensions.md) you choose, from an address or a file; each one shows exactly
-  what it adds before you confirm.
-- **The best source, picked for you**: your own files come first, then releases in your audio and
-  subtitle languages. Releases above what your setup can play move to the bottom with a warning,
-  mismatched episodes are ranked down, and unsupported HDR formats are filtered out. Your own
-  preferred and hidden release patterns sort the rest. The full list is always one press away.
-- **Quality that fits your setup**: a built-in benchmark measures your internet speed and your
-  PC's playback performance, then recommends the best picture quality both can handle: Light,
-  Full HD, 4K or Maximum. Low memory mode keeps phones and older PCs with little memory running
-  smoothly, and turns itself on for small Android phones.
-- **A setup for everyone**: a guided first run that works with just the remote and sensible
-  defaults for beginners, with every folder, language and addon open to fine-tuning for advanced
-  users.
-- **A real player**: mpv with HDR support, refresh rate matching per video, intro and credits
-  skipping, and a next-episode prompt at the end. With a mouse, a double click or the corner
-  button goes full screen, and Esc comes back out. On a PC with more than one screen,
-  Settings › Playback › Screen picks the one Noonix TV opens on, full screen or in a window.
+- **Your own library first**: point it at your folders, on this device or a network share (SMB,
+  WebDAV or FTP). Movies and shows are recognized by name, get posters, seasons and episodes from
+  TMDB, and play straight from where they are.
+- **A home screen for the couch**: your library, Up Next and Continue Watching (synced with Trakt
+  if you like), popular and trending titles, and a full-screen preview of whatever is in focus.
+- **Bring your own sources**: none come built in. Add Stremio addons or Noonix TV
+  [extensions](docs/extensions.md) from an address or a file; each shows what it adds before you
+  confirm.
+- **The best source, picked for you**: your own files first, then releases in your audio and
+  subtitle languages. Releases your setup can't play move down with a warning or are filtered out,
+  mismatched episodes rank lower, and your own release patterns sort the rest. The full list is
+  one press away.
+- **Quality that fits**: a built-in check of your internet and your device's playback recommends
+  Light, Full HD, 4K or Maximum. Low memory mode keeps phones and older PCs smooth, and turns
+  itself on for small Android phones.
+- **Easy to set up**: a guided first run that works with just the remote, sensible defaults, and
+  every setting open to fine-tuning and searchable.
+- **A real player**: mpv with HDR, refresh rate matching, intro and credits skipping and a
+  next-episode prompt. Double-click for full screen; with more than one screen, Settings › System ›
+  Screen picks the one it opens on.
 - **Fixes in one step**: report a source as out of sync, wrong subtitles or a picture problem and
-  Noonix TV finds a better one, resuming at the same spot. The choice carries over to the next
-  episodes.
+  Noonix TV finds a better one at the same spot, remembered for the next episodes.
 - **Subtitles that just work**: embedded tracks first, then OpenSubtitles or a file of your own,
-  with an option to treat Serbian, Croatian and Bosnian as one language. The video pauses while
-  you look for them.
-- **Any input**: remotes, PlayStation, Xbox and Nintendo controllers with matching button
-  glyphs, mouse and keyboard, and touch on phones and tablets. Every button can be remapped.
-- **Search the way you type**: a real text field for a keyboard (select, copy, paste), the
-  on-screen keyboard for a remote or a controller, and results split into shows and movies.
-- **For the whole household**: multiple profiles, each with its own Trakt account and
-  history, in English and Serbian.
+  with an option to treat Serbian, Croatian and Bosnian as one language.
+- **Any input**: remotes, PlayStation, Xbox and Nintendo controllers with matching button glyphs,
+  mouse and keyboard, and touch, all remappable. Typing follows what you hold: the on-screen
+  keyboard for a remote or a controller, a real text field for a keyboard, the device's own
+  keyboard for touch.
+- **For the whole household**: profiles, each with its own Trakt account and history, in English
+  and Serbian.
 
 ## Platforms
 
@@ -113,8 +106,9 @@ Get the latest build from [Releases](https://github.com/dzeliks/noonix-tv/releas
 - **LG and Samsung TVs**, preview: `-webos-preview.ipk` (webOS 4.0 or newer) and `-tizen-unsigned-preview.wgt`
   (Tizen 4.0 or newer), installed through the TV's Developer Mode: [tv/README.md](tv/README.md#install).
 
-Linux and Windows update themselves from Settings › About and only install updates signed by the project:
-`minisign -Vm SHA256SUMS -P RWTxrm/6vwTDc8vqK2CrSQ1YXbYOr8hE2Y6LBYJNkqZjWg0X5eC2l+59` checks a download by hand.
+Linux and Windows update themselves from Settings › About and only install updates signed by the project.
+Every download is listed in the release's signed `SHA256SUMS` (minisign key
+`RWTxrm/6vwTDc8vqK2CrSQ1YXbYOr8hE2Y6LBYJNkqZjWg0X5eC2l+59`).
 
 ## Build from source
 
@@ -169,4 +163,4 @@ them or with Stremio. LG, webOS, Samsung, Tizen and the other platform names are
 owners; Noonix TV isn't made or endorsed by them. Other names shown in the app, such as streaming
 services, belong to their owners and only describe where a title is available.
 
-Made with ❤️ by [aleksa.sh](https://aleksa.sh).
+Made with ❤️ by [aleksa.sh](https://aleksa.sh). Thanks for supporting!
